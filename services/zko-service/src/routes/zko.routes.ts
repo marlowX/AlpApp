@@ -21,9 +21,11 @@ const AddPozycjaSchema = z.object({
     kolor: z.string(),
     nazwa: z.string(),
     ilosc: z.number().positive(),
+    stan_magazynowy: z.number().optional(),
+    grubosc: z.number().optional(),
   })),
-  kolejnosc: z.number().optional(),
-  uwagi: z.string().optional(),
+  kolejnosc: z.number().optional().nullable(),
+  uwagi: z.string().optional().nullable(),
 });
 
 const ChangeStatusSchema = z.object({
@@ -159,102 +161,178 @@ router.post('/create', async (req, res) => {
   }
 });
 
-// POST /api/zko/pozycje/add - Dodawanie pozycji (ulepszona wersja)
+// POST /api/zko/pozycje/add - Dodawanie pozycji
 router.post('/pozycje/add', async (req, res) => {
   try {
+    logger.info('Received add pozycja request:', req.body);
+    
+    // Walidacja danych wejściowych
     const data = AddPozycjaSchema.parse(req.body);
     
-    // Rozpocznij transakcję
-    const client = await db.connect();
+    logger.info('Validated data:', data);
     
+    // Opcja 1: Spróbuj użyć funkcji PostgreSQL jeśli istnieje
     try {
-      await client.query('BEGIN');
+      // Przygotuj dane w formacie JSONB dla funkcji
+      const koloryPlytyJson = JSON.stringify(data.kolory_plyty);
       
-      // Dla każdej płyty w pozycji, dodaj osobną pozycję
-      const pozycjeIds = [];
+      logger.info('Calling PostgreSQL function zko.dodaj_pozycje_do_zko');
       
-      for (const plyta of data.kolory_plyty) {
-        const result = await client.query(`
-          INSERT INTO zko.pozycje (
-            zko_id, 
-            rozkroj_id, 
-            kolor_plyty, 
-            nazwa_plyty, 
-            ilosc_plyt, 
-            kolejnosc, 
-            uwagi,
-            created_at
-          ) 
-          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-          RETURNING id
-        `, [
-          data.zko_id,
-          data.rozkroj_id,
-          plyta.kolor,
-          plyta.nazwa,
-          plyta.ilosc,
-          data.kolejnosc || null,
-          data.uwagi || null
-        ]);
-        
-        const pozycjaId = result.rows[0].id;
-        pozycjeIds.push(pozycjaId);
-        
-        // Skopiuj formatki z rozkroju do pozycji
-        await client.query(`
-          INSERT INTO zko.pozycje_formatki (
-            pozycja_id,
-            nazwa_formatki,
-            dlugosc,
-            szerokosc,
-            ilosc_planowana,
-            ilosc_wyprodukowana,
-            ilosc_uszkodzona,
-            ilosc_na_magazyn
-          )
-          SELECT 
-            $1,
-            rf.nazwa_formatki,
-            rf.dlugosc,
-            rf.szerokosc,
-            rf.ilosc_sztuk * $2, -- ilość formatek * ilość płyt
-            0,
-            0,
-            0
-          FROM zko.rozkroje_formatki rf
-          WHERE rf.rozkroj_id = $3
-        `, [pozycjaId, plyta.ilosc, data.rozkroj_id]);
-      }
+      const result = await db.query(`
+        SELECT * FROM zko.dodaj_pozycje_do_zko($1, $2, $3::jsonb, $4, $5)
+      `, [
+        data.zko_id,
+        data.rozkroj_id,
+        koloryPlytyJson,
+        data.kolejnosc || null,
+        data.uwagi || null
+      ]);
       
-      await client.query('COMMIT');
+      logger.info('Function result:', result.rows[0]);
       
-      // Zwróć informacje o dodanych pozycjach
+      const response = result.rows[0];
+      
       res.json({
         sukces: true,
-        pozycje_ids: pozycjeIds,
-        komunikat: `Dodano ${pozycjeIds.length} pozycji do ZKO`,
-        formatki_dodane: pozycjeIds.length * data.kolory_plyty.reduce((sum, p) => sum + p.ilosc, 0)
+        pozycja_id: response.pozycja_id,
+        formatki_dodane: response.formatki_dodane,
+        komunikat: response.komunikat
       });
       
       // Emit WebSocket update
       emitZKOUpdate(data.zko_id, 'zko:pozycja:added', {
         zko_id: data.zko_id,
-        pozycje_ids: pozycjeIds,
+        pozycja_id: response.pozycja_id,
       });
       
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
+    } catch (pgFunctionError: any) {
+      // Jeśli funkcja nie istnieje, użyj alternatywnej metody
+      logger.warn('PostgreSQL function not available, using fallback method:', pgFunctionError.message);
+      
+      // Opcja 2: Bezpośrednie wstawienie do tabel
+      const client = await db.connect();
+      
+      try {
+        await client.query('BEGIN');
+        
+        const pozycjeIds = [];
+        let totalFormatki = 0;
+        
+        // Dla każdej płyty w pozycji, dodaj osobną pozycję
+        for (const plyta of data.kolory_plyty) {
+          // Wstaw pozycję
+          const pozycjaResult = await client.query(`
+            INSERT INTO zko.pozycje (
+              zko_id, 
+              rozkroj_id, 
+              kolor_plyty, 
+              nazwa_plyty, 
+              ilosc_plyt,
+              plyty_id,
+              kolejnosc, 
+              uwagi,
+              status,
+              created_at
+            ) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'oczekuje', NOW())
+            RETURNING id
+          `, [
+            data.zko_id,
+            data.rozkroj_id,
+            plyta.kolor,
+            plyta.nazwa,
+            plyta.ilosc,
+            plyta.plyta_id || null,
+            data.kolejnosc || null,
+            data.uwagi || null
+          ]);
+          
+          const pozycjaId = pozycjaResult.rows[0].id;
+          pozycjeIds.push(pozycjaId);
+          
+          // Pobierz formatki z rozkroju
+          const formatkiResult = await client.query(`
+            SELECT * FROM zko.rozkroje_formatki 
+            WHERE rozkroj_id = $1
+            ORDER BY pozycja
+          `, [data.rozkroj_id]);
+          
+          // Dodaj formatki do pozycji
+          for (const formatka of formatkiResult.rows) {
+            await client.query(`
+              INSERT INTO zko.pozycje_formatki (
+                pozycja_id,
+                rozkroj_formatka_id,
+                nazwa_formatki,
+                dlugosc,
+                szerokosc,
+                ilosc_planowana,
+                ilosc_wyprodukowana,
+                ilosc_uszkodzona,
+                ilosc_na_magazyn,
+                status
+              )
+              VALUES ($1, $2, $3, $4, $5, $6, 0, 0, 0, 'oczekuje')
+            `, [
+              pozycjaId,
+              formatka.id,
+              `${formatka.nazwa_formatki || `${formatka.dlugosc}x${formatka.szerokosc}`} - ${plyta.kolor}`,
+              formatka.dlugosc,
+              formatka.szerokosc,
+              formatka.ilosc_sztuk * plyta.ilosc
+            ]);
+            
+            totalFormatki += formatka.ilosc_sztuk * plyta.ilosc;
+          }
+        }
+        
+        await client.query('COMMIT');
+        
+        logger.info('Successfully added pozycje:', { pozycjeIds, totalFormatki });
+        
+        // Zwróć informacje o dodanych pozycjach
+        res.json({
+          sukces: true,
+          pozycje_ids: pozycjeIds,
+          komunikat: `Dodano ${pozycjeIds.length} pozycji do ZKO`,
+          formatki_dodane: totalFormatki
+        });
+        
+        // Emit WebSocket update
+        emitZKOUpdate(data.zko_id, 'zko:pozycja:added', {
+          zko_id: data.zko_id,
+          pozycje_ids: pozycjeIds,
+        });
+        
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
     }
     
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Validation error', details: error.errors });
+      logger.error('Validation error:', error.errors);
+      return res.status(400).json({ 
+        error: 'Validation error', 
+        details: error.errors 
+      });
     }
-    logger.error('Error adding pozycja:', error);
-    res.status(500).json({ error: 'Failed to add pozycja' });
+    
+    logger.error('Error adding pozycja:', {
+      message: error.message,
+      stack: error.stack,
+      detail: error.detail
+    });
+    
+    // Zwróć szczegółowy błąd
+    res.status(500).json({ 
+      error: 'Failed to add pozycja',
+      message: error.message,
+      detail: error.detail || 'Check server logs for more information'
+    });
   }
 });
 

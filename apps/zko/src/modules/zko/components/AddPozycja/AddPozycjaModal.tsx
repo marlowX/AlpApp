@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Modal, 
   Form, 
@@ -13,13 +13,16 @@ import {
   Row,
   Col,
   Tag,
-  Statistic
+  Statistic,
+  notification
 } from 'antd';
 import { 
   PlusOutlined, 
   InfoCircleOutlined, 
   CheckCircleOutlined,
-  ExclamationCircleOutlined 
+  ExclamationCircleOutlined,
+  WarningOutlined,
+  DatabaseOutlined 
 } from '@ant-design/icons';
 import { RozkrojSelector } from './RozkrojSelector';
 import { KolorePlytyTable } from './KolorePlytyTable';
@@ -47,6 +50,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     nazwa: '', 
     ilosc: 1 
   }]);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Używamy nowych hooków
   const { plyty, loading: plytyLoading } = usePlyty();
@@ -56,76 +60,172 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
   const [selectedRozkrojId, setSelectedRozkrojId] = useState<number | null>(null);
   const selectedRozkroj = rozkroje.find(r => r.id === selectedRozkrojId) || null;
 
+  // Walidacja w czasie rzeczywistym
+  useEffect(() => {
+    const errors = [];
+    
+    if (!selectedRozkroj) {
+      errors.push('Nie wybrano rozkroju');
+    }
+    
+    kolorePlyty.forEach((plyta, index) => {
+      if (!plyta.kolor) {
+        errors.push(`Pozycja ${index + 1}: Nie wybrano płyty`);
+      } else {
+        // Sprawdź stan magazynowy
+        if (plyta.ilosc > (plyta.stan_magazynowy || 0)) {
+          errors.push(`Pozycja ${index + 1} (${plyta.kolor}): Ilość ${plyta.ilosc} przekracza stan magazynowy (${plyta.stan_magazynowy})`);
+        }
+        
+        // Sprawdź limit dla grubych płyt
+        const plytaInfo = plyty.find(p => p.kolor_nazwa === plyta.kolor);
+        if (plytaInfo && plytaInfo.grubosc >= 18 && plyta.ilosc > 5) {
+          errors.push(`Pozycja ${index + 1} (${plyta.kolor}): Maksymalna ilość płyt ≥18mm to 5 sztuk`);
+        }
+      }
+    });
+    
+    // Sprawdź duplikaty
+    const kolory = kolorePlyty.filter(p => p.kolor).map(p => p.kolor);
+    const duplikaty = kolory.filter((item, index) => kolory.indexOf(item) !== index);
+    if (duplikaty.length > 0) {
+      errors.push(`Duplikaty kolorów: ${duplikaty.join(', ')}`);
+    }
+    
+    setValidationErrors(errors);
+  }, [selectedRozkroj, kolorePlyty, plyty]);
+
   const handleSubmit = async (values: AddPozycjaFormData) => {
     try {
+      // Ostateczna walidacja przed wysłaniem
+      if (validationErrors.length > 0) {
+        notification.error({
+          message: 'Formularz zawiera błędy',
+          description: (
+            <div>
+              <div>Popraw następujące błędy:</div>
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
+                {validationErrors.map((error, i) => (
+                  <li key={i} style={{ color: '#ff4d4f' }}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          ),
+          duration: 6,
+        });
+        return;
+      }
+      
       setLoading(true);
-      
-      // Walidacja
-      if (!selectedRozkroj) {
-        message.error('Wybierz rozkrój');
-        return;
-      }
-      
-      if (kolorePlyty.length === 0 || 
-          kolorePlyty.some(p => !p.kolor || !p.nazwa || p.ilosc <= 0)) {
-        message.error('Dodaj przynajmniej jeden kolor płyty z poprawną ilością');
-        return;
-      }
-      
-      // Sprawdź limity płyt
-      const violations = kolorePlyty.filter(p => {
-        const plyta = plyty.find(pl => pl.kolor_nazwa === p.kolor);
-        return plyta && plyta.grubosc >= 18 && p.ilosc > 5;
-      });
-      
-      if (violations.length > 0) {
-        message.error('Maksymalna liczba płyt 18mm+ w pozycji to 5. Dla cieńszych można więcej.');
-        return;
-      }
-      
-      // Sprawdź stan magazynowy
-      const stockViolations = kolorePlyty.filter(p => 
-        p.ilosc > (p.stan_magazynowy || 0)
-      );
-      
-      if (stockViolations.length > 0) {
-        message.error('Niektóre płyty przekraczają stan magazynowy!');
-        return;
-      }
       
       const requestData = {
         zko_id: zkoId,
-        rozkroj_id: values.rozkroj_id,
-        kolory_plyty: kolorePlyty,
+        rozkroj_id: selectedRozkrojId,
+        kolory_plyty: kolorePlyty.filter(p => p.kolor), // Tylko wypełnione pozycje
         kolejnosc: values.kolejnosc || null,
         uwagi: values.uwagi || null,
       };
       
-      // POPRAWKA: Używamy portu 5000 (ZKO-SERVICE) przez proxy
+      console.log('📤 Wysyłanie danych:', requestData);
+      
       const response = await fetch('/api/zko/pozycje/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Błąd podczas dodawania pozycji');
-      }
-      
       const result = await response.json();
       
+      if (!response.ok) {
+        // Szczegółowa obsługa błędów z backendu
+        if (response.status === 400 && result.details) {
+          // Błędy walidacji z Zod
+          const zodErrors = result.details.map((err: any) => 
+            `${err.path.join('.')}: ${err.message}`
+          );
+          
+          notification.error({
+            message: 'Błąd walidacji danych',
+            description: (
+              <div>
+                <div>Backend odrzucił dane z następujących powodów:</div>
+                <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
+                  {zodErrors.map((error: string, i: number) => (
+                    <li key={i}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            ),
+            duration: 8,
+          });
+        } else if (response.status === 500) {
+          // Błąd serwera - prawdopodobnie problem z funkcją PostgreSQL
+          notification.error({
+            message: 'Błąd serwera',
+            description: (
+              <div>
+                <div>{result.error || 'Wystąpił błąd podczas dodawania pozycji'}</div>
+                <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+                  💡 Możliwe przyczyny:
+                  <ul style={{ margin: '4px 0 0 0', paddingLeft: 20 }}>
+                    <li>Funkcja PostgreSQL nie istnieje w schemacie 'zko'</li>
+                    <li>Nieprawidłowe parametry funkcji</li>
+                    <li>Problem z połączeniem do bazy danych</li>
+                  </ul>
+                </div>
+              </div>
+            ),
+            duration: 10,
+          });
+        } else {
+          throw new Error(result.error || `Błąd HTTP ${response.status}`);
+        }
+        return;
+      }
+      
       if (result.sukces) {
-        message.success(result.komunikat || 'Pozycja została dodana pomyślnie');
+        notification.success({
+          message: 'Sukces!',
+          description: (
+            <div>
+              <div>{result.komunikat || 'Pozycja została dodana pomyślnie'}</div>
+              {result.pozycje_ids && (
+                <div style={{ marginTop: 4 }}>
+                  ID pozycji: {result.pozycje_ids.join(', ')}
+                </div>
+              )}
+              {result.formatki_dodane && (
+                <div style={{ marginTop: 2 }}>
+                  Formatek do produkcji: {result.formatki_dodane}
+                </div>
+              )}
+            </div>
+          ),
+          duration: 5,
+        });
         resetForm();
         onSuccess();
       } else {
-        throw new Error(result.komunikat || 'Błąd podczas dodawania pozycji');
+        throw new Error(result.komunikat || 'Nieznany błąd');
       }
       
     } catch (error: any) {
-      console.error('Error adding pozycja:', error);
-      message.error(error.message || 'Błąd podczas dodawania pozycji');
+      console.error('❌ Error adding pozycja:', error);
+      
+      // Obsługa błędów sieciowych
+      if (error.message === 'Failed to fetch') {
+        notification.error({
+          message: 'Błąd połączenia',
+          description: 'Nie można połączyć się z serwerem. Sprawdź czy backend działa na porcie 5000.',
+          duration: 6,
+        });
+      } else {
+        notification.error({
+          message: 'Błąd',
+          description: error.message || 'Wystąpił nieoczekiwany błąd',
+          duration: 5,
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -135,10 +235,12 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     form.resetFields();
     setKolorePlyty([{ kolor: '', nazwa: '', ilosc: 1 }]);
     setSelectedRozkrojId(null);
+    setValidationErrors([]);
   };
 
   const handleRozkrojChange = (rozkrojId: number) => {
     setSelectedRozkrojId(rozkrojId);
+    form.setFieldsValue({ rozkroj_id: rozkrojId });
   };
 
   const addKolorPlyty = () => {
@@ -151,22 +253,17 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     }
   };
 
-  // POPRAWKA: Obsługa pełnej aktualizacji obiektu
   const updateKolorPlyty = (index: number, field: string, value: any) => {
-    console.log('🔄 updateKolorPlyty called:', { index, field, value, currentState: kolorePlyty });
+    console.log('🔄 updateKolorPlyty:', { index, field, value });
     
     const newKolory = [...kolorePlyty];
     
     if (field === '__FULL_UPDATE__') {
-      // Pełna aktualizacja obiektu
-      console.log('🚀 Pełna aktualizacja obiektu na pozycji', index, ':', value);
       newKolory[index] = value;
     } else {
-      // Aktualizacja pojedynczego pola
       newKolory[index] = { ...newKolory[index], [field]: value };
     }
     
-    console.log('✨ New state will be:', newKolory);
     setKolorePlyty(newKolory);
   };
 
@@ -185,28 +282,8 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     return kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
   };
 
-  const getValidationErrors = () => {
-    const errors = [];
-    
-    if (!selectedRozkroj) {
-      errors.push('Nie wybrano rozkroju');
-    }
-    
-    const emptyColors = kolorePlyty.filter(p => !p.kolor);
-    if (emptyColors.length > 0) {
-      errors.push(`${emptyColors.length} pozycji bez wybranej płyty`);
-    }
-    
-    const stockErrors = kolorePlyty.filter(p => p.ilosc > (p.stan_magazynowy || 0));
-    if (stockErrors.length > 0) {
-      errors.push(`${stockErrors.length} pozycji przekracza stan magazynowy`);
-    }
-    
-    return errors;
-  };
-
-  const validationErrors = getValidationErrors();
-  const isFormValid = validationErrors.length === 0;
+  const isFormValid = validationErrors.length === 0 && selectedRozkroj && 
+                      kolorePlyty.some(p => p.kolor);
 
   return (
     <Modal
@@ -231,25 +308,30 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           disabled={!isFormValid}
           icon={isFormValid ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
         >
-          {isFormValid ? 'Dodaj pozycję' : `Błędy: ${validationErrors.length}`}
+          {loading ? 'Dodawanie...' : 
+           isFormValid ? 'Dodaj pozycję' : 
+           `Popraw błędy (${validationErrors.length})`}
         </Button>,
       ]}
       destroyOnClose
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         
-        {/* Status walidacji */}
+        {/* Status walidacji - pokazuj tylko gdy są błędy */}
         {validationErrors.length > 0 && (
           <Alert
-            message="Formularz zawiera błędy"
+            message={`Formularz zawiera ${validationErrors.length} ${validationErrors.length === 1 ? 'błąd' : 'błędów'}`}
             description={
-              <ul style={{ margin: 0, paddingLeft: 16 }}>
+              <ul style={{ margin: 0, paddingLeft: 16, maxHeight: 150, overflowY: 'auto' }}>
                 {validationErrors.map((error, index) => (
-                  <li key={index}>{error}</li>
+                  <li key={index} style={{ marginBottom: 4 }}>
+                    <WarningOutlined style={{ color: '#faad14', marginRight: 4 }} />
+                    {error}
+                  </li>
                 ))}
               </ul>
             }
-            type="warning"
+            type="error"
             showIcon
             style={{ marginBottom: 16 }}
           />
@@ -261,7 +343,8 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
             <Card size="small">
               <Statistic
                 title="Kolory płyt"
-                value={kolorePlyty.length}
+                value={kolorePlyty.filter(k => k.kolor).length}
+                suffix={`/ ${kolorePlyty.length}`}
                 prefix={<InfoCircleOutlined />}
               />
             </Card>
@@ -271,14 +354,14 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
               <Statistic
                 title="Łączna ilość płyt"
                 value={getTotalPlyty()}
-                prefix={<InfoCircleOutlined />}
+                prefix={<DatabaseOutlined />}
               />
             </Card>
           </Col>
           <Col span={6}>
             <Card size="small">
               <Statistic
-                title="Formatki do wyprodukowania"
+                title="Formatki do produkcji"
                 value={getTotalFormatki()}
                 prefix={<InfoCircleOutlined />}
               />
@@ -288,9 +371,10 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
             <Card size="small">
               <Statistic
                 title="Status"
-                value={isFormValid ? 'OK' : 'Błędy'}
+                value={isFormValid ? 'Gotowe' : 'Uzupełnij'}
                 valueStyle={{ 
-                  color: isFormValid ? '#3f8600' : '#cf1322' 
+                  color: isFormValid ? '#3f8600' : '#cf1322',
+                  fontSize: '16px'
                 }}
                 prefix={isFormValid ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
               />
@@ -321,9 +405,16 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           <>
             <Alert
               message={`Wybrany rozkrój: ${selectedRozkroj.kod_rozkroju}`}
-              description={`${selectedRozkroj.opis} | Rozmiar płyty: ${selectedRozkroj.rozmiar_plyty}`}
+              description={
+                <div>
+                  <div>{selectedRozkroj.opis}</div>
+                  <div>Rozmiar płyty: {selectedRozkroj.rozmiar_plyty}</div>
+                  <div>Formatek w rozkroju: {selectedRozkroj.formatki.length}</div>
+                </div>
+              }
               type="info"
               style={{ marginBottom: 16 }}
+              icon={<CheckCircleOutlined />}
             />
 
             <Card 
@@ -344,7 +435,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
         {/* Kolory płyt */}
         <Divider orientation="left">
           <Space>
-            Kolory płyt
+            Kolory płyt ({kolorePlyty.filter(k => k.kolor).length} wybranych)
           </Space>
         </Divider>
         
@@ -353,7 +444,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           plyty={plyty}
           plytyLoading={plytyLoading}
           searchText=""
-          onSearchChange={() => {}} // Nie używane już
+          onSearchChange={() => {}}
           onUpdateKolor={updateKolorPlyty}
           onRemoveKolor={removeKolorPlyty}
         />
@@ -365,7 +456,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           style={{ width: '100%', marginBottom: 16, marginTop: 16 }}
           size="large"
         >
-          Dodaj kolejny kolor płyty
+          Dodaj kolejny kolor płyty (max. różnych kolorów: bez limitu)
         </Button>
 
         {/* Opcje dodatkowe */}
@@ -374,37 +465,41 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
             <Form.Item name="kolejnosc" label="Kolejność (opcjonalne)">
               <InputNumber 
                 min={1} 
-                placeholder="Kolejność wykonania" 
+                placeholder="Kolejność wykonania (1 = najwyższy priorytet)" 
                 style={{ width: '100%' }} 
               />
             </Form.Item>
           </Col>
           <Col span={12}>
             <Form.Item name="uwagi" label="Uwagi (opcjonalne)">
-              <Select mode="tags" placeholder="Dodaj uwagi" style={{ width: '100%' }}>
+              <Select mode="tags" placeholder="Dodaj uwagi lub wpisz własne" style={{ width: '100%' }}>
+                <Option value="PILNE">PILNE</Option>
                 <Option value="Priorytet wysoki">Priorytet wysoki</Option>
                 <Option value="Uwaga na wymiary">Uwaga na wymiary</Option>
                 <Option value="Specjalne oklejenie">Specjalne oklejenie</Option>
                 <Option value="Kontrola jakości">Kontrola jakości</Option>
+                <Option value="Delikatna płyta">Delikatna płyta</Option>
+                <Option value="Najpierw wykonać">Najpierw wykonać</Option>
               </Select>
             </Form.Item>
           </Col>
         </Row>
 
         <Alert
-          message="Informacje o systemie"
+          message="Informacje o limitach i systemie"
           description={
-            <div>
-              <div>• Maksymalna liczba płyt 18mm+ w pozycji: 5 sztuk</div>
-              <div>• Dla płyt cieńszych można dodać więcej</div>
-              <div>• System automatycznie sprawdza dostępność magazynową</div>
-              <div>• Każda płyta ma własny selektor z filtrowaniem</div>
-              <div>• <strong>Backend ZKO-SERVICE działa na porcie 5000 przez proxy</strong></div>
-              <div>• <strong>Nowy interfejs:</strong> Karty zamiast długich list rozwijanych</div>
-            </div>
+            <Space direction="vertical" size="small">
+              <div>• <strong>Płyty ≥18mm:</strong> Maksymalnie 5 sztuk w pozycji (ograniczenie wagowe)</div>
+              <div>• <strong>Płyty <18mm:</strong> Limit do 50 sztuk w pozycji</div>
+              <div>• <strong>Stan magazynowy:</strong> System automatycznie sprawdza dostępność</div>
+              <div>• <strong>Duplikaty:</strong> Ten sam kolor może wystąpić tylko raz w pozycji</div>
+              <div>• <strong>Backend:</strong> ZKO-SERVICE na porcie 5000 (PostgreSQL schema: zko)</div>
+              <div>• <strong>Wyszukiwanie:</strong> Wpisz część nazwy - system znajdzie pasujące płyty</div>
+            </Space>
           }
           type="info"
           showIcon
+          icon={<InfoCircleOutlined />}
         />
       </Form>
     </Modal>

@@ -9,9 +9,10 @@ import {
   Button, 
   Empty,
   Spin,
-  Tooltip
+  Tooltip,
+  Alert
 } from 'antd';
-import { SearchOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { SearchOutlined, CheckCircleOutlined, InfoCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import type { Plyta } from './types';
 
 const { Text, Paragraph } = Typography;
@@ -42,26 +43,56 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
     return plyty.find(p => p.kolor_nazwa === value) || null;
   }, [plyty, value]);
 
-  // Filtrowanie płyt
+  // Ulepszone filtrowanie płyt - rozbijamy frazę na słowa i szukamy każdego
   const filteredPlyty = useMemo(() => {
-    if (!searchText) return plyty.slice(0, 10); // Początkowo pokazuj tylko 10
+    if (!searchText) {
+      // Początkowo pokazuj tylko aktywne płyty z dobrym stanem
+      return plyty
+        .filter(p => p.aktywna !== false && p.stan_magazynowy > 0)
+        .sort((a, b) => b.stan_magazynowy - a.stan_magazynowy)
+        .slice(0, 15);
+    }
     
-    const filtered = plyty.filter(plyta => 
-      plyta.opis.toLowerCase().includes(searchText.toLowerCase()) ||
-      plyta.kolor_nazwa.toLowerCase().includes(searchText.toLowerCase()) ||
-      plyta.nazwa.toLowerCase().includes(searchText.toLowerCase())
-    );
+    // Rozbij frazę wyszukiwania na słowa
+    const searchWords = searchText.toLowerCase().split(/\s+/).filter(word => word.length > 0);
     
-    return filtered.slice(0, 20); // Max 20 wyników
+    const filtered = plyty.filter(plyta => {
+      const searchableText = [
+        plyta.opis,
+        plyta.kolor_nazwa, 
+        plyta.nazwa,
+        plyta.grubosc?.toString(),
+        plyta.struktura === 1 ? 'struktura' : '',
+      ].join(' ').toLowerCase();
+      
+      // Sprawdź czy wszystkie słowa z wyszukiwania znajdują się w tekście
+      return searchWords.every(word => searchableText.includes(word));
+    });
+    
+    // Sortuj wyniki - najpierw dokładne dopasowania, potem częściowe
+    const sortedFiltered = filtered.sort((a, b) => {
+      const aExact = a.kolor_nazwa.toLowerCase() === searchText.toLowerCase();
+      const bExact = b.kolor_nazwa.toLowerCase() === searchText.toLowerCase();
+      
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      
+      // Następnie sortuj po stanie magazynowym
+      return b.stan_magazynowy - a.stan_magazynowy;
+    });
+    
+    return sortedFiltered.slice(0, 30); // Max 30 wyników
   }, [plyty, searchText]);
 
   const handleSelectPlyta = (plyta: Plyta) => {
+    console.log('✅ Wybrano płytę:', plyta);
     onChange?.(plyta);
     setIsExpanded(false);
     setSearchText('');
   };
 
   const handleClear = () => {
+    console.log('🗑️ Czyszczenie wyboru płyty');
     onChange?.(null);
   };
 
@@ -74,6 +105,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
   const getStockStatus = (stock: number) => {
     if (stock > 20) return 'Dobry stan';
     if (stock > 5) return 'Niski stan';
+    if (stock === 0) return 'Brak na magazynie!';
     return 'Bardzo niski';
   };
 
@@ -163,19 +195,44 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
         <Card size="small" style={{ marginTop: selectedPlyta ? 8 : 0 }}>
           <div style={{ marginBottom: 12 }}>
             <Search
-              placeholder="Szukaj płyt po opisie, kolorze lub nazwie..."
+              placeholder="Wpisz część nazwy, koloru lub opisu (np: 'biał 18' znajdzie 'BIAŁY 18mm')"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
               autoFocus
+              size="large"
             />
+            <div style={{ marginTop: 4 }}>
+              <Text type="secondary" style={{ fontSize: '11px' }}>
+                💡 Wskazówka: Możesz wpisać wiele słów - zostaną wyszukane wszystkie pasujące płyty
+              </Text>
+            </div>
           </div>
 
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          {searchText && (
+            <Alert
+              message={`Szukam: "${searchText}" - znaleziono ${filteredPlyty.length} płyt`}
+              type="info"
+              icon={<SearchOutlined />}
+              style={{ marginBottom: 8 }}
+              closable={false}
+            />
+          )}
+
+          <div style={{ maxHeight: 450, overflowY: 'auto', paddingRight: 4 }}>
             {filteredPlyty.length === 0 ? (
               <Empty 
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="Brak płyt spełniających kryteria"
+                description={
+                  <Space direction="vertical">
+                    <Text>Brak płyt spełniających kryteria</Text>
+                    {searchText && (
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        Spróbuj użyć innych słów kluczowych
+                      </Text>
+                    )}
+                  </Space>
+                }
               />
             ) : (
               <Space direction="vertical" style={{ width: '100%' }} size="small">
@@ -187,13 +244,17 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                     onClick={() => handleSelectPlyta(plyta)}
                     style={{ 
                       cursor: 'pointer',
-                      border: plyta.kolor_nazwa === value ? '2px solid #52c41a' : '1px solid #d9d9d9'
+                      border: plyta.kolor_nazwa === value ? '2px solid #52c41a' : '1px solid #d9d9d9',
+                      opacity: plyta.stan_magazynowy === 0 ? 0.6 : 1
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ flex: 1 }}>
                         <div>
-                          <Text strong style={{ color: '#1890ff', fontSize: '14px' }}>
+                          <Text strong style={{ 
+                            color: plyta.stan_magazynowy > 0 ? '#1890ff' : '#999',
+                            fontSize: '14px' 
+                          }}>
                             {plyta.kolor_nazwa}
                           </Text>
                           {plyta.struktura === 1 && (
@@ -201,10 +262,15 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                               STRUKTURA
                             </Tag>
                           )}
+                          {plyta.stan_magazynowy === 0 && (
+                            <Tag size="small" color="error" style={{ marginLeft: 4 }}>
+                              BRAK
+                            </Tag>
+                          )}
                         </div>
                         <div style={{ marginTop: 2 }}>
                           <Text type="secondary" style={{ fontSize: '12px' }}>
-                            {plyta.nazwa} • {plyta.grubosc}mm
+                            {plyta.nazwa} • {plyta.grubosc}mm • {plyta.dlugosc}x{plyta.szerokosc}mm
                           </Text>
                         </div>
                         <div style={{ marginTop: 2 }}>
@@ -219,6 +285,13 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                             {plyta.opis}
                           </Paragraph>
                         </div>
+                        {plyta.cena_za_plyte && (
+                          <div style={{ marginTop: 2 }}>
+                            <Text style={{ fontSize: '10px', color: '#999' }}>
+                              Cena: {plyta.cena_za_plyte.toFixed(2)} zł/płyta | {plyta.cena_za_m2?.toFixed(2)} zł/m²
+                            </Text>
+                          </div>
+                        )}
                       </div>
                       <div style={{ textAlign: 'right', minWidth: '80px' }}>
                         <Tooltip title={getStockStatus(plyta.stan_magazynowy)}>
@@ -233,6 +306,9 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                         <div style={{ fontSize: '10px', color: '#666', marginTop: 2 }}>
                           {getStockStatus(plyta.stan_magazynowy)}
                         </div>
+                        {plyta.stan_magazynowy === 0 && (
+                          <WarningOutlined style={{ color: '#ff4d4f', marginTop: 4 }} />
+                        )}
                       </div>
                     </div>
                   </Card>
@@ -251,6 +327,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
           }}>
             <Text type="secondary" style={{ fontSize: '12px' }}>
               <InfoCircleOutlined /> Wyświetlono {filteredPlyty.length} z {plyty.length} płyt
+              {!searchText && ' (pokazuję tylko płyty dostępne na magazynie)'}
             </Text>
             <Button size="small" onClick={() => setIsExpanded(false)}>
               Zamknij
