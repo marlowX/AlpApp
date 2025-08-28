@@ -1,16 +1,23 @@
-// Export głównych komponentów
+// Główne komponenty
 export { AddPozycjaModal } from './AddPozycjaModal';
-export { PlytySelector } from './PlytySelector';
+export { KolorePlytyTable } from './KolorePlytyTable';
 export { PlytySelectorV2 } from './PlytySelectorV2';
 export { RozkrojSelector } from './RozkrojSelector';
-export { KolorePlytyTable } from './KolorePlytyTable';
 export { FormatkiPreview } from './FormatkiPreview';
 
-// Export typów
+// Komponenty pomocnicze
+export { PozycjaStatistics } from './PozycjaStatistics';
+export { ValidationAlerts } from './ValidationAlerts';
+export { SystemInfoAlert } from './SystemInfoAlert';
+export { PozycjaAdditionalOptions } from './PozycjaAdditionalOptions';
+export { RozkrojPreview } from './RozkrojPreview';
+
+// Typy
 export type {
+  AddPozycjaModalProps,
+  KolorPlyty,
+  AddPozycjaFormData,
   Plyta,
   Rozkroj,
-  Formatka,
-  KolorPlyty,
-  AddPozycjaModalProps
+  Formatka
 } from './types';
