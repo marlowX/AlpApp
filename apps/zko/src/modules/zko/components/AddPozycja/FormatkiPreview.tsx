@@ -19,11 +19,13 @@ export const FormatkiPreview: React.FC<FormatkiPreviewProps> = ({
       title: 'Formatka',
       dataIndex: 'nazwa_formatki',
       key: 'nazwa_formatki',
+      width: '30%',
       render: (text: string) => <Text strong>{text}</Text>
     },
     {
       title: 'Wymiary (D×S)',
       key: 'wymiary',
+      width: '30%',
       render: (record: Formatka) => (
         <Text code>{record.dlugosc}×{record.szerokosc}</Text>
       )
@@ -32,6 +34,7 @@ export const FormatkiPreview: React.FC<FormatkiPreviewProps> = ({
       title: 'Szt/płytę',
       dataIndex: 'ilosc_sztuk',
       key: 'ilosc_sztuk',
+      width: '20%',
       align: 'center' as const,
       render: (value: number) => (
         <Text strong style={{ color: '#1890ff' }}>{value}</Text>
@@ -41,27 +44,33 @@ export const FormatkiPreview: React.FC<FormatkiPreviewProps> = ({
       title: 'Typ',
       dataIndex: 'typ_plyty',
       key: 'typ_plyty',
+      width: '20%',
       render: (typ: string) => (
         <Text type={typ === 'laminat' ? undefined : 'secondary'}>
-          {typ}
+          {typ || 'laminat'}
         </Text>
       )
     }
   ];
 
   return (
-    <Table
-      columns={columns}
-      dataSource={formatki}
-      rowKey="nazwa_formatki"
-      size="small"
-      pagination={false}
-      scroll={{ y: 200 }}
-      title={() => (
+    <div>
+      <div style={{ marginBottom: 8 }}>
         <Text strong>
           {title} ({formatki.length})
         </Text>
-      )}
-    />
+      </div>
+      <Table
+        columns={columns}
+        dataSource={formatki.map((f, index) => ({ ...f, key: index }))}
+        size="small"
+        pagination={false}
+        // Usunięte scroll - to powodowało problem
+        style={{ overflow: 'hidden' }}
+        locale={{
+          emptyText: 'Brak formatek w rozkroju'
+        }}
+      />
+    </div>
   );
 };
