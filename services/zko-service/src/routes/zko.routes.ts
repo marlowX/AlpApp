@@ -42,6 +42,8 @@ router.get('/', async (req, res) => {
     const { status, kooperant, priorytet, page = 1, limit = 20 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
     
+    logger.info('Fetching ZKO list with params:', { status, kooperant, priorytet, page, limit });
+    
     let query = `
       SELECT z.*, COUNT(*) OVER() as total_count
       FROM zko.zlecenia z
@@ -71,6 +73,9 @@ router.get('/', async (req, res) => {
     query += ` ORDER BY z.id DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(Number(limit), offset);
     
+    logger.debug('Executing query:', query);
+    logger.debug('With params:', params);
+    
     const result = await db.query(query, params);
     
     const total = result.rows.length > 0 ? Number(result.rows[0].total_count) : 0;
@@ -79,10 +84,32 @@ router.get('/', async (req, res) => {
       return rest;
     });
     
+    logger.info(`Found ${data.length} ZKO records, total: ${total}`);
+    
     res.json({ data, total });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching ZKO list:', error);
-    res.status(500).json({ error: 'Failed to fetch ZKO list' });
+    logger.error('Error details:', { 
+      message: error.message, 
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      position: error.position
+    });
+    
+    // Zwracamy bardziej szczegółowy błąd w trybie development
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to fetch ZKO list',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch ZKO list' });
+    }
   }
 });
 
@@ -91,6 +118,8 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
+    logger.info(`Fetching ZKO details for ID: ${id}`);
+    
     // Pobierz ZKO
     const zkoResult = await db.query(
       'SELECT * FROM zko.zlecenia WHERE id = $1',
@@ -98,6 +127,7 @@ router.get('/:id', async (req, res) => {
     );
     
     if (zkoResult.rows.length === 0) {
+      logger.warn(`ZKO not found with ID: ${id}`);
       return res.status(404).json({ error: 'ZKO not found' });
     }
     
@@ -121,14 +151,33 @@ router.get('/:id', async (req, res) => {
       [id]
     );
     
+    logger.info(`Found ZKO with ${pozycjeResult.rows.length} positions and ${paletyResult.rows.length} pallets`);
+    
     res.json({
       ...zko,
       pozycje: pozycjeResult.rows,
       palety: paletyResult.rows,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching ZKO details:', error);
-    res.status(500).json({ error: 'Failed to fetch ZKO details' });
+    logger.error('Error details:', { 
+      message: error.message, 
+      code: error.code,
+      detail: error.detail
+    });
+    
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to fetch ZKO details',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch ZKO details' });
+    }
   }
 });
 
@@ -136,6 +185,8 @@ router.get('/:id', async (req, res) => {
 router.post('/create', async (req, res) => {
   try {
     const data = CreateZKOSchema.parse(req.body);
+    
+    logger.info('Creating new ZKO:', data);
     
     const result = await db.query(
       `SELECT * FROM zko.utworz_puste_zko($1, $2, $3, $4)`,
@@ -149,15 +200,28 @@ router.post('/create', async (req, res) => {
         zko_id: response.zko_id,
         numer_zko: response.numer_zko,
       });
+      logger.info('ZKO created successfully:', response);
     }
     
     res.json(response);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
     logger.error('Error creating ZKO:', error);
-    res.status(500).json({ error: 'Failed to create ZKO' });
+    
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to create ZKO',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to create ZKO' });
+    }
   }
 });
 
@@ -373,12 +437,24 @@ router.post('/status/change', async (req, res) => {
     }
     
     res.json(response);
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
     logger.error('Error changing status:', error);
-    res.status(500).json({ error: 'Failed to change status' });
+    
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to change status',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to change status' });
+    }
   }
 });
 
@@ -393,9 +469,21 @@ router.get('/:id/next-steps', async (req, res) => {
     );
     
     res.json(result.rows);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching next steps:', error);
-    res.status(500).json({ error: 'Failed to fetch next steps' });
+    
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to fetch next steps',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch next steps' });
+    }
   }
 });
 
@@ -414,9 +502,21 @@ router.get('/:id/status', async (req, res) => {
     }
     
     res.json(result.rows[0]);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error fetching ZKO status:', error);
-    res.status(500).json({ error: 'Failed to fetch ZKO status' });
+    
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to fetch ZKO status',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch ZKO status' });
+    }
   }
 });
 
@@ -441,9 +541,21 @@ router.post('/:id/complete', async (req, res) => {
     }
     
     res.json(response);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error completing ZKO:', error);
-    res.status(500).json({ error: 'Failed to complete ZKO' });
+    
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to complete ZKO',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to complete ZKO' });
+    }
   }
 });
 
@@ -466,9 +578,21 @@ router.delete('/:id', async (req, res) => {
     }
     
     res.json(response);
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Error deleting ZKO:', error);
-    res.status(500).json({ error: 'Failed to delete ZKO' });
+    
+    if (process.env.NODE_ENV === 'development') {
+      res.status(500).json({ 
+        error: 'Failed to delete ZKO',
+        details: {
+          message: error.message,
+          code: error.code,
+          detail: error.detail
+        }
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to delete ZKO' });
+    }
   }
 });
 

@@ -33,6 +33,7 @@ import dayjs from 'dayjs';
 import { useZKO } from '../hooks';
 import { statusColors, statusLabels } from '../utils/constants';
 import { AddPozycjaModal } from '../components/AddPozycja';
+import { PaletyManager } from '../components/PaletyManager';
 
 const { Title, Text } = Typography;
 
@@ -90,7 +91,6 @@ export const ZKODetailsPage: React.FC = () => {
 
   // Dane z API
   const pozycje = zko.pozycje || [];
-  const palety = zko.palety || [];
 
   // Handle successful pozycja addition
   const handlePozycjaAdded = () => {
@@ -142,40 +142,6 @@ export const ZKODetailsPage: React.FC = () => {
       dataIndex: 'kod_rozkroju',
       key: 'kod_rozkroju',
       render: (text: string) => text ? <Text code>{text}</Text> : <Text type="secondary">-</Text>
-    },
-    {
-      title: 'Utworzona',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date: string) => date ? dayjs(date).format('DD.MM HH:mm') : '-'
-    }
-  ];
-
-  const paletyColumns = [
-    { 
-      title: 'ID', 
-      dataIndex: 'id', 
-      key: 'id',
-      width: 60,
-    },
-    { 
-      title: 'Typ', 
-      dataIndex: 'typ', 
-      key: 'typ',
-      render: (text: string) => text || 'EURO',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => {
-        const colors: Record<string, string> = { 
-          'otwarta': 'orange', 
-          'zamknieta': 'green', 
-          'wyslana': 'blue' 
-        };
-        return <Tag color={colors[status] || 'default'}>{status}</Tag>
-      }
     },
     {
       title: 'Utworzona',
@@ -402,12 +368,7 @@ export const ZKODetailsPage: React.FC = () => {
                 description={
                   <div>
                     <p>To zlecenie nie ma jeszcze dodanych pozycji.</p>
-                    <p><strong>Dostępne funkcje:</strong></p>
-                    <ul>
-                      <li><code>dodaj_pozycje_do_zko()</code> - Dodawanie pozycji z rozkrojami</li>
-                      <li><code>rozpocznij_produkcje_pozycji()</code> - Start produkcji</li>
-                      <li><code>pal_planuj_inteligentnie()</code> - Planowanie palet</li>
-                    </ul>
+                    <p>Kliknij "Dodaj pozycję" aby dodać pozycje z rozkrojami.</p>
                   </div>
                 }
                 type="info"
@@ -420,37 +381,15 @@ export const ZKODetailsPage: React.FC = () => {
             tab={
               <Space>
                 <AppstoreOutlined />
-                Palety ({palety.length})
+                Palety
               </Space>
             } 
             key="palety"
           >
-            {palety.length > 0 ? (
-              <Table
-                columns={paletyColumns}
-                dataSource={palety}
-                rowKey="id"
-                size="small"
-                pagination={false}
-              />
-            ) : (
-              <Alert
-                message="Brak palet"
-                description={
-                  <div>
-                    <p>Palety będą utworzone automatycznie po dodaniu pozycji.</p>
-                    <p><strong>Dostępne funkcje:</strong></p>
-                    <ul>
-                      <li><code>pal_planuj()</code> - Ręczne planowanie palet</li>
-                      <li><code>pal_zamknij()</code> - Zamykanie palet</li>
-                      <li><code>stan_bufora_okleiniarka()</code> - Status bufora</li>
-                    </ul>
-                  </div>
-                }
-                type="info"
-                showIcon
-              />
-            )}
+            <PaletyManager 
+              zkoId={Number(id)} 
+              onRefresh={refetch}
+            />
           </Tabs.TabPane>
         </Tabs>
       </Card>
@@ -462,8 +401,6 @@ export const ZKODetailsPage: React.FC = () => {
             <Tabs.TabPane tab="Debug" key="debug">
               <div style={{ fontSize: '12px', fontFamily: 'monospace' }}>
                 <strong>Pozycje z API:</strong> {pozycje.length}
-                <br />
-                <strong>Palety z API:</strong> {palety.length}
                 <br />
                 <strong>ZKO status:</strong> {zko.status}
                 <br />
@@ -483,10 +420,15 @@ export const ZKODetailsPage: React.FC = () => {
                   <li><code>zmien_status_v3()</code> - Zmiana statusu workflow</li>
                   <li><code>pobierz_nastepne_etapy()</code> - Następne kroki</li>
                   <li><code>pokaz_status_zko()</code> - Pełny status</li>
-                  <li><code>pal_planuj_inteligentnie_v3()</code> - Inteligentne palety</li>
-                  <li><code>raportuj_produkcje_formatek()</code> - Raportowanie</li>
-                  <li><code>zglos_uszkodzenie_formatki()</code> - Uszkodzenia</li>
-                  <li><code>zakoncz_zlecenie()</code> - Finalizacja</li>
+                  <li><code>pal_planuj_inteligentnie_v3()</code> - Inteligentne planowanie palet dla pozycji</li>
+                  <li><code>pal_planuj_inteligentnie_v4()</code> - Inteligentne planowanie palet dla całego ZKO</li>
+                  <li><code>pal_zmien_ilosc_palet()</code> - Zmiana ilości palet</li>
+                  <li><code>pal_utworz_palety()</code> - Ręczne tworzenie palet</li>
+                  <li><code>pal_zamknij()</code> - Zamykanie palety</li>
+                  <li><code>pal_przesun_formatki()</code> - Przenoszenie formatek między paletami</li>
+                  <li><code>raportuj_produkcje_formatek()</code> - Raportowanie produkcji</li>
+                  <li><code>zglos_uszkodzenie_formatki()</code> - Zgłaszanie uszkodzeń</li>
+                  <li><code>zakoncz_zlecenie()</code> - Finalizacja zlecenia</li>
                   <li><code>stan_bufora_okleiniarka()</code> - Status buforów</li>
                 </ul>
               </div>

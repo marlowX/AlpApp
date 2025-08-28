@@ -40,7 +40,7 @@ export const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
         </Card>
       ) : (
         <>
-          <Card 
+          <Card
             title={
               <Space>
                 <InfoCircleOutlined />
@@ -53,7 +53,7 @@ export const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
               rozkroje={rozkroje}
               loading={loading}
               onChange={onChange}
-              value={selectedRozkrojId}
+              value={selectedRozkrojId === null ? undefined : selectedRozkrojId}
             />
           </Card>
 

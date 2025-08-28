@@ -47,12 +47,33 @@ export const db = new Pool({
 });
 
 // Test database connection
-db.connect((err, _client, release) => {
+db.connect((err, client, release) => {
   if (err) {
     logger.error('Error acquiring client', err.stack);
+    logger.error('Database connection details:', {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER
+    });
   } else {
     logger.info('Database connected successfully');
-    release();
+    logger.info('Database connection details:', {
+      host: process.env.DB_HOST,
+      port: process.env.DB_PORT,
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER
+    });
+    
+    // Test query
+    client.query('SELECT current_database(), current_user, version()', (err, result) => {
+      release();
+      if (err) {
+        logger.error('Test query failed:', err);
+      } else {
+        logger.info('Database info:', result.rows[0]);
+      }
+    });
   }
 });
 
@@ -84,8 +105,10 @@ import bufferRoutes from './routes/buffer.routes';
 import databaseRoutes from './routes/database.routes';
 import rozkrojeRoutes from './routes/rozkroje.routes';
 import plytyRoutes from './routes/plyty.routes';
+import testRoutes from './routes/test.routes';
 
 // Routes
+app.use('/api/test', testRoutes);
 app.use('/api/zko', zkoRoutes);
 app.use('/api/workflow', workflowRoutes);
 app.use('/api/pallets', palletsRoutes);
@@ -96,8 +119,23 @@ app.use('/api/plyty', plytyRoutes);
 app.use('/api', databaseRoutes);
 
 // Health check
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (_req, res) => {
+  try {
+    // Test database connection
+    const dbResult = await db.query('SELECT 1 as healthy');
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString(),
+      database: dbResult.rows[0].healthy === 1 ? 'connected' : 'error'
+    });
+  } catch (error) {
+    logger.error('Health check failed:', error);
+    res.status(503).json({ 
+      status: 'error', 
+      timestamp: new Date().toISOString(),
+      database: 'disconnected'
+    });
+  }
 });
 
 // WebSocket connections
@@ -153,6 +191,12 @@ const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info('Available endpoints:');
+  logger.info('  - Health: http://localhost:' + PORT + '/health');
+  logger.info('  - Test DB: http://localhost:' + PORT + '/api/test/connection');
+  logger.info('  - Test Schema: http://localhost:' + PORT + '/api/test/schema');
+  logger.info('  - Test ZKO: http://localhost:' + PORT + '/api/test/zko');
+  logger.info('  - ZKO List: http://localhost:' + PORT + '/api/zko');
 });
 
 // Graceful shutdown
