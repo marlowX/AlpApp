@@ -36,7 +36,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
     
     if (plyta) {
       console.log('✅ Wybrano płytę:', plyta.kolor_nazwa, plyta);
-      // POPRAWKA: Aktualizuj wszystkie pola jedną operacją
+      // Aktualizuj wszystkie pola jedną operacją
       const updatedKolor = {
         kolor: plyta.kolor_nazwa,
         nazwa: plyta.nazwa,
@@ -74,7 +74,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       ),
       dataIndex: 'kolor',
       key: 'kolor',
-      width: 400,
+      width: '45%',
       render: (_: any, __: any, index: number) => {
         const currentValue = kolorePlyty[index]?.kolor;
         console.log('🎯 Render selector for index:', index, 'current value:', currentValue);
@@ -97,7 +97,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       title: 'Parametry',
       dataIndex: 'parametry',
       key: 'parametry',
-      width: 160,
+      width: '20%',
       render: (_: any, __: any, index: number) => {
         const kolor = kolorePlyty[index];
         
@@ -139,7 +139,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       title: 'Ilość płyt',
       dataIndex: 'ilosc',
       key: 'ilosc',
-      width: 140,
+      width: '25%',
       render: (_: any, __: any, index: number) => {
         const kolor = kolorePlyty[index];
         const maxPlyt = kolor?.kolor ? getMaxPlytForColor(kolor.kolor) : 5;
@@ -193,7 +193,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
     {
       title: 'Akcje',
       key: 'actions',
-      width: 80,
+      width: '10%',
       render: (_: any, __: any, index: number) => (
         <div style={{ textAlign: 'center' }}>
           <Button
@@ -220,10 +220,11 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
         dataSource={kolorePlyty.map((item, index) => ({ ...item, key: index }))}
         pagination={false}
         size="small"
-        scroll={{ x: 800 }}
+        // Usunięty scroll={{ x: 800 }} - to powodowało problem!
         locale={{
           emptyText: 'Brak wybranych płyt'
         }}
+        style={{ overflow: 'hidden' }} // Dodatkowe zabezpieczenie
       />
       
       {kolorePlyty.length > 0 && (
@@ -242,22 +243,6 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
               <strong>Łączna ilość płyt:</strong> {kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0)}
             </Text>
           </Space>
-        </div>
-      )}
-      
-      {/* Debug info w development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{ 
-          marginTop: 12, 
-          padding: 8, 
-          backgroundColor: '#f0f0f0',
-          borderRadius: 4,
-          fontSize: '11px'
-        }}>
-          <strong>Debug - Kolory płyt:</strong>
-          <pre style={{ fontSize: '10px', margin: 0 }}>
-            {JSON.stringify(kolorePlyty, null, 2)}
-          </pre>
         </div>
       )}
     </Card>

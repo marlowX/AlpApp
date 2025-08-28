@@ -1,20 +1,15 @@
 import React, { useState } from 'react';
-import { Modal, Form, Button, Space, Divider, notification } from 'antd';
+import { Modal, Form, Button, Space, Steps, notification } from 'antd';
 import { 
   PlusOutlined, 
-  InfoCircleOutlined, 
   CheckCircleOutlined,
-  ExclamationCircleOutlined 
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 
-// Komponenty
-import { RozkrojSelector } from './RozkrojSelector';
-import { KolorePlytyTable } from './KolorePlytyTable';
-import { RozkrojPreview } from './RozkrojPreview';
-import { PozycjaStatistics } from './PozycjaStatistics';
-import { ValidationAlerts } from './ValidationAlerts';
-import { SystemInfoAlert } from './SystemInfoAlert';
-import { PozycjaAdditionalOptions } from './PozycjaAdditionalOptions';
+// Komponenty dla kroków
+import { Step1Rozkroj } from './steps/Step1Rozkroj';
+import { Step2Plyty } from './steps/Step2Plyty';
+import { Step3Opcje } from './steps/Step3Opcje';
 
 // Hooks
 import { usePlyty } from '../../hooks/usePlyty';
@@ -31,6 +26,8 @@ import type {
   AddPozycjaFormData 
 } from './types';
 
+const { Step } = Steps;
+
 export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
   visible,
   zkoId,
@@ -39,6 +36,9 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
 }) => {
   const [form] = Form.useForm<AddPozycjaFormData>();
   const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  
+  // Dane formularza
   const [kolorePlyty, setKolorePlyty] = useState<KolorPlyty[]>([{ 
     kolor: '', 
     nazwa: '', 
@@ -52,19 +52,58 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
   const selectedRozkroj = rozkroje.find(r => r.id === selectedRozkrojId) || null;
   
   // Walidacja
-  const { validationErrors, isFormValid } = usePozycjaValidation(
+  const { 
+    validationErrors, 
+    isFormValid, 
+    touchForm, 
+    resetValidation,
+    hasBeenTouched 
+  } = usePozycjaValidation(
     selectedRozkroj,
     kolorePlyty,
-    plyty
+    plyty,
+    { validateOnMount: false }
   );
 
+  // Obsługa kroków
+  const next = () => {
+    // Walidacja przed przejściem dalej
+    if (currentStep === 0 && !selectedRozkroj) {
+      notification.warning({
+        message: 'Wybierz rozkrój',
+        description: 'Musisz wybrać rozkrój zanim przejdziesz dalej',
+        duration: 3,
+      });
+      return;
+    }
+    
+    if (currentStep === 1 && !kolorePlyty.some(p => p.kolor)) {
+      notification.warning({
+        message: 'Dodaj przynajmniej jedną płytę',
+        description: 'Musisz wybrać co najmniej jedną płytę do rozkroju',
+        duration: 3,
+      });
+      return;
+    }
+    
+    setCurrentStep(currentStep + 1);
+  };
+
+  const prev = () => {
+    setCurrentStep(currentStep - 1);
+  };
+
   // Handlers
-  const handleSubmit = async (values: AddPozycjaFormData) => {
+  const handleSubmit = async () => {
     try {
+      if (!hasBeenTouched) {
+        touchForm();
+      }
+      
       if (!isFormValid) {
         notification.error({
           message: 'Formularz zawiera błędy',
-          description: 'Popraw wszystkie błędy przed wysłaniem',
+          description: 'Sprawdź wszystkie kroki i popraw błędy',
           duration: 4,
         });
         return;
@@ -72,6 +111,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
       
       setLoading(true);
       
+      const values = form.getFieldsValue();
       const result = await PozycjaService.addPozycja({
         zko_id: zkoId,
         rozkroj_id: selectedRozkrojId!,
@@ -102,38 +142,68 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     form.resetFields();
     setKolorePlyty([{ kolor: '', nazwa: '', ilosc: 1 }]);
     setSelectedRozkrojId(null);
+    setCurrentStep(0);
+    resetValidation();
   };
 
   const handleRozkrojChange = (rozkrojId: number) => {
     setSelectedRozkrojId(rozkrojId);
     form.setFieldsValue({ rozkroj_id: rozkrojId });
+    if (!hasBeenTouched) {
+      touchForm();
+    }
   };
 
   const updateKolorPlyty = (index: number, field: string, value: any) => {
     const newKolory = [...kolorePlyty];
     if (field === '__FULL_UPDATE__') {
       newKolory[index] = value;
+      if (!hasBeenTouched && value.kolor) {
+        touchForm();
+      }
     } else {
       newKolory[index] = { ...newKolory[index], [field]: value };
     }
     setKolorePlyty(newKolory);
   };
 
-  // Obliczenia
-  const getTotalFormatki = () => {
-    if (!selectedRozkroj) return 0;
-    return kolorePlyty.reduce((total, kolor) => {
-      if (!kolor.kolor) return total;
-      const formatkiCount = selectedRozkroj.formatki.reduce(
-        (sum, formatka) => sum + (formatka.ilosc_sztuk * kolor.ilosc), 0
-      );
-      return total + formatkiCount;
-    }, 0);
-  };
-
-  const getTotalPlyty = () => {
-    return kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
-  };
+  // Kroki wizarda
+  const steps = [
+    {
+      title: 'Wybierz rozkrój',
+      content: (
+        <Step1Rozkroj
+          rozkroje={rozkroje}
+          loading={rozkrojeLoading}
+          selectedRozkrojId={selectedRozkrojId}
+          onChange={handleRozkrojChange}
+        />
+      ),
+    },
+    {
+      title: 'Dodaj płyty',
+      content: (
+        <Step2Plyty
+          kolorePlyty={kolorePlyty}
+          setKolorePlyty={setKolorePlyty}
+          plyty={plyty}
+          plytyLoading={plytyLoading}
+          onUpdateKolor={updateKolorPlyty}
+          selectedRozkroj={selectedRozkroj}
+        />
+      ),
+    },
+    {
+      title: 'Opcje dodatkowe',
+      content: (
+        <Step3Opcje
+          form={form}
+          kolorePlyty={kolorePlyty}
+          selectedRozkroj={selectedRozkroj}
+        />
+      ),
+    },
+  ];
 
   return (
     <Modal
@@ -145,87 +215,53 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
       }
       open={visible}
       onCancel={onCancel}
-      width={1400}
-      footer={[
-        <Button key="cancel" onClick={onCancel}>
-          Anuluj
-        </Button>,
-        <Button 
-          key="submit" 
-          type="primary" 
-          loading={loading} 
-          onClick={() => form.submit()}
-          disabled={!isFormValid}
-          icon={isFormValid ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
-        >
-          {loading ? 'Dodawanie...' : 
-           isFormValid ? 'Dodaj pozycję' : 
-           `Popraw błędy (${validationErrors.length})`}
-        </Button>,
-      ]}
+      width={1200}
+      footer={null}
       destroyOnClose
     >
-      <Form form={form} layout="vertical" onFinish={handleSubmit}>
+      <div style={{ padding: '20px 0' }}>
+        <Steps current={currentStep} style={{ marginBottom: 32 }}>
+          {steps.map(item => (
+            <Step key={item.title} title={item.title} />
+          ))}
+        </Steps>
         
-        <ValidationAlerts validationErrors={validationErrors} />
-
-        <PozycjaStatistics
-          kolorePlytyCount={kolorePlyty.filter(k => k.kolor).length}
-          totalKolory={kolorePlyty.length}
-          totalPlyty={getTotalPlyty()}
-          totalFormatki={getTotalFormatki()}
-          isFormValid={isFormValid}
-        />
-
-        {/* Wybór rozkroju */}
-        <Form.Item
-          name="rozkroj_id"
-          label={<Space><InfoCircleOutlined />Rozkrój</Space>}
-          rules={[{ required: true, message: 'Wybierz rozkrój' }]}
-        >
-          <RozkrojSelector
-            rozkroje={rozkroje}
-            loading={rozkrojeLoading}
-            onChange={handleRozkrojChange}
-          />
-        </Form.Item>
-
-        {selectedRozkroj && <RozkrojPreview rozkroj={selectedRozkroj} />}
-
-        {/* Kolory płyt */}
-        <Divider orientation="left">
-          <Space>
-            Kolory płyt ({kolorePlyty.filter(k => k.kolor).length} wybranych)
-          </Space>
-        </Divider>
+        <div style={{ minHeight: 400 }}>
+          {steps[currentStep].content}
+        </div>
         
-        <KolorePlytyTable
-          kolorePlyty={kolorePlyty}
-          plyty={plyty}
-          plytyLoading={plytyLoading}
-          searchText=""
-          onSearchChange={() => {}}
-          onUpdateKolor={updateKolorPlyty}
-          onRemoveKolor={(index) => {
-            if (kolorePlyty.length > 1) {
-              setKolorePlyty(kolorePlyty.filter((_, i) => i !== index));
-            }
-          }}
-        />
-
-        <Button
-          type="dashed"
-          onClick={() => setKolorePlyty([...kolorePlyty, { kolor: '', nazwa: '', ilosc: 1 }])}
-          icon={<PlusOutlined />}
-          style={{ width: '100%', marginBottom: 16, marginTop: 16 }}
-          size="large"
-        >
-          Dodaj kolejny kolor płyty
-        </Button>
-
-        <PozycjaAdditionalOptions />
-        <SystemInfoAlert />
-      </Form>
+        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
+          <div>
+            {currentStep > 0 && (
+              <Button onClick={prev}>
+                Wstecz
+              </Button>
+            )}
+          </div>
+          <div>
+            <Space>
+              <Button onClick={onCancel}>
+                Anuluj
+              </Button>
+              {currentStep < steps.length - 1 && (
+                <Button type="primary" onClick={next}>
+                  Dalej
+                </Button>
+              )}
+              {currentStep === steps.length - 1 && (
+                <Button 
+                  type="primary" 
+                  onClick={handleSubmit}
+                  loading={loading}
+                  icon={<CheckCircleOutlined />}
+                >
+                  Dodaj pozycję
+                </Button>
+              )}
+            </Space>
+          </div>
+        </div>
+      </div>
     </Modal>
   );
 };
