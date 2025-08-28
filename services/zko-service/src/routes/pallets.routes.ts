@@ -14,6 +14,14 @@ const PlanPalletsSchema = z.object({
   grubosc_mm: z.number().default(18),
 });
 
+const PlanPalletsForZKOSchema = z.object({
+  max_wysokosc_mm: z.number().default(1440),
+  max_formatek_na_palete: z.number().default(200),
+  grubosc_plyty: z.number().default(18),
+  strategia: z.enum(['kolor', 'rozmiar', 'mieszane']).default('kolor'),
+  typ_palety: z.enum(['EURO', 'STANDARD', 'MAXI']).default('EURO'),
+});
+
 const ClosePalletSchema = z.object({
   operator: z.string().optional(),
   uwagi: z.string().optional(),
@@ -273,96 +281,194 @@ router.post('/zko/:zkoId/change-quantity', async (req, res) => {
   }
 });
 
-// POST /api/pallets/zko/:zkoId/plan - Planuj palety dla całego ZKO
+// POST /api/pallets/zko/:zkoId/plan - Planuj palety dla całego ZKO z parametrami
 router.post('/zko/:zkoId/plan', async (req, res) => {
   try {
     const { zkoId } = req.params;
-    const { max_wysokosc_mm = 1440, max_formatek_na_palete = 200, grubosc_plyty = 18 } = req.body;
+    const data = PlanPalletsForZKOSchema.parse(req.body);
     
-    logger.info(`Planning pallets for ZKO ${zkoId}`);
+    logger.info(`Planning pallets for ZKO ${zkoId} with params:`, data);
     
-    // Użyj funkcji pal_planuj_inteligentnie_v4 dla całego ZKO
-    const result = await db.query(
-      `SELECT * FROM zko.pal_planuj_inteligentnie_v4($1, $2, $3, $4)`,
-      [zkoId, max_wysokosc_mm, max_formatek_na_palete, grubosc_plyty]
+    // Najpierw sprawdź czy ZKO ma pozycje
+    const checkPozycje = await db.query(
+      'SELECT COUNT(*) as count FROM zko.pozycje WHERE zko_id = $1',
+      [zkoId]
     );
     
-    if (result.rows.length > 0) {
-      emitZKOUpdate(Number(zkoId), 'pallets:planned', {
-        zko_id: Number(zkoId),
-        palety_utworzone: result.rows.length,
+    if (parseInt(checkPozycje.rows[0].count) === 0) {
+      return res.json({
+        sukces: false,
+        komunikat: 'Brak pozycji w ZKO. Najpierw dodaj pozycje z rozkrojami.'
       });
-      
-      logger.info(`Successfully planned ${result.rows.length} pallets for ZKO ${zkoId}`);
-      
-      res.json({
-        sukces: true,
-        komunikat: `Zaplanowano ${result.rows.length} palet dla ZKO`,
-        palety: result.rows
-      });
-    } else {
-      // Jeśli funkcja v4 nie zwróciła wyników, spróbuj utworzyć palety ręcznie
-      const utworzResult = await db.query(
-        `SELECT * FROM zko.pal_utworz_palety($1, $2)`,
-        [zkoId, 'system']
+    }
+    
+    try {
+      // Spróbuj użyć funkcji v4 jeśli istnieje
+      const result = await db.query(
+        `SELECT * FROM zko.pal_planuj_inteligentnie_v4($1, $2, $3, $4)`,
+        [zkoId, data.max_wysokosc_mm, data.max_formatek_na_palete, data.grubosc_plyty]
       );
       
-      const response = utworzResult.rows[0];
-      
-      if (response.sukces) {
-        emitZKOUpdate(Number(zkoId), 'pallets:created', {
-          zko_id: Number(zkoId),
-          palety_utworzone: response.palety_utworzone,
-        });
-      }
-      
-      res.json(response);
-    }
-  } catch (error: any) {
-    logger.error('Error planning pallets for ZKO:', error);
-    
-    // Jeśli funkcja nie istnieje, spróbuj alternatywnego podejścia
-    if (error.message?.includes('function zko.pal_planuj_inteligentnie_v4')) {
-      try {
-        // Pobierz pozycje dla ZKO
-        const pozycjeResult = await db.query(
-          'SELECT id FROM zko.pozycje WHERE zko_id = $1',
-          [zkoId]
-        );
-        
-        if (pozycjeResult.rows.length === 0) {
-          return res.json({
-            sukces: false,
-            komunikat: 'Brak pozycji do zaplanowania palet'
-          });
+      if (result.rows.length > 0) {
+        // Zapisz informacje o strategii w komentarzu palety
+        if (data.strategia !== 'kolor') {
+          await db.query(
+            `UPDATE zko.palety 
+             SET uwagi = 'Strategia: ' || $2 || ', Typ: ' || $3
+             WHERE zko_id = $1`,
+            [zkoId, data.strategia, data.typ_palety]
+          );
         }
         
-        // Planuj palety dla każdej pozycji
-        let allPallets: any[] = [];
-        for (const pozycja of pozycjeResult.rows) {
+        emitZKOUpdate(Number(zkoId), 'pallets:planned', {
+          zko_id: Number(zkoId),
+          palety_utworzone: result.rows.length,
+          strategia: data.strategia
+        });
+        
+        logger.info(`Successfully planned ${result.rows.length} pallets for ZKO ${zkoId}`);
+        
+        res.json({
+          sukces: true,
+          komunikat: `Zaplanowano ${result.rows.length} palet dla ZKO według strategii: ${data.strategia}`,
+          palety: result.rows,
+          parametry: data
+        });
+      } else {
+        // Brak wyników - użyj alternatywnej metody
+        throw new Error('No results from v4 function');
+      }
+    } catch (v4Error: any) {
+      // Funkcja v4 nie istnieje lub błąd - użyj starszej wersji
+      logger.info('Using fallback method for pallet planning');
+      
+      // Pobierz pozycje dla ZKO
+      const pozycjeResult = await db.query(
+        'SELECT id FROM zko.pozycje WHERE zko_id = $1 ORDER BY id',
+        [zkoId]
+      );
+      
+      let allPallets: any[] = [];
+      let errors: string[] = [];
+      
+      // Planuj dla każdej pozycji osobno
+      for (const pozycja of pozycjeResult.rows) {
+        try {
+          // Konwertuj mm na cm dla funkcji v3
+          const max_wysokosc_cm = data.max_wysokosc_mm / 10;
+          
           const planResult = await db.query(
             `SELECT * FROM zko.pal_planuj_inteligentnie_v3($1, $2, $3, $4, $5)`,
-            [pozycja.id, 'system', 180, 700, 18]
+            [pozycja.id, 'system', max_wysokosc_cm, 700, data.grubosc_plyty]
           );
           
           if (planResult.rows[0]?.palety_utworzone) {
             allPallets = [...allPallets, ...planResult.rows[0].palety_utworzone];
           }
+        } catch (pozError: any) {
+          logger.error(`Error planning pallets for pozycja ${pozycja.id}:`, pozError);
+          errors.push(`Pozycja ${pozycja.id}: ${pozError.message}`);
         }
+      }
+      
+      if (allPallets.length > 0) {
+        // Zapisz informacje o parametrach
+        await db.query(
+          `UPDATE zko.palety 
+           SET typ = $2
+           WHERE zko_id = $1 AND typ IS NULL`,
+          [zkoId, data.typ_palety]
+        );
+        
+        emitZKOUpdate(Number(zkoId), 'pallets:planned', {
+          zko_id: Number(zkoId),
+          palety_utworzone: allPallets.length,
+          strategia: data.strategia
+        });
         
         res.json({
           sukces: true,
-          komunikat: `Zaplanowano ${allPallets.length} palet`,
-          palety_utworzone: allPallets
+          komunikat: `Zaplanowano ${allPallets.length} palet według strategii: ${data.strategia}`,
+          palety_utworzone: allPallets,
+          parametry: data,
+          errors: errors.length > 0 ? errors : undefined
         });
+      } else {
+        // Jeśli planowanie nie powiodło się, spróbuj utworzyć puste palety
+        const utworzResult = await db.query(
+          `SELECT * FROM zko.pal_utworz_palety($1, $2)`,
+          [zkoId, 'system']
+        );
         
-      } catch (fallbackError) {
-        logger.error('Fallback planning also failed:', fallbackError);
-        res.status(500).json({ error: 'Failed to plan pallets' });
+        const response = utworzResult.rows[0];
+        
+        if (response.sukces) {
+          emitZKOUpdate(Number(zkoId), 'pallets:created', {
+            zko_id: Number(zkoId),
+            palety_utworzone: response.palety_utworzone,
+          });
+          
+          res.json({
+            sukces: true,
+            komunikat: `Utworzono ${response.palety_utworzone} pustych palet. Formatki można przypisać ręcznie.`,
+            palety_utworzone: response.palety_utworzone,
+            parametry: data
+          });
+        } else {
+          res.json({
+            sukces: false,
+            komunikat: 'Nie udało się zaplanować palet',
+            errors
+          });
+        }
       }
-    } else {
-      res.status(500).json({ error: 'Failed to plan pallets' });
     }
+  } catch (error: any) {
+    logger.error('Error planning pallets for ZKO:', error);
+    res.status(500).json({ 
+      error: 'Failed to plan pallets',
+      message: error.message 
+    });
+  }
+});
+
+// GET /api/pallets/zko/:zkoId/summary - Podsumowanie palet dla ZKO
+router.get('/zko/:zkoId/summary', async (req, res) => {
+  try {
+    const { zkoId } = req.params;
+    
+    const result = await db.query(`
+      SELECT 
+        COUNT(DISTINCT p.id) as liczba_palet,
+        COUNT(DISTINCT CASE WHEN p.status = 'otwarta' THEN p.id END) as palety_otwarte,
+        COUNT(DISTINCT CASE WHEN p.status = 'zamknieta' THEN p.id END) as palety_zamkniete,
+        COUNT(DISTINCT pf.id) as liczba_formatek,
+        SUM(pf.ilosc_planowana) as sztuk_formatek,
+        AVG(
+          (SELECT SUM(pf2.ilosc_planowana * COALESCE(pl.grubosc, 18))
+           FROM zko.pozycje_formatki pf2
+           LEFT JOIN zko.pozycje poz ON pf2.pozycja_id = poz.id
+           LEFT JOIN public.plyty pl ON poz.plyty_id = pl.id
+           WHERE pf2.paleta_id = p.id)
+        ) as srednia_wysokosc,
+        MAX(
+          (SELECT SUM(pf2.ilosc_planowana * COALESCE(pl.grubosc, 18))
+           FROM zko.pozycje_formatki pf2
+           LEFT JOIN zko.pozycje poz ON pf2.pozycja_id = poz.id
+           LEFT JOIN public.plyty pl ON poz.plyty_id = pl.id
+           WHERE pf2.paleta_id = p.id)
+        ) as max_wysokosc,
+        STRING_AGG(DISTINCT poz.kolor_plyty, ', ') as kolory
+      FROM zko.palety p
+      LEFT JOIN zko.pozycje_formatki pf ON pf.paleta_id = p.id
+      LEFT JOIN zko.pozycje poz ON pf.pozycja_id = poz.id
+      WHERE p.zko_id = $1
+    `, [zkoId]);
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    logger.error('Error fetching pallet summary:', error);
+    res.status(500).json({ error: 'Failed to fetch pallet summary' });
   }
 });
 

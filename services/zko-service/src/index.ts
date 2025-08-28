@@ -107,11 +107,11 @@ import rozkrojeRoutes from './routes/rozkroje.routes';
 import plytyRoutes from './routes/plyty.routes';
 import testRoutes from './routes/test.routes';
 
-// Routes
+// Routes - UWAGA: kolejność ma znaczenie!
 app.use('/api/test', testRoutes);
 app.use('/api/zko', zkoRoutes);
 app.use('/api/workflow', workflowRoutes);
-app.use('/api/pallets', palletsRoutes);
+app.use('/api/pallets', palletsRoutes); // Główne palety i reguły są w tym samym pliku
 app.use('/api/production', productionRoutes);
 app.use('/api/buffer', bufferRoutes);
 app.use('/api/rozkroje', rozkrojeRoutes);
@@ -126,7 +126,8 @@ app.get('/health', async (_req, res) => {
     res.json({ 
       status: 'ok', 
       timestamp: new Date().toISOString(),
-      database: dbResult.rows[0].healthy === 1 ? 'connected' : 'error'
+      database: dbResult.rows[0].healthy === 1 ? 'connected' : 'error',
+      port: process.env.PORT || 5001
     });
   } catch (error) {
     logger.error('Health check failed:', error);
@@ -187,16 +188,28 @@ app.use((_req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 httpServer.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info('Available endpoints:');
-  logger.info('  - Health: http://localhost:' + PORT + '/health');
-  logger.info('  - Test DB: http://localhost:' + PORT + '/api/test/connection');
-  logger.info('  - Test Schema: http://localhost:' + PORT + '/api/test/schema');
-  logger.info('  - Test ZKO: http://localhost:' + PORT + '/api/test/zko');
-  logger.info('  - ZKO List: http://localhost:' + PORT + '/api/zko');
+  logger.info(`
+========================================
+🚀 ZKO Service Started Successfully! 🚀
+========================================
+📡 Server running on port ${PORT}
+🌍 Environment: ${process.env.NODE_ENV || 'development'}
+🗄️  Database: ${process.env.DB_NAME}@${process.env.DB_HOST}
+
+Available endpoints:
+  - Health: http://localhost:${PORT}/health
+  - Test DB: http://localhost:${PORT}/api/test/connection
+  - Test Schema: http://localhost:${PORT}/api/test/schema
+  - Test ZKO: http://localhost:${PORT}/api/test/zko
+  - ZKO List: http://localhost:${PORT}/api/zko
+  - Płyty: http://localhost:${PORT}/api/plyty
+  - Rozkroje: http://localhost:${PORT}/api/rozkroje
+  - Palety: http://localhost:${PORT}/api/pallets
+  - Reguły palet: http://localhost:${PORT}/api/pallets/rules
+========================================
+  `);
 });
 
 // Graceful shutdown
