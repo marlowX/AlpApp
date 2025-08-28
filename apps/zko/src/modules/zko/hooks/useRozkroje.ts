@@ -71,10 +71,10 @@ export const useRozkroje = (options: UseRozkrojeOptions = {}) => {
       setError(null);
       setUsingFallback(false);
       
-      // ZMIANA: Teraz używamy zko-service endpoint
-      console.log('Fetching rozkroje from ZKO-SERVICE: http://localhost:5000/api/rozkroje');
+      // POPRAWKA: Używamy proxy Vite
+      console.log('Fetching rozkroje through proxy: /api/rozkroje');
       
-      const response = await fetch('http://localhost:5000/api/rozkroje', {
+      const response = await fetch('/api/rozkroje', {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -84,13 +84,13 @@ export const useRozkroje = (options: UseRozkrojeOptions = {}) => {
       }
       
       const data = await response.json();
-      console.log('Rozkroje ZKO-SERVICE response:', data);
+      console.log('Rozkroje response:', data);
       
-      // ZKO-SERVICE może zwracać dane w innym formacie
+      // API może zwracać dane w innym formacie
       let rozkrojeData = Array.isArray(data) ? data : (data.data || data.rows || []);
       
       if (rozkrojeData.length === 0) {
-        console.warn('ZKO-SERVICE zwrócił pustą listę rozkrojów, używam fallback');
+        console.warn('API zwrócił pustą listę rozkrojów, używam fallback');
         setRozkroje(FALLBACK_ROZKROJE);
         setUsingFallback(true);
         return;
@@ -99,25 +99,23 @@ export const useRozkroje = (options: UseRozkrojeOptions = {}) => {
       let finalRozkroje;
       
       if (includeFormatki) {
-        // Pobierz formatki dla każdego rozkroju z ZKO-SERVICE
+        // Pobierz formatki dla każdego rozkroju
         finalRozkroje = await Promise.all(
           rozkrojeData.map(async (rozkroj: any) => {
             try {
-              console.log(`Fetching formatki for rozkroj ${rozkroj.id} from ZKO-SERVICE`);
+              console.log(`Fetching formatki for rozkroj ${rozkroj.id}`);
               
-              const formatkiResponse = await fetch(
-                `http://localhost:5000/api/rozkroje/${rozkroj.id}/formatki`
-              );
+              const formatkiResponse = await fetch(`/api/rozkroje/${rozkroj.id}/formatki`);
               
               if (formatkiResponse.ok) {
                 const formatkiData = await formatkiResponse.json();
-                // ZKO-SERVICE może zwracać formatki w różnym formacie
+                // API może zwracać formatki w różnym formacie
                 const formatki = Array.isArray(formatkiData) ? 
                   formatkiData : (formatkiData.data || formatkiData.rows || []);
                 
                 return { ...rozkroj, formatki };
               } else {
-                console.warn(`Błąd pobierania formatek dla rozkroju ${rozkroj.id} z ZKO-SERVICE`);
+                console.warn(`Błąd pobierania formatek dla rozkroju ${rozkroj.id}`);
                 return { ...rozkroj, formatki: [] };
               }
             } catch (error) {
@@ -133,7 +131,7 @@ export const useRozkroje = (options: UseRozkrojeOptions = {}) => {
       setRozkroje(finalRozkroje);
       
     } catch (err: any) {
-      console.error('Error fetching rozkroje from ZKO-SERVICE:', err);
+      console.error('Error fetching rozkroje:', err);
       setError(err.message);
       
       // Zawsze użyj fallback przy błędzie
@@ -141,7 +139,7 @@ export const useRozkroje = (options: UseRozkrojeOptions = {}) => {
       setRozkroje(FALLBACK_ROZKROJE);
       setUsingFallback(true);
       
-      message.warning('Nie można pobrać rozkrojów z ZKO-SERVICE - używam danych testowych');
+      message.warning('Nie można pobrać rozkrojów z API - używam danych testowych');
     } finally {
       setLoading(false);
     }

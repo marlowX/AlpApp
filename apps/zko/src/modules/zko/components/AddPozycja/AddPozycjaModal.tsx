@@ -12,10 +12,15 @@ import {
   Card,
   Row,
   Col,
-  Tag
+  Tag,
+  Statistic
 } from 'antd';
-import { PlusOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import { PlytySelector } from './PlytySelector';
+import { 
+  PlusOutlined, 
+  InfoCircleOutlined, 
+  CheckCircleOutlined,
+  ExclamationCircleOutlined 
+} from '@ant-design/icons';
 import { RozkrojSelector } from './RozkrojSelector';
 import { KolorePlytyTable } from './KolorePlytyTable';
 import { FormatkiPreview } from './FormatkiPreview';
@@ -37,7 +42,6 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
 }) => {
   const [form] = Form.useForm<AddPozycjaFormData>();
   const [loading, setLoading] = useState(false);
-  const [searchText, setSearchText] = useState('');
   const [kolorePlyty, setKolorePlyty] = useState<KolorPlyty[]>([{ 
     kolor: '', 
     nazwa: '', 
@@ -97,7 +101,8 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
         uwagi: values.uwagi || null,
       };
       
-      const response = await fetch('http://localhost:5000/api/zko/pozycje/add', {
+      // POPRAWKA: Używamy portu 5000 (ZKO-SERVICE) przez proxy
+      const response = await fetch('/api/zko/pozycje/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestData),
@@ -130,7 +135,6 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     form.resetFields();
     setKolorePlyty([{ kolor: '', nazwa: '', ilosc: 1 }]);
     setSelectedRozkrojId(null);
-    setSearchText('');
   };
 
   const handleRozkrojChange = (rozkrojId: number) => {
@@ -147,30 +151,29 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     }
   };
 
+  // POPRAWKA: Obsługa pełnej aktualizacji obiektu
   const updateKolorPlyty = (index: number, field: string, value: any) => {
-    const newKolory = [...kolorePlyty];
-    newKolory[index] = { ...newKolory[index], [field]: value };
+    console.log('🔄 updateKolorPlyty called:', { index, field, value, currentState: kolorePlyty });
     
-    // Auto-fill gdy wybieramy płytę
-    if (field === 'kolor') {
-      const plyta = plyty.find(p => p.kolor_nazwa === value);
-      if (plyta) {
-        newKolory[index] = {
-          ...newKolory[index],
-          nazwa: plyta.nazwa,
-          plyta_id: plyta.id,
-          stan_magazynowy: plyta.stan_magazynowy,
-          grubosc: plyta.grubosc
-        };
-      }
+    const newKolory = [...kolorePlyty];
+    
+    if (field === '__FULL_UPDATE__') {
+      // Pełna aktualizacja obiektu
+      console.log('🚀 Pełna aktualizacja obiektu na pozycji', index, ':', value);
+      newKolory[index] = value;
+    } else {
+      // Aktualizacja pojedynczego pola
+      newKolory[index] = { ...newKolory[index], [field]: value };
     }
     
+    console.log('✨ New state will be:', newKolory);
     setKolorePlyty(newKolory);
   };
 
   const getTotalFormatki = () => {
     if (!selectedRozkroj) return 0;
     return kolorePlyty.reduce((total, kolor) => {
+      if (!kolor.kolor) return total;
       const formatkiCount = selectedRozkroj.formatki.reduce(
         (sum, formatka) => sum + (formatka.ilosc_sztuk * kolor.ilosc), 0
       );
@@ -178,12 +181,44 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     }, 0);
   };
 
+  const getTotalPlyty = () => {
+    return kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
+  };
+
+  const getValidationErrors = () => {
+    const errors = [];
+    
+    if (!selectedRozkroj) {
+      errors.push('Nie wybrano rozkroju');
+    }
+    
+    const emptyColors = kolorePlyty.filter(p => !p.kolor);
+    if (emptyColors.length > 0) {
+      errors.push(`${emptyColors.length} pozycji bez wybranej płyty`);
+    }
+    
+    const stockErrors = kolorePlyty.filter(p => p.ilosc > (p.stan_magazynowy || 0));
+    if (stockErrors.length > 0) {
+      errors.push(`${stockErrors.length} pozycji przekracza stan magazynowy`);
+    }
+    
+    return errors;
+  };
+
+  const validationErrors = getValidationErrors();
+  const isFormValid = validationErrors.length === 0;
+
   return (
     <Modal
-      title="Dodaj pozycję do ZKO"
+      title={
+        <Space>
+          <PlusOutlined />
+          Dodaj pozycję do ZKO #{zkoId}
+        </Space>
+      }
       open={visible}
       onCancel={onCancel}
-      width={1200}
+      width={1400}
       footer={[
         <Button key="cancel" onClick={onCancel}>
           Anuluj
@@ -193,19 +228,85 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           type="primary" 
           loading={loading} 
           onClick={() => form.submit()}
-          disabled={!selectedRozkroj || kolorePlyty.length === 0}
+          disabled={!isFormValid}
+          icon={isFormValid ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
         >
-          Dodaj pozycję
+          {isFormValid ? 'Dodaj pozycję' : `Błędy: ${validationErrors.length}`}
         </Button>,
       ]}
       destroyOnClose
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         
+        {/* Status walidacji */}
+        {validationErrors.length > 0 && (
+          <Alert
+            message="Formularz zawiera błędy"
+            description={
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {validationErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            }
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {/* Statystyki na górze */}
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Kolory płyt"
+                value={kolorePlyty.length}
+                prefix={<InfoCircleOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Łączna ilość płyt"
+                value={getTotalPlyty()}
+                prefix={<InfoCircleOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Formatki do wyprodukowania"
+                value={getTotalFormatki()}
+                prefix={<InfoCircleOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card size="small">
+              <Statistic
+                title="Status"
+                value={isFormValid ? 'OK' : 'Błędy'}
+                valueStyle={{ 
+                  color: isFormValid ? '#3f8600' : '#cf1322' 
+                }}
+                prefix={isFormValid ? <CheckCircleOutlined /> : <ExclamationCircleOutlined />}
+              />
+            </Card>
+          </Col>
+        </Row>
+
         {/* Wybór rozkroju */}
         <Form.Item
           name="rozkroj_id"
-          label="Rozkrój"
+          label={
+            <Space>
+              <InfoCircleOutlined />
+              Rozkrój
+            </Space>
+          }
           rules={[{ required: true, message: 'Wybierz rozkrój' }]}
         >
           <RozkrojSelector
@@ -229,7 +330,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
               title={
                 <Space>
                   <InfoCircleOutlined />
-                  Formatki w rozkroju
+                  Formatki w rozkroju ({selectedRozkroj.formatki.length})
                 </Space>
               }
               size="small"
@@ -243,12 +344,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
         {/* Kolory płyt */}
         <Divider orientation="left">
           <Space>
-            Kolory płyt ({kolorePlyty.length})
-            {selectedRozkroj && (
-              <Tag color="success">
-                Łącznie formatek: {getTotalFormatki()}
-              </Tag>
-            )}
+            Kolory płyt
           </Space>
         </Divider>
         
@@ -256,8 +352,8 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           kolorePlyty={kolorePlyty}
           plyty={plyty}
           plytyLoading={plytyLoading}
-          searchText={searchText}
-          onSearchChange={setSearchText}
+          searchText=""
+          onSearchChange={() => {}} // Nie używane już
           onUpdateKolor={updateKolorPlyty}
           onRemoveKolor={removeKolorPlyty}
         />
@@ -267,6 +363,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           onClick={addKolorPlyty}
           icon={<PlusOutlined />}
           style={{ width: '100%', marginBottom: 16, marginTop: 16 }}
+          size="large"
         >
           Dodaj kolejny kolor płyty
         </Button>
@@ -295,14 +392,15 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
         </Row>
 
         <Alert
-          message="Informacje o limitach"
+          message="Informacje o systemie"
           description={
             <div>
               <div>• Maksymalna liczba płyt 18mm+ w pozycji: 5 sztuk</div>
               <div>• Dla płyt cieńszych można dodać więcej</div>
-              <div>• System sprawdza dostępność magazynową</div>
-              <div>• Płyty sortowane wg popularności (stan magazynowy)</div>
-              <div>• Filtrowanie płyt działa w czasie rzeczywistym</div>
+              <div>• System automatycznie sprawdza dostępność magazynową</div>
+              <div>• Każda płyta ma własny selektor z filtrowaniem</div>
+              <div>• <strong>Backend ZKO-SERVICE działa na porcie 5000 przez proxy</strong></div>
+              <div>• <strong>Nowy interfejs:</strong> Karty zamiast długich list rozwijanych</div>
             </div>
           }
           type="info"

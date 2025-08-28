@@ -1,7 +1,7 @@
 @echo off
-REM Start ZKO-SERVICE (zaawansowany serwer)
+REM Start ZKO-SERVICE na porcie 5000
 
-echo 🚀 Uruchamianie ZKO-SERVICE (zaawansowany serwer)...
+echo 🚀 Uruchamianie ZKO-SERVICE (port 5000)...
 
 cd /d "%~dp0services\zko-service"
 
@@ -25,7 +25,7 @@ echo 🔗 Workflow: http://localhost:5000/api/workflow
 echo 🔗 Palety: http://localhost:5000/api/pallets
 echo 🔗 Buffer: http://localhost:5000/api/buffer
 echo.
-echo Używa prawdziwego .env z danymi bazy
+echo Używa .env z PORT=5000
 echo ============================================
 
 call npm run dev

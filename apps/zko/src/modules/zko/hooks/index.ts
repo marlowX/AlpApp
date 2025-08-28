@@ -1,13 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
-import { zkoApi } from '../api';
-import type { ZKO, CreateZKODto, ChangeStatusDto } from '../types';
 
-// Export hooks dla płyt i rozkrojów - teraz używają ZKO-SERVICE
+// Export hooks dla płyt i rozkrojów - używają ZKO-SERVICE przez proxy
 export { usePlyty, useKoloryPlyty } from './usePlyty';
 export { useRozkroje } from './useRozkroje';
 
-// Hook do pobierania listy ZKO - ZKO-SERVICE endpoint
+// Hook do pobierania listy ZKO - POPRAWKA: zwracamy cały obiekt z data i total
 export const useZKOList = (params?: {
   status?: string;
   kooperant?: string;
@@ -19,8 +17,8 @@ export const useZKOList = (params?: {
     queryKey: ['zko', 'list', params],
     queryFn: async () => {
       try {
-        // ZMIANA: Używamy ZKO-SERVICE endpoint
-        const response = await fetch('http://localhost:5000/api/zko', {
+        // PROXY: /api -> localhost:5001 (ZKO-SERVICE)
+        const response = await fetch('/api/zko', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -32,10 +30,26 @@ export const useZKOList = (params?: {
         }
         
         const data = await response.json();
-        console.log('ZKO-SERVICE data:', data); // Debug log
+        console.log('ZKO-SERVICE list data:', data);
         
-        // ZKO-SERVICE może zwracać dane w innym formacie
-        return Array.isArray(data) ? data : (data.data || data.rows || data);
+        // POPRAWKA: zwracamy cały obiekt zamiast tylko data.data
+        if (data && data.data && Array.isArray(data.data)) {
+          return {
+            data: data.data,
+            total: data.total || data.data.length
+          };
+        } else if (Array.isArray(data)) {
+          return {
+            data: data,
+            total: data.length
+          };
+        } else {
+          console.warn('Unexpected ZKO-SERVICE response format:', data);
+          return {
+            data: [],
+            total: 0
+          };
+        }
       } catch (error) {
         console.error('Error fetching ZKO from ZKO-SERVICE:', error);
         throw error;
@@ -46,14 +60,13 @@ export const useZKOList = (params?: {
   });
 };
 
-// Hook do pobierania szczegółów ZKO z pozycjami i paletami - ZKO-SERVICE
+// Hook do pobierania szczegółów ZKO
 export const useZKO = (id: number) => {
   return useQuery({
     queryKey: ['zko', id],
     queryFn: async () => {
       try {
-        // ZMIANA: Używamy ZKO-SERVICE endpoint
-        const response = await fetch(`http://localhost:5000/api/zko/${id}`, {
+        const response = await fetch(`/api/zko/${id}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -68,7 +81,7 @@ export const useZKO = (id: number) => {
         }
         
         const data = await response.json();
-        console.log('ZKO-SERVICE details with pozycje:', data);
+        console.log('ZKO-SERVICE details:', data);
         return data;
       } catch (error) {
         console.error('Error fetching ZKO details from ZKO-SERVICE:', error);
@@ -85,14 +98,28 @@ export const useCreateZKO = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (dto: CreateZKODto) => zkoApi.create(dto),
+    mutationFn: async (dto: any) => {
+      // Używamy ZKO-SERVICE endpoint przez proxy
+      const response = await fetch('/api/zko', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dto)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create ZKO');
+      }
+      
+      return response.json();
+    },
     onSuccess: (data) => {
       message.success(data.komunikat || 'ZKO utworzone pomyślnie');
       queryClient.invalidateQueries({ queryKey: ['zko', 'list'] });
     },
     onError: (error: any) => {
       console.error('Create ZKO error:', error);
-      message.error(error.response?.data?.message || error.message || 'Błąd podczas tworzenia ZKO');
+      message.error(error.message || 'Błąd podczas tworzenia ZKO');
     },
   });
 };
@@ -102,7 +129,25 @@ export const useChangeStatus = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (dto: ChangeStatusDto) => zkoApi.changeStatus(dto),
+    mutationFn: async (dto: any) => {
+      const response = await fetch(`/api/zko/${dto.zko_id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nowy_etap_kod: dto.nowy_etap_kod,
+          komentarz: dto.komentarz,
+          operator: dto.operator,
+          lokalizacja: dto.lokalizacja
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to change status');
+      }
+      
+      return response.json();
+    },
     onSuccess: (data, variables) => {
       message.success(data.komunikat || 'Status zmieniony pomyślnie');
       queryClient.invalidateQueries({ queryKey: ['zko', variables.zko_id] });
@@ -110,17 +155,17 @@ export const useChangeStatus = () => {
     },
     onError: (error: any) => {
       console.error('Change status error:', error);
-      message.error(error.response?.data?.message || error.message || 'Błąd podczas zmiany statusu');
+      message.error('Błąd podczas zmiany statusu');
     },
   });
 };
 
-// Hook do pobierania następnych kroków workflow - ZKO-SERVICE
+// Hook do pobierania następnych kroków workflow
 export const useNextSteps = (zkoId: number) => {
   return useQuery({
     queryKey: ['zko', zkoId, 'next-steps'],
     queryFn: async () => {
-      const response = await fetch(`http://localhost:5000/api/workflow/next-steps/${zkoId}`);
+      const response = await fetch(`/api/workflow/next-steps/${zkoId}`);
       if (!response.ok) throw new Error('Failed to fetch next steps');
       return response.json();
     },
@@ -129,12 +174,12 @@ export const useNextSteps = (zkoId: number) => {
   });
 };
 
-// Hook do pobierania instrukcji workflow - ZKO-SERVICE
+// Hook do pobierania instrukcji workflow
 export const useWorkflowInstructions = () => {
   return useQuery({
     queryKey: ['workflow', 'instructions'],
     queryFn: async () => {
-      const response = await fetch('http://localhost:5000/api/workflow/instructions');
+      const response = await fetch('/api/workflow/instructions');
       if (!response.ok) throw new Error('Failed to fetch workflow instructions');
       return response.json();
     },
@@ -142,7 +187,7 @@ export const useWorkflowInstructions = () => {
   });
 };
 
-// Hook do planowania palet - ZKO-SERVICE
+// Hook do planowania palet
 export const usePlanPallets = () => {
   const queryClient = useQueryClient();
   
@@ -155,7 +200,7 @@ export const usePlanPallets = () => {
         grubosc_mm?: number;
       }
     }) => {
-      const response = await fetch('http://localhost:5000/api/pallets/plan', {
+      const response = await fetch('/api/pallets/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -176,7 +221,7 @@ export const usePlanPallets = () => {
   });
 };
 
-// Hook do zamykania palety - ZKO-SERVICE
+// Hook do zamykania palety
 export const useClosePallet = () => {
   const queryClient = useQueryClient();
   
@@ -186,7 +231,7 @@ export const useClosePallet = () => {
       operator?: string;
       uwagi?: string;
     }) => {
-      const response = await fetch(`http://localhost:5000/api/pallets/${paletaId}/close`, {
+      const response = await fetch(`/api/pallets/${paletaId}/close`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operator, uwagi })
@@ -205,7 +250,7 @@ export const useClosePallet = () => {
   });
 };
 
-// Hook do raportowania produkcji - ZKO-SERVICE
+// Hook do raportowania produkcji
 export const useReportProduction = () => {
   const queryClient = useQueryClient();
   
@@ -218,7 +263,7 @@ export const useReportProduction = () => {
       operator?: string;
       uwagi?: string;
     }) => {
-      const response = await fetch('http://localhost:5000/api/production/report', {
+      const response = await fetch('/api/production/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
@@ -236,7 +281,7 @@ export const useReportProduction = () => {
   });
 };
 
-// Hook do zgłaszania uszkodzeń - ZKO-SERVICE  
+// Hook do zgłaszania uszkodzeń
 export const useReportDamage = () => {
   const queryClient = useQueryClient();
   
@@ -252,7 +297,7 @@ export const useReportDamage = () => {
       operator?: string;
       mozna_naprawic?: boolean;
     }) => {
-      const response = await fetch('http://localhost:5000/api/production/damage', {
+      const response = await fetch('/api/production/damage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params)
@@ -270,7 +315,7 @@ export const useReportDamage = () => {
   });
 };
 
-// Hook do kończenia zlecenia - ZKO-SERVICE
+// Hook do kończenia zlecenia
 export const useCompleteZKO = () => {
   const queryClient = useQueryClient();
   
@@ -280,7 +325,7 @@ export const useCompleteZKO = () => {
       operator?: string;
       komentarz?: string;
     }) => {
-      const response = await fetch(`http://localhost:5000/api/zko/${zkoId}/complete`, {
+      const response = await fetch(`/api/zko/${zkoId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operator, komentarz })
@@ -303,23 +348,35 @@ export const useDeleteZKO = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (zkoId: number) => zkoApi.delete(zkoId),
+    mutationFn: async (zkoId: number) => {
+      const response = await fetch(`/api/zko/${zkoId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete ZKO');
+      }
+      
+      return response.json();
+    },
     onSuccess: (data) => {
       message.success(data.komunikat || 'ZKO usunięte');
       queryClient.invalidateQueries({ queryKey: ['zko', 'list'] });
     },
     onError: (error: any) => {
-      message.error(error.response?.data?.message || 'Błąd podczas usuwania ZKO');
+      message.error(error.message || 'Błąd podczas usuwania ZKO');
     },
   });
 };
 
-// Hook do pobierania stanu bufora - ZKO-SERVICE
+// Hook do pobierania stanu bufora
 export const useBufferStatus = () => {
   return useQuery({
     queryKey: ['buffer', 'okleiniarka'],
     queryFn: async () => {
-      const response = await fetch('http://localhost:5000/api/buffer/okleiniarka/status');
+      const response = await fetch('/api/buffer/okleiniarka/status');
       if (!response.ok) throw new Error('Failed to fetch buffer status');
       return response.json();
     },

@@ -1,248 +1,174 @@
-# 🚀 AlpApp - System ERP
+# AlpApp - Instrukcje Uruchomienia
 
-System ERP do zarządzania produkcją, zleceniami kooperacyjnymi (ZKO) i procesami logistycznymi.
+## 🚀 Szybki Start
 
-## 📋 Spis treści
+### Opcja 1: Automatyczne uruchomienie (Rekomendowane)
 
-- [Struktura projektu](#struktura-projektu)
-- [Technologie](#technologie)
-- [Instalacja](#instalacja)
-- [Uruchomienie](#uruchomienie)
-- [Rozwój](#rozwój)
-- [API](#api)
-- [Baza danych](#baza-danych)
-
-## 📁 Struktura projektu
-
-```
-AlpApp/
-├── apps/                 # Aplikacje frontendowe
-│   ├── zko/             # Aplikacja ZKO
-│   ├── zlp/             # Aplikacja ZLP (planowane)
-│   └── warehouse/       # Aplikacja Magazyn (planowane)
-├── packages/            # Pakiety współdzielone
-│   ├── theme/          # @alp/theme - zarządzanie motywami
-│   └── ui/             # @alp/ui - komponenty UI
-├── services/           # Mikroserwisy backend
-│   └── zko-service/    # Serwis ZKO
-├── infrastructure/     # Konfiguracja infrastruktury
-└── docker-compose.yml  # Orchestracja kontenerów
-```
-
-## 🛠️ Technologie
-
-### Frontend
-- **React 18** + TypeScript
-- **Ant Design 5** - komponenty UI
-- **TanStack Query** - zarządzanie stanem serwera
-- **Zustand** - zarządzanie stanem aplikacji
-- **Vite** - bundler
-
-### Backend
-- **Node.js** + Express
-- **PostgreSQL** - baza danych
-- **Socket.io** - real-time updates
-- **Zod** - walidacja
-
-### DevOps
-- **Docker** + Docker Compose
-- **PNPM** - package manager (monorepo)
-- **Nginx** - reverse proxy
-
-## 📦 Instalacja
-
-### Wymagania
-- Node.js 20+
-- PNPM 8+
-- Docker i Docker Compose
-- PostgreSQL 15+ (lub użyj Dockera)
-
-### Kroki instalacji
-
-1. **Klonowanie repozytorium**
+**Windows:**
 ```bash
-cd D:/PROJEKTY/PROGRAMOWANIE/AlpApp
+# Uruchom skrypt automatycznego startu
+./start-full-app.bat
 ```
 
-2. **Instalacja zależności**
+**Linux/Mac:**
 ```bash
-# Instalacja PNPM globalnie
-npm install -g pnpm
+# Ustaw uprawnienia
+chmod +x start-full-app.sh
 
-# Instalacja wszystkich zależności
+# Uruchom aplikację
+./start-full-app.sh
+```
+
+### Opcja 2: Ręczne uruchomienie
+
+**1. Zainstaluj zależności:**
+```bash
 pnpm install
 ```
 
-3. **Konfiguracja środowiska**
+**2. Uruchom backend (ZKO-SERVICE):**
 ```bash
-# Skopiuj pliki .env
-cp services/zko-service/.env.example services/zko-service/.env
-
-# Edytuj plik .env i ustaw swoje dane
+# Terminal 1 - Backend na porcie 5000
+pnpm --filter @alp/zko-service dev
 ```
 
-4. **Przygotowanie bazy danych**
+**3. Uruchom frontend:**
 ```bash
-# Uruchom PostgreSQL przez Docker
-docker-compose up -d postgres
-
-# Poczekaj aż baza się uruchomi, potem zaimportuj schemat
-# (schemat powinien być w infrastructure/postgres/init/)
+# Terminal 2 - Frontend na porcie 3001  
+pnpm run dev:zko
 ```
 
-## 🚀 Uruchomienie
+## 🌐 Dostępne Endpointy
 
-### Rozwój lokalny
+- **Frontend ZKO:** http://localhost:3001
+- **Backend API:** http://localhost:5000
+- **Health Check:** http://localhost:5000/health
 
-**Terminal 1 - Backend:**
-```bash
-cd services/zko-service
-pnpm dev
+## 🔧 Architektura
+
+### Frontend (Port 3001)
+- React + TypeScript + Vite
+- Ant Design UI
+- React Query + Zustand
+- Proxy na backend (/api -> localhost:5000)
+
+### Backend (Port 5000)
+- Express.js + TypeScript
+- PostgreSQL database
+- WebSocket support
+- RESTful API
+
+## 📁 Kluczowe Katalogi
+
+```
+AlpApp/
+├── apps/zko/                    # Frontend aplikacji ZKO
+│   ├── src/
+│   │   ├── modules/zko/         # Moduły ZKO
+│   │   │   ├── components/      # Komponenty React
+│   │   │   │   └── AddPozycja/  # 🆕 Nowy formularz dodawania pozycji
+│   │   │   ├── hooks/           # React hooks
+│   │   │   └── pages/           # Strony aplikacji
+│   │   └── layout/              # Layout aplikacji
+├── services/zko-service/        # Backend API
+│   └── src/                     # Kod źródłowy backend
+└── packages/                    # Wspólne biblioteki
 ```
 
-**Terminal 2 - Frontend:**
+## 🆕 Nowe Funkcjonalności
+
+### PlytySelectorV2 - Nowoczesny wybór płyt
+- ✅ Karty zamiast długich Selectów
+- ✅ Inteligentne filtrowanie po opisie
+- ✅ Kolorowe statusy magazynowe
+- ✅ Podgląd wybranej płyty
+- ✅ Responsywny design
+
+### Ulepszona Tabela Kolorów
+- ✅ Walidacja w czasie rzeczywistym
+- ✅ Automatyczne limity (5 szt. dla 18mm+)
+- ✅ Statystyki na górze formularza
+- ✅ Lepsze UX z błędami
+
+## 🐛 Rozwiązywanie Problemów
+
+### Problem: "Cannot GET /"
+**Przyczyna:** Frontend nie działa
+**Rozwiązanie:**
 ```bash
 cd apps/zko
-pnpm dev
+npm run dev
 ```
 
-Aplikacja będzie dostępna pod:
-- Frontend: http://localhost:3001
-- Backend API: http://localhost:5000
-- Adminer (DB): http://localhost:8080
-
-### Docker (wszystko razem)
+### Problem: "Proxy error" lub błędy API
+**Przyczyna:** Backend nie działa  
+**Rozwiązanie:**
 ```bash
-# Uruchom wszystkie serwisy
-docker-compose up
-
-# Lub w tle
-docker-compose up -d
+cd services/zko-service
+npm run dev
 ```
 
-### Uruchomienie poszczególnych części
+### Problem: "PNPM not found"
+**Rozwiązanie:**
 ```bash
-# Tylko baza danych
-docker-compose up postgres adminer
-
-# Tylko backend
-pnpm --filter @alp/zko-service dev
-
-# Tylko frontend
-pnpm --filter @alp/zko dev
+npm install -g pnpm
 ```
 
-## 💻 Rozwój
+### Problem: Stary cache przeglądarki
+**Rozwiązanie:**
+- Ctrl+Shift+R (force refresh)
+- Wyczyść cache przeglądarki
+- DevTools -> Network -> Disable cache
 
-### Struktura komend
+## 📊 Baza Danych
+
+Aplikacja używa PostgreSQL z następującymi schematami:
+
+### Schema: `zko`
+- `zlecenia` - Zlecenia kooperantów  
+- `pozycje` - Pozycje w ramach ZKO
+- `rozkroje` - Definicje rozkrojów płyt
+- `rozkroje_formatki` - Formatki w rozkrojach
+- `palety` - Zarządzanie paletami
+- `bufor_okleiniarka` - Bufory oklejarni
+
+### Schema: `public`  
+- `plyty` - Katalog płyt
+- `kolory` - Kolory płyt
+- `produkty` - Produkty systemowe
+
+## 🔄 Workflow Development
+
+1. **Commitowanie zmian:**
 ```bash
-# Uruchom wszystkie aplikacje w trybie dev
-pnpm dev
-
-# Uruchom konkretną aplikację
-pnpm --filter @alp/zko dev
-
-# Budowanie
-pnpm build
-
-# Testy
-pnpm test
-
-# Linting
-pnpm lint
+git add .
+git commit -m "opis zmian"  
+git push
 ```
 
-### Dodawanie nowej aplikacji
+2. **Konfiguracja Git:**
 ```bash
-# W folderze apps/
-pnpm create vite@latest nazwa-aplikacji --template react-ts
+git config --global user.name "marlowX"
+git config --global user.email "biuro@alpmeb.pl"
 ```
 
-### Dodawanie nowego pakietu
-```bash
-# W folderze packages/
-mkdir nowy-pakiet
-cd nowy-pakiet
-pnpm init
-```
+## 🎯 Dostępne Funkcje ZKO
 
-## 📡 API
+- `utworz_puste_zko()` - Tworzenie nowego ZKO
+- `dodaj_pozycje_do_zko()` - Dodawanie pozycji
+- `zmien_status_v3()` - Zmiana statusu workflow  
+- `pobierz_nastepne_etapy()` - Następne kroki
+- `pokaz_status_zko()` - Pełny status
+- `pal_planuj_inteligentnie_v3()` - Inteligentne palety
+- `raportuj_produkcje_formatek()` - Raportowanie
+- `zglos_uszkodzenie_formatki()` - Uszkodzenia
+- `zakoncz_zlecenie()` - Finalizacja
+- `stan_bufora_okleiniarka()` - Status buforów
 
-### Główne endpointy ZKO
+## 📞 Wsparcie
 
-#### ZKO Management
-- `GET /api/zko` - Lista zleceń
-- `GET /api/zko/:id` - Szczegóły zlecenia
-- `POST /api/zko/create` - Tworzenie ZKO
-- `POST /api/zko/status/change` - Zmiana statusu
-- `DELETE /api/zko/:id` - Usunięcie ZKO
-
-#### Workflow
-- `GET /api/workflow/instructions` - Instrukcje workflow
-- `GET /api/workflow/etapy` - Słownik etapów
-- `GET /api/zko/:id/next-steps` - Następne kroki
-
-#### Palety
-- `POST /api/pallets/plan` - Planowanie palet
-- `GET /api/pallets/calculate` - Kalkulacja parametrów
-- `POST /api/pallets/:id/close` - Zamknięcie palety
-
-#### Produkcja
-- `POST /api/production/start` - Start produkcji
-- `POST /api/production/report` - Raportowanie
-- `POST /api/production/damage` - Zgłoszenie uszkodzenia
-
-## 🗄️ Baza danych
-
-### Główne schematy
-- `zko` - Zlecenia kooperacyjne
-- `zlp` - Zlecenia produkcyjne
-- `tracking` - Śledzenie i etapy
-- `magazyn` - Stany magazynowe
-
-### Kluczowe funkcje PostgreSQL
-```sql
--- Tworzenie ZKO
-SELECT * FROM zko.utworz_puste_zko('kooperant', 5, 'user', 'komentarz');
-
--- Zmiana statusu
-SELECT * FROM zko.zmien_status_v3(zko_id, 'CIECIE_START', 'user', null, 'operator', 'lokalizacja');
-
--- Planowanie palet
-SELECT * FROM zko.pal_planuj_inteligentnie_v3(pozycja_id, null, 180, 700, 18);
-```
-
-## 📝 Workflow ZKO
-
-1. **Utworzenie ZKO** → `nowe`
-2. **Dodanie pozycji** → rozkroje i formatki
-3. **Planowanie palet** → automatyczny podział
-4. **Start produkcji** → `CIECIE_START`
-5. **Pakowanie** → `PAKOWANIE_PALETY`
-6. **Transport** → przez bufory
-7. **Oklejanie/Wiercenie** → opcjonalnie
-8. **Kompletowanie** → finalizacja
-9. **Wysyłka** → `ZAKONCZONE`
-
-## 🔒 Bezpieczeństwo
-
-- JWT dla autoryzacji
-- Walidacja danych przez Zod
-- Prepared statements w SQL
-- CORS skonfigurowany
-- Helmet.js dla security headers
-
-## 📚 Dokumentacja
-
-- [Ant Design](https://ant.design/)
-- [TanStack Query](https://tanstack.com/query)
-- [Zustand](https://github.com/pmndrs/zustand)
-- [Socket.io](https://socket.io/)
-
-## 👥 Zespół
-
-Developed by AlpSys Team
-
-## 📄 Licencja
-
-Proprietary - All rights reserved
+Jeśli masz problemy:
+1. Sprawdź konsolę przeglądarki (F12)
+2. Sprawdź logi backendu  
+3. Zrestartuj aplikację
+4. Wyczyść cache przeglądarki
