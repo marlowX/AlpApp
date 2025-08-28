@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Input, 
-  Card, 
-  Badge, 
-  Tag, 
-  Typography, 
-  Space, 
-  Button, 
+import {
+  Input,
+  Card,
+  Badge,
+  Tag,
+  Typography,
+  Space,
+  Button,
   Empty,
   Spin,
   Tooltip,
@@ -52,35 +52,35 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
         .sort((a, b) => b.stan_magazynowy - a.stan_magazynowy)
         .slice(0, 15);
     }
-    
+
     // Rozbij frazę wyszukiwania na słowa
     const searchWords = searchText.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-    
+
     const filtered = plyty.filter(plyta => {
       const searchableText = [
         plyta.opis,
-        plyta.kolor_nazwa, 
+        plyta.kolor_nazwa,
         plyta.nazwa,
         plyta.grubosc?.toString(),
         plyta.struktura === 1 ? 'struktura' : '',
       ].join(' ').toLowerCase();
-      
+
       // Sprawdź czy wszystkie słowa z wyszukiwania znajdują się w tekście
       return searchWords.every(word => searchableText.includes(word));
     });
-    
+
     // Sortuj wyniki - najpierw dokładne dopasowania, potem częściowe
     const sortedFiltered = filtered.sort((a, b) => {
       const aExact = a.kolor_nazwa.toLowerCase() === searchText.toLowerCase();
       const bExact = b.kolor_nazwa.toLowerCase() === searchText.toLowerCase();
-      
+
       if (aExact && !bExact) return -1;
       if (!aExact && bExact) return 1;
-      
+
       // Następnie sortuj po stanie magazynowym
       return b.stan_magazynowy - a.stan_magazynowy;
     });
-    
+
     return sortedFiltered.slice(0, 30); // Max 30 wyników
   }, [plyty, searchText]);
 
@@ -109,6 +109,17 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
     return 'Bardzo niski';
   };
 
+  // Pomocnicza funkcja do bezpiecznego formatowania ceny
+  const formatPrice = (price: number | undefined | null): string => {
+    if (price === undefined || price === null) return 'N/A';
+    if (typeof price === 'number') {
+      return price.toFixed(2);
+    }
+    // Jeśli to string, spróbuj przekonwertować
+    const numPrice = parseFloat(price as any);
+    return isNaN(numPrice) ? 'N/A' : numPrice.toFixed(2);
+  };
+
   if (loading) {
     return (
       <Card size="small">
@@ -124,9 +135,9 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
     <div style={{ width: '100%' }}>
       {/* Wyświetlenie wybranej płyty */}
       {selectedPlyta && !isExpanded && (
-        <Card 
-          size="small" 
-          style={{ 
+        <Card
+          size="small"
+          style={{
             borderColor: '#52c41a',
             backgroundColor: '#f6ffed',
             marginBottom: 8
@@ -140,7 +151,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                   {selectedPlyta.kolor_nazwa}
                 </Text>
                 {selectedPlyta.struktura === 1 && (
-                  <Tag size="small" color="gold">STRUKTURA</Tag>
+                  <Tag color="gold">STRUKTURA</Tag>
                 )}
               </Space>
               <div style={{ marginTop: 4 }}>
@@ -156,10 +167,10 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Tooltip title={getStockStatus(selectedPlyta.stan_magazynowy)}>
-                <Badge 
-                  count={selectedPlyta.stan_magazynowy} 
+                <Badge
+                  count={selectedPlyta.stan_magazynowy}
                   overflowCount={999}
-                  style={{ 
+                  style={{
                     backgroundColor: getStockColor(selectedPlyta.stan_magazynowy)
                   }}
                 />
@@ -177,7 +188,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
 
       {/* Przycisk do wyboru gdy brak wybranej płyty */}
       {!selectedPlyta && !isExpanded && (
-        <Button 
+        <Button
           block
           onClick={() => setIsExpanded(true)}
           style={{ height: 40, textAlign: 'left' }}
@@ -221,7 +232,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
 
           <div style={{ maxHeight: 450, overflowY: 'auto', paddingRight: 4 }}>
             {filteredPlyty.length === 0 ? (
-              <Empty 
+              <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
                   <Space direction="vertical">
@@ -242,7 +253,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                     size="small"
                     hoverable
                     onClick={() => handleSelectPlyta(plyta)}
-                    style={{ 
+                    style={{
                       cursor: 'pointer',
                       border: plyta.kolor_nazwa === value ? '2px solid #52c41a' : '1px solid #d9d9d9',
                       opacity: plyta.stan_magazynowy === 0 ? 0.6 : 1
@@ -251,33 +262,36 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ flex: 1 }}>
                         <div>
-                          <Text strong style={{ 
+                          <Text strong style={{
                             color: plyta.stan_magazynowy > 0 ? '#1890ff' : '#999',
-                            fontSize: '14px' 
+                            fontSize: '14px'
                           }}>
                             {plyta.kolor_nazwa}
                           </Text>
                           {plyta.struktura === 1 && (
-                            <Tag size="small" color="gold" style={{ marginLeft: 4 }}>
+                            <Tag color="gold" style={{ marginLeft: 4 }}>
                               STRUKTURA
                             </Tag>
                           )}
                           {plyta.stan_magazynowy === 0 && (
-                            <Tag size="small" color="error" style={{ marginLeft: 4 }}>
+                            <Tag color="error" style={{ marginLeft: 4 }}>
                               BRAK
                             </Tag>
                           )}
                         </div>
                         <div style={{ marginTop: 2 }}>
                           <Text type="secondary" style={{ fontSize: '12px' }}>
-                            {plyta.nazwa} • {plyta.grubosc}mm • {plyta.dlugosc}x{plyta.szerokosc}mm
+                            {plyta.nazwa} • {plyta.grubosc}mm
+                            {plyta.dlugosc && plyta.szerokosc &&
+                              ` • ${plyta.dlugosc}x${plyta.szerokosc}mm`
+                            }
                           </Text>
                         </div>
                         <div style={{ marginTop: 2 }}>
-                          <Paragraph 
+                          <Paragraph
                             ellipsis={{ rows: 1 }}
-                            style={{ 
-                              fontSize: '11px', 
+                            style={{
+                              fontSize: '11px',
                               color: '#666',
                               margin: 0
                             }}
@@ -285,20 +299,23 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                             {plyta.opis}
                           </Paragraph>
                         </div>
-                        {plyta.cena_za_plyte && (
+                        {plyta.cena_za_plyte !== undefined && plyta.cena_za_plyte !== null && (
                           <div style={{ marginTop: 2 }}>
                             <Text style={{ fontSize: '10px', color: '#999' }}>
-                              Cena: {plyta.cena_za_plyte.toFixed(2)} zł/płyta | {plyta.cena_za_m2?.toFixed(2)} zł/m²
+                              Cena: {formatPrice(plyta.cena_za_plyte)} zł/płyta
+                              {plyta.cena_za_m2 !== undefined && plyta.cena_za_m2 !== null &&
+                                ` | ${formatPrice(plyta.cena_za_m2)} zł/m²`
+                              }
                             </Text>
                           </div>
                         )}
                       </div>
                       <div style={{ textAlign: 'right', minWidth: '80px' }}>
                         <Tooltip title={getStockStatus(plyta.stan_magazynowy)}>
-                          <Badge 
-                            count={plyta.stan_magazynowy} 
+                          <Badge
+                            count={plyta.stan_magazynowy}
                             overflowCount={999}
-                            style={{ 
+                            style={{
                               backgroundColor: getStockColor(plyta.stan_magazynowy)
                             }}
                           />
@@ -317,9 +334,9 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
             )}
           </div>
 
-          <div style={{ 
-            marginTop: 12, 
-            paddingTop: 8, 
+          <div style={{
+            marginTop: 12,
+            paddingTop: 8,
             borderTop: '1px solid #f0f0f0',
             display: 'flex',
             justifyContent: 'space-between',

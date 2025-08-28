@@ -22,7 +22,7 @@ const AddPozycjaSchema = z.object({
     nazwa: z.string(),
     ilosc: z.number().positive(),
     stan_magazynowy: z.number().optional(),
-    grubosc: z.number().optional(),
+    grubosc: z.union([z.number(), z.string()]).optional(), // Akceptuj number lub string
   })),
   kolejnosc: z.number().optional().nullable(),
   uwagi: z.string().optional().nullable(),
@@ -166,8 +166,17 @@ router.post('/pozycje/add', async (req, res) => {
   try {
     logger.info('Received add pozycja request:', req.body);
     
+    // Konwertuj grubosc na number jeśli przyszło jako string
+    const requestData = {
+      ...req.body,
+      kolory_plyty: req.body.kolory_plyty.map((kp: any) => ({
+        ...kp,
+        grubosc: kp.grubosc ? parseFloat(kp.grubosc) : undefined
+      }))
+    };
+    
     // Walidacja danych wejściowych
-    const data = AddPozycjaSchema.parse(req.body);
+    const data = AddPozycjaSchema.parse(requestData);
     
     logger.info('Validated data:', data);
     
