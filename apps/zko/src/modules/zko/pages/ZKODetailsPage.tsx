@@ -32,7 +32,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useZKO } from '../hooks';
 import { statusColors, statusLabels } from '../utils/constants';
-import { AddPozycjaModal } from '../components/AddPozycjaModal';
+import { AddPozycjaModal } from '../components/AddPozycja';
 
 const { Title, Text } = Typography;
 

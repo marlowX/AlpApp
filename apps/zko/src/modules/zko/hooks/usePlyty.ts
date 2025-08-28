@@ -62,14 +62,15 @@ export const usePlyty = (options: UsePlytyOptions = {}) => {
       if (grubosc) params.append('grubosc', grubosc.toString());
       if (limit) params.append('limit', limit.toString());
       
-      const url = `http://localhost:5000/api/plyty/active${params.toString() ? '?' + params.toString() : ''}`;
+      // ZMIANA: Teraz używamy zko-service endpoint
+      const url = `http://localhost:5000/api/plyty${params.toString() ? '?' + params.toString() : ''}`;
       
-      console.log('Fetching plyty from:', url);
+      console.log('Fetching plyty from ZKO-SERVICE:', url);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        timeout: 5000 // 5 sekund timeout
+        timeout: 5000
       });
       
       if (!response.ok) {
@@ -77,23 +78,21 @@ export const usePlyty = (options: UsePlytyOptions = {}) => {
       }
       
       const data = await response.json();
-      console.log('Plyty API response:', data);
+      console.log('Plyty ZKO-SERVICE response:', data);
       
-      if (data.success && data.data) {
-        const plytyData = Array.isArray(data.data) ? data.data : [];
+      // ZKO-SERVICE może zwracać dane w innym formacie
+      const plytyData = Array.isArray(data) ? data : (data.data || data.rows || []);
+      
+      if (plytyData && plytyData.length > 0) {
         setPlyty(plytyData);
-        
-        if (plytyData.length === 0) {
-          console.warn('API zwrócił pustą listę płyt, używam fallback');
-          setPlyty(FALLBACK_PLYTY);
-          setUsingFallback(true);
-        }
       } else {
-        throw new Error(data.error || 'Nieoczekiwana struktura odpowiedzi API');
+        console.warn('ZKO-SERVICE zwrócił pustą listę płyt, używam fallback');
+        setPlyty(FALLBACK_PLYTY);
+        setUsingFallback(true);
       }
       
     } catch (err: any) {
-      console.error('Error fetching plyty:', err);
+      console.error('Error fetching plyty from ZKO-SERVICE:', err);
       setError(err.message);
       
       // Zawsze użyj fallback przy błędzie
@@ -101,7 +100,7 @@ export const usePlyty = (options: UsePlytyOptions = {}) => {
       setPlyty(FALLBACK_PLYTY);
       setUsingFallback(true);
       
-      message.warning('Nie można pobrać płyt z bazy - używam danych testowych');
+      message.warning('Nie można pobrać płyt z ZKO-SERVICE - używam danych testowych');
     } finally {
       setLoading(false);
     }
@@ -139,18 +138,19 @@ export const useKoloryPlyty = () => {
   const fetchKolory = async () => {
     try {
       setLoading(true);
+      // ZKO-SERVICE endpoint dla kolorów
       const response = await fetch('http://localhost:5000/api/plyty/kolory');
       
       if (response.ok) {
         const data = await response.json();
-        setKolory(data.kolory || []);
+        setKolory(data.kolory || data || []);
       } else {
         // Fallback kolory
         const uniqueKolory = [...new Set(FALLBACK_PLYTY.map(p => p.kolor_nazwa))];
         setKolory(uniqueKolory.map(kolor => ({ kolor_nazwa: kolor })));
       }
     } catch (error) {
-      console.error('Error fetching kolory:', error);
+      console.error('Error fetching kolory from ZKO-SERVICE:', error);
       // Fallback kolory
       const uniqueKolory = [...new Set(FALLBACK_PLYTY.map(p => p.kolor_nazwa))];
       setKolory(uniqueKolory.map(kolor => ({ kolor_nazwa: kolor })));
