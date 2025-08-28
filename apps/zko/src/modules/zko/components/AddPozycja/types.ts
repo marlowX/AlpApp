@@ -9,6 +9,9 @@ export interface Plyta {
   aktywna: boolean;
   struktura?: number;
   cena_za_plyte?: number;
+  cena_za_m2?: number;
+  dlugosc?: number;
+  szerokosc?: number;
 }
 
 export interface Rozkroj {
@@ -26,6 +29,7 @@ export interface Formatka {
   szerokosc: number;
   ilosc_sztuk: number;
   typ_plyty: string;
+  pozycja?: number;
 }
 
 export interface KolorPlyty {
