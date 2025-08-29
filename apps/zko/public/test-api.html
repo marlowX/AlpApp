@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Test ZKO API</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .test { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        button { padding: 10px; margin: 5px; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test ZKO API - Frontend przez Proxy</h1>
+    <p>Otwórz tę stronę na <a href="http://localhost:3001/test-api.html">http://localhost:3001/test-api.html</a></p>
+    
+    <div class="test">
+        <h2>1. Test listy ZKO</h2>
+        <button onclick="testList()">Test GET /api/zko</button>
+        <pre id="list-result"></pre>
+    </div>
+    
+    <div class="test">
+        <h2>2. Test szczegółów ZKO 27</h2>
+        <button onclick="testDetails()">Test GET /api/zko/27</button>
+        <pre id="details-result"></pre>
+    </div>
+    
+    <div class="test">
+        <h2>3. Test edycji pozycji 39</h2>
+        <button onclick="testEdit()">Test PUT /api/zko/pozycje/39</button>
+        <pre id="edit-result"></pre>
+    </div>
+    
+    <div class="test">
+        <h2>4. Test usuwania pozycji</h2>
+        <button onclick="testDelete()">Test DELETE /api/zko/pozycje/43</button>
+        <pre id="delete-result"></pre>
+    </div>
+
+    <script>
+        async function testList() {
+            const resultEl = document.getElementById('list-result');
+            try {
+                const response = await fetch('/api/zko');
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                resultEl.parentElement.className = 'test success';
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message;
+                resultEl.parentElement.className = 'test error';
+            }
+        }
+        
+        async function testDetails() {
+            const resultEl = document.getElementById('details-result');
+            try {
+                const response = await fetch('/api/zko/27');
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                resultEl.parentElement.className = 'test success';
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message;
+                resultEl.parentElement.className = 'test error';
+            }
+        }
+        
+        async function testEdit() {
+            const resultEl = document.getElementById('edit-result');
+            try {
+                const response = await fetch('/api/zko/pozycje/39', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rozkroj_id: 2,
+                        ilosc_plyt: 5,
+                        kolor_plyty: 'TEST_KOLOR',
+                        nazwa_plyty: 'TEST_NAZWA',
+                        kolejnosc: 1,
+                        uwagi: 'Test z przeglądarki'
+                    })
+                });
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                resultEl.parentElement.className = 'test success';
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message;
+                resultEl.parentElement.className = 'test error';
+            }
+        }
+        
+        async function testDelete() {
+            const resultEl = document.getElementById('delete-result');
+            try {
+                // Najpierw dodaj testową pozycję
+                const addResponse = await fetch('/api/zko/pozycje/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        zko_id: 27,
+                        rozkroj_id: 2,
+                        kolory_plyty: [{kolor: 'TEST', nazwa: 'TEST_PLYTA', ilosc: 1}],
+                        kolejnosc: 999,
+                        uwagi: 'Pozycja testowa'
+                    })
+                });
+                const addData = await addResponse.json();
+                const pozycjaId = addData.pozycja_id;
+                
+                // Teraz usuń
+                const response = await fetch(`/api/zko/pozycje/${pozycjaId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uzytkownik: 'test' })
+                });
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                resultEl.parentElement.className = 'test success';
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message;
+                resultEl.parentElement.className = 'test error';
+            }
+        }
+    </script>
+</body>
+</html>

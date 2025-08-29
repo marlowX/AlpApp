@@ -35,6 +35,39 @@ interface ExtendedAddPozycjaModalProps extends AddPozycjaModalProps {
   pozycjaToEdit?: any;
 }
 
+// Funkcja pomocnicza do parsowania kolorów
+const parseKoloryPlyty = (kolorString: string, nazwaString: string, defaultIlosc: number = 1): KolorPlyty[] => {
+  const result: KolorPlyty[] = [];
+  
+  if (!kolorString) return [{ kolor: '', nazwa: '', ilosc: 1 }];
+  
+  // Sprawdź czy mamy format "KOLOR xN, KOLOR2 xM"
+  if (kolorString.includes(' x')) {
+    const parts = kolorString.split(',').map(s => s.trim());
+    const nazwy = nazwaString ? nazwaString.split(',').map(s => s.trim()) : [];
+    
+    parts.forEach((part, index) => {
+      const match = part.match(/^(.+?)\s*x(\d+)$/);
+      if (match) {
+        result.push({
+          kolor: match[1].trim(),
+          nazwa: nazwy[index] || match[1].trim(),
+          ilosc: parseInt(match[2])
+        });
+      }
+    });
+  } else {
+    // Prosty format bez xN
+    result.push({
+      kolor: kolorString,
+      nazwa: nazwaString || kolorString,
+      ilosc: defaultIlosc
+    });
+  }
+  
+  return result.length > 0 ? result : [{ kolor: '', nazwa: '', ilosc: 1 }];
+};
+
 export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   visible,
   zkoId,
@@ -77,73 +110,22 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   // Załaduj dane do edycji
   useEffect(() => {
     if (editMode && pozycjaToEdit && visible) {
-      console.log('Loading data for edit:', pozycjaToEdit);
+      console.log('Loading pozycja for edit:', pozycjaToEdit);
       
       // Ustaw rozkrój
-      setSelectedRozkrojId(pozycjaToEdit.rozkroj_id);
-      
-      // Ustaw kolory płyt - WAŻNE: musimy zachować wszystkie dane
-      const koloryData: KolorPlyty[] = [];
-      
-      // Sprawdź czy mamy dane w formacie pojedynczym
-      if (pozycjaToEdit.kolor_plyty && pozycjaToEdit.nazwa_plyty) {
-        // Parse kolor_plyty jeśli jest w formacie "KOLOR1 x2, KOLOR2 x1"
-        const kolorString = pozycjaToEdit.kolor_plyty;
-        const nazwaString = pozycjaToEdit.nazwa_plyty;
-        
-        // Jeśli jest format z przecinkami (wiele kolorów)
-        if (kolorString.includes(',')) {
-          const kolory = kolorString.split(',').map((k: string) => k.trim());
-          const nazwy = nazwaString.split(',').map((n: string) => n.trim());
-          
-          kolory.forEach((kolorInfo: string, index: number) => {
-            // Format: "KOLOR x2"
-            const match = kolorInfo.match(/^(.+?)\s*x(\d+)$/);
-            if (match) {
-              koloryData.push({
-                kolor: match[1].trim(),
-                nazwa: nazwy[index] || match[1].trim(),
-                ilosc: parseInt(match[2])
-              });
-            } else {
-              // Jeśli nie ma formatu xN, przyjmij ilość z pozycji
-              koloryData.push({
-                kolor: kolorInfo,
-                nazwa: nazwy[index] || kolorInfo,
-                ilosc: pozycjaToEdit.ilosc_plyt || 1
-              });
-            }
-          });
-        } else {
-          // Pojedynczy kolor
-          koloryData.push({
-            kolor: pozycjaToEdit.kolor_plyty,
-            nazwa: pozycjaToEdit.nazwa_plyty,
-            ilosc: pozycjaToEdit.ilosc_plyt || 1
-          });
-        }
+      if (pozycjaToEdit.rozkroj_id) {
+        setSelectedRozkrojId(pozycjaToEdit.rozkroj_id);
       }
       
-      // Jeśli są dodatkowe kolory w polu kolory_plyty (jako tablica)
-      if (pozycjaToEdit.kolory_plyty && Array.isArray(pozycjaToEdit.kolory_plyty)) {
-        pozycjaToEdit.kolory_plyty.forEach((kp: any) => {
-          if (!koloryData.some(k => k.kolor === kp.kolor)) {
-            koloryData.push({
-              kolor: kp.kolor,
-              nazwa: kp.nazwa || kp.kolor,
-              ilosc: kp.ilosc || 1
-            });
-          }
-        });
-      }
+      // Parsuj kolory płyt
+      const parsedKolory = parseKoloryPlyty(
+        pozycjaToEdit.kolor_plyty || '',
+        pozycjaToEdit.nazwa_plyty || '',
+        pozycjaToEdit.ilosc_plyt || 1
+      );
       
-      // Jeśli nie mamy żadnych danych, ustaw domyślne
-      if (koloryData.length === 0) {
-        koloryData.push({ kolor: '', nazwa: '', ilosc: 1 });
-      }
-      
-      console.log('Setting kolory plyty:', koloryData);
-      setKolorePlyty(koloryData);
+      console.log('Parsed kolory:', parsedKolory);
+      setKolorePlyty(parsedKolory);
       
       // Ustaw opcje dodatkowe
       form.setFieldsValue({
@@ -187,43 +169,31 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   // Handlers
   const handleSubmit = async () => {
     try {
-      if (!hasBeenTouched && !editMode) {
-        touchForm();
-      }
-      
-      if (!isFormValid && !editMode) {
-        notification.error({
-          message: 'Formularz zawiera błędy',
-          description: 'Sprawdź wszystkie kroki i popraw błędy',
-          duration: 4,
-        });
-        return;
-      }
-      
       setLoading(true);
       
       const values = form.getFieldsValue();
       
       if (editMode && pozycjaToEdit) {
-        // Tryb edycji - ZAWSZE wysyłaj wszystkie dane
-        
-        // Pobierz pierwszy kolor (funkcja PostgreSQL obsługuje tylko jeden)
+        // Tryb edycji
         const pierwszyKolor = kolorePlyty.find(p => p.kolor) || kolorePlyty[0];
         
-        console.log('Edit mode - sending data:', {
-          rozkroj_id: selectedRozkrojId,
-          kolor: pierwszyKolor,
-          values
-        });
+        if (!pierwszyKolor.kolor) {
+          notification.error({
+            message: 'Błąd',
+            description: 'Musisz wybrać przynajmniej jedną płytę',
+            duration: 4,
+          });
+          return;
+        }
         
-        // ZAWSZE wysyłaj wszystkie pola, nawet jeśli się nie zmieniły
+        // Przygotuj dane do edycji - WSZYSTKIE POLA
         const editData = {
-          rozkroj_id: selectedRozkrojId,
-          ilosc_plyt: pierwszyKolor.ilosc,
+          rozkroj_id: selectedRozkrojId || pozycjaToEdit.rozkroj_id,
+          ilosc_plyt: pierwszyKolor.ilosc || 1,
           kolor_plyty: pierwszyKolor.kolor,
-          nazwa_plyty: pierwszyKolor.nazwa,
-          kolejnosc: values.kolejnosc || null,
-          uwagi: values.uwagi || null
+          nazwa_plyty: pierwszyKolor.nazwa || pierwszyKolor.kolor,
+          kolejnosc: values.kolejnosc || pozycjaToEdit.kolejnosc || null,
+          uwagi: values.uwagi || pozycjaToEdit.uwagi || null
         };
         
         console.log('Sending edit data:', editData);
@@ -239,14 +209,29 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           resetForm();
           onSuccess();
         } else {
-          throw new Error(result.komunikat || 'Nieznany błąd');
+          notification.error({
+            message: 'Błąd',
+            description: result.komunikat || 'Nie udało się zaktualizować pozycji',
+            duration: 5,
+          });
         }
       } else {
-        // Tryb dodawania - użyj istniejącej logiki
+        // Tryb dodawania
+        const validKolory = kolorePlyty.filter(p => p.kolor);
+        
+        if (validKolory.length === 0) {
+          notification.error({
+            message: 'Błąd',
+            description: 'Musisz wybrać przynajmniej jedną płytę',
+            duration: 4,
+          });
+          return;
+        }
+        
         const result = await PozycjaService.addPozycja({
           zko_id: zkoId,
           rozkroj_id: selectedRozkrojId!,
-          kolory_plyty: kolorePlyty.filter(p => p.kolor),
+          kolory_plyty: validKolory,
           kolejnosc: values.kolejnosc || null,
           uwagi: values.uwagi || null,
         });
@@ -256,7 +241,11 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           resetForm();
           onSuccess();
         } else {
-          throw new Error(result.komunikat || 'Nieznany błąd');
+          notification.error({
+            message: 'Błąd',
+            description: result.komunikat || 'Nie udało się dodać pozycji',
+            duration: 5,
+          });
         }
       }
     } catch (error: any) {
