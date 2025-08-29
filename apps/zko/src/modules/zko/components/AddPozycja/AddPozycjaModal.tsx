@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Form, Button, Space, Steps, notification } from 'antd';
 import { 
   PlusOutlined, 
+  EditOutlined,
   CheckCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
@@ -18,6 +19,7 @@ import { usePozycjaValidation } from '../../hooks/usePozycjaValidation';
 
 // Services
 import { PozycjaService } from '../../services/PozycjaService';
+import zkoApi from '../../services/zkoApi';
 
 // Types
 import type { 
@@ -28,11 +30,18 @@ import type {
 
 const { Step } = Steps;
 
-export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
+interface ExtendedAddPozycjaModalProps extends AddPozycjaModalProps {
+  editMode?: boolean;
+  pozycjaToEdit?: any;
+}
+
+export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   visible,
   zkoId,
   onCancel,
-  onSuccess
+  onSuccess,
+  editMode = false,
+  pozycjaToEdit = null
 }) => {
   const [form] = Form.useForm<AddPozycjaFormData>();
   const [loading, setLoading] = useState(false);
@@ -64,6 +73,47 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     plyty,
     { validateOnMount: false }
   );
+
+  // Załaduj dane do edycji
+  useEffect(() => {
+    if (editMode && pozycjaToEdit && visible) {
+      // Ustaw rozkrój
+      setSelectedRozkrojId(pozycjaToEdit.rozkroj_id);
+      
+      // Ustaw kolory płyt
+      const koloryData: KolorPlyty[] = [];
+      if (pozycjaToEdit.kolor_plyty && pozycjaToEdit.nazwa_plyty && pozycjaToEdit.ilosc_plyt) {
+        koloryData.push({
+          kolor: pozycjaToEdit.kolor_plyty,
+          nazwa: pozycjaToEdit.nazwa_plyty,
+          ilosc: pozycjaToEdit.ilosc_plyt
+        });
+      }
+      
+      // Jeśli są dodatkowe kolory (jeśli pozycja ma formatki z różnymi kolorami)
+      if (pozycjaToEdit.kolory_plyty && Array.isArray(pozycjaToEdit.kolory_plyty)) {
+        pozycjaToEdit.kolory_plyty.forEach((kp: any) => {
+          if (!koloryData.some(k => k.kolor === kp.kolor)) {
+            koloryData.push({
+              kolor: kp.kolor,
+              nazwa: kp.nazwa,
+              ilosc: kp.ilosc
+            });
+          }
+        });
+      }
+      
+      if (koloryData.length > 0) {
+        setKolorePlyty(koloryData);
+      }
+      
+      // Ustaw opcje dodatkowe
+      form.setFieldsValue({
+        kolejnosc: pozycjaToEdit.kolejnosc,
+        uwagi: pozycjaToEdit.uwagi
+      });
+    }
+  }, [editMode, pozycjaToEdit, visible, form]);
 
   // Obsługa kroków
   const next = () => {
@@ -112,20 +162,59 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
       setLoading(true);
       
       const values = form.getFieldsValue();
-      const result = await PozycjaService.addPozycja({
-        zko_id: zkoId,
-        rozkroj_id: selectedRozkrojId!,
-        kolory_plyty: kolorePlyty.filter(p => p.kolor),
-        kolejnosc: values.kolejnosc || null,
-        uwagi: values.uwagi || null,
-      });
       
-      if (result.sukces) {
-        PozycjaService.showSuccessNotification(result);
-        resetForm();
-        onSuccess();
+      if (editMode && pozycjaToEdit) {
+        // Tryb edycji - użyj funkcji edycji
+        
+        // W trybie edycji obsługujemy tylko jedną płytę (ograniczenie funkcji PostgreSQL)
+        const pierwszyKolor = kolorePlyty.find(p => p.kolor) || kolorePlyty[0];
+        
+        const editData = {
+          rozkroj_id: selectedRozkrojId !== pozycjaToEdit.rozkroj_id ? selectedRozkrojId : undefined,
+          ilosc_plyt: pierwszyKolor.ilosc !== pozycjaToEdit.ilosc_plyt ? pierwszyKolor.ilosc : undefined,
+          kolor_plyty: pierwszyKolor.kolor !== pozycjaToEdit.kolor_plyty ? pierwszyKolor.kolor : undefined,
+          nazwa_plyty: pierwszyKolor.nazwa !== pozycjaToEdit.nazwa_plyty ? pierwszyKolor.nazwa : undefined,
+          kolejnosc: values.kolejnosc !== pozycjaToEdit.kolejnosc ? values.kolejnosc : undefined,
+          uwagi: values.uwagi !== pozycjaToEdit.uwagi ? values.uwagi : undefined
+        };
+        
+        // Usuń undefined wartości
+        Object.keys(editData).forEach(key => {
+          if (editData[key as keyof typeof editData] === undefined) {
+            delete editData[key as keyof typeof editData];
+          }
+        });
+        
+        const result = await zkoApi.editPozycja(pozycjaToEdit.id, editData);
+        
+        if (result.sukces) {
+          notification.success({
+            message: 'Sukces',
+            description: result.komunikat || 'Pozycja została zaktualizowana',
+            duration: 3,
+          });
+          resetForm();
+          onSuccess();
+        } else {
+          throw new Error(result.komunikat || 'Nieznany błąd');
+        }
       } else {
-        throw new Error(result.komunikat || 'Nieznany błąd');
+        // Tryb dodawania - użyj istniejącej logiki
+        const result = await PozycjaService.addPozycja({
+          zko_id: zkoId,
+          rozkroj_id: selectedRozkrojId!,
+          kolory_plyty: kolorePlyty.filter(p => p.kolor),
+          kolejnosc: values.kolejnosc || null,
+          uwagi: values.uwagi || null,
+        });
+        
+        if (result.sukces) {
+          PozycjaService.showSuccessNotification(result);
+          resetForm();
+          onSuccess();
+        } else {
+          throw new Error(result.komunikat || 'Nieznany błąd');
+        }
       }
     } catch (error: any) {
       notification.error({
@@ -181,7 +270,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
       ),
     },
     {
-      title: 'Dodaj płyty',
+      title: editMode ? 'Edytuj płyty' : 'Dodaj płyty',
       content: (
         <Step2Plyty
           kolorePlyty={kolorePlyty}
@@ -209,12 +298,15 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
     <Modal
       title={
         <Space>
-          <PlusOutlined />
-          Dodaj pozycję do ZKO #{zkoId}
+          {editMode ? <EditOutlined /> : <PlusOutlined />}
+          {editMode ? `Edytuj pozycję #${pozycjaToEdit?.id}` : `Dodaj pozycję do ZKO #${zkoId}`}
         </Space>
       }
       open={visible}
-      onCancel={onCancel}
+      onCancel={() => {
+        resetForm();
+        onCancel();
+      }}
       width={1200}
       footer={null}
       destroyOnClose
@@ -240,7 +332,10 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
           </div>
           <div>
             <Space>
-              <Button onClick={onCancel}>
+              <Button onClick={() => {
+                resetForm();
+                onCancel();
+              }}>
                 Anuluj
               </Button>
               {currentStep < steps.length - 1 && (
@@ -255,7 +350,7 @@ export const AddPozycjaModal: React.FC<AddPozycjaModalProps> = ({
                   loading={loading}
                   icon={<CheckCircleOutlined />}
                 >
-                  Dodaj pozycję
+                  {editMode ? 'Zapisz zmiany' : 'Dodaj pozycję'}
                 </Button>
               )}
             </Space>

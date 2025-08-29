@@ -1,1 +1,0 @@
-export { EditPozycjaModal } from './EditPozycjaModal';

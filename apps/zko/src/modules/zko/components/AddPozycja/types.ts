@@ -48,6 +48,8 @@ export interface AddPozycjaModalProps {
   zkoId: number;
   onCancel: () => void;
   onSuccess: () => void;
+  editMode?: boolean;        // Dodane dla trybu edycji
+  pozycjaToEdit?: any;       // Dodane dla danych pozycji do edycji
 }
 
 export interface PlytyQueryParams {

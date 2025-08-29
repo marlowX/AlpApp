@@ -40,7 +40,6 @@ import dayjs from 'dayjs';
 import { useZKO } from '../hooks';
 import { statusColors, statusLabels } from '../utils/constants';
 import { AddPozycjaModal } from '../components/AddPozycja';
-import { EditPozycjaModal } from '../components/EditPozycja';
 import { PaletyManager } from '../components/PaletyManager';
 import zkoApi from '../services/zkoApi';
 import '../styles/zko-details.css'; // Import stylów CSS
@@ -457,7 +456,7 @@ export const ZKODetailsPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Add Pozycja Modal */}
+      {/* Modal dodawania pozycji */}
       <AddPozycjaModal
         visible={showAddPozycja}
         zkoId={Number(id)}
@@ -465,18 +464,18 @@ export const ZKODetailsPage: React.FC = () => {
         onSuccess={handlePozycjaAdded}
       />
 
-      {/* Edit Pozycja Modal */}
-      {selectedPozycja && (
-        <EditPozycjaModal
-          visible={showEditPozycja}
-          pozycja={selectedPozycja}
-          onCancel={() => {
-            setShowEditPozycja(false);
-            setSelectedPozycja(null);
-          }}
-          onSuccess={handlePozycjaEdited}
-        />
-      )}
+      {/* Modal edycji pozycji - używa tego samego komponentu w trybie edycji */}
+      <AddPozycjaModal
+        visible={showEditPozycja}
+        zkoId={Number(id)}
+        onCancel={() => {
+          setShowEditPozycja(false);
+          setSelectedPozycja(null);
+        }}
+        onSuccess={handlePozycjaEdited}
+        editMode={true}
+        pozycjaToEdit={selectedPozycja}
+      />
     </div>
   );
 };
