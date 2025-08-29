@@ -42,7 +42,7 @@ import { statusColors, statusLabels } from '../utils/constants';
 import { AddPozycjaModal } from '../components/AddPozycja';
 import { PaletyManager } from '../components/PaletyManager';
 import zkoApi from '../services/zkoApi';
-import '../styles/zko-details.css'; // Import stylów CSS
+import '../styles/zko-details.css';
 
 const { Title, Text } = Typography;
 
@@ -79,7 +79,6 @@ export const ZKODetailsPage: React.FC = () => {
     );
   }
 
-  // Mapowanie statusu na kroki workflow
   const getWorkflowStep = (status: string) => {
     const steps = [
       { key: 'nowe', title: 'Nowe', description: 'Zlecenie utworzone' },
@@ -99,23 +98,19 @@ export const ZKODetailsPage: React.FC = () => {
   const priorityColor = zko.priorytet >= 4 ? 'red' : zko.priorytet >= 3 ? 'orange' : 'green';
   const priorityText = zko.priorytet >= 4 ? 'Wysoki' : zko.priorytet >= 3 ? 'Średni' : 'Niski';
 
-  // Dane z API
   const pozycje = zko.pozycje || [];
 
-  // Handle successful pozycja addition
   const handlePozycjaAdded = () => {
     setShowAddPozycja(false);
     refetch();
   };
 
-  // Handle successful pozycja edit
   const handlePozycjaEdited = () => {
     setShowEditPozycja(false);
     setSelectedPozycja(null);
     refetch();
   };
 
-  // Handle pozycja deletion
   const handleDeletePozycja = async (pozycjaId: number) => {
     try {
       setDeletingId(pozycjaId);
@@ -135,13 +130,11 @@ export const ZKODetailsPage: React.FC = () => {
     }
   };
 
-  // Handle pozycja edit
   const handleEditPozycja = (pozycja: any) => {
     setSelectedPozycja(pozycja);
     setShowEditPozycja(true);
   };
 
-  // Kolumny tabeli pozycji
   const pozycjeColumns = [
     { 
       title: 'ID', 
@@ -196,7 +189,7 @@ export const ZKODetailsPage: React.FC = () => {
       title: 'Akcje',
       key: 'actions',
       width: 140,
-      render: (_, record: any) => {
+      render: (_: any, record: any) => {
         const isDeleting = deletingId === record.id;
         const canDelete = record.status === 'oczekuje';
         const canEdit = record.status === 'oczekuje';
@@ -226,10 +219,11 @@ export const ZKODetailsPage: React.FC = () => {
               }
               onConfirm={() => handleDeletePozycja(record.id)}
               onCancel={() => {
-                // Ukryj tooltip po anulowaniu
+                // Schowaj tooltip po anulowaniu
                 setTimeout(() => {
-                  document.querySelectorAll('.ant-tooltip').forEach(el => {
-                    (el as HTMLElement).style.opacity = '0';
+                  const tooltips = document.querySelectorAll('.ant-tooltip');
+                  tooltips.forEach(el => {
+                    (el as HTMLElement).style.display = 'none';
                   });
                 }, 100);
               }}
@@ -239,7 +233,6 @@ export const ZKODetailsPage: React.FC = () => {
               disabled={!canDelete || isDeleting}
               placement="topRight"
               showCancel={true}
-              destroyTooltipOnHide={true}
             >
               <Button
                 type="text"
@@ -464,18 +457,20 @@ export const ZKODetailsPage: React.FC = () => {
         onSuccess={handlePozycjaAdded}
       />
 
-      {/* Modal edycji pozycji - używa tego samego komponentu w trybie edycji */}
-      <AddPozycjaModal
-        visible={showEditPozycja}
-        zkoId={Number(id)}
-        onCancel={() => {
-          setShowEditPozycja(false);
-          setSelectedPozycja(null);
-        }}
-        onSuccess={handlePozycjaEdited}
-        editMode={true}
-        pozycjaToEdit={selectedPozycja}
-      />
+      {/* Modal edycji pozycji */}
+      {showEditPozycja && selectedPozycja && (
+        <AddPozycjaModal
+          visible={showEditPozycja}
+          zkoId={Number(id)}
+          onCancel={() => {
+            setShowEditPozycja(false);
+            setSelectedPozycja(null);
+          }}
+          onSuccess={handlePozycjaEdited}
+          editMode={true}
+          pozycjaToEdit={selectedPozycja}
+        />
+      )}
     </div>
   );
 };

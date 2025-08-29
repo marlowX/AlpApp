@@ -8,14 +8,17 @@ import {
   message, 
   Alert,
   Spin,
-  Typography
+  Typography,
+  Popconfirm
 } from 'antd';
 import { 
   AppstoreOutlined, 
   PlusOutlined, 
   MinusOutlined,
   ReloadOutlined,
-  SettingOutlined
+  SettingOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { PaletaPrzeniesFormatki } from './PaletaPrzeniesFormatki';
 import { PaletaDetails } from './PaletaDetails';
@@ -118,15 +121,121 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           fetchPalety();
           onRefresh?.();
         } else {
-          message.warning(result.komunikat || 'Nie udało się zaplanować palet');
+          // Sprawdź czy to komunikat o istniejących paletach
+          if (result.komunikat && result.komunikat.includes('Palety już istnieją')) {
+            // Zapytaj użytkownika czy chce nadpisać
+            Modal.confirm({
+              title: 'Palety już istnieją',
+              icon: <ExclamationCircleOutlined />,
+              content: (
+                <div>
+                  <p>Dla tego ZKO istnieją już palety ({palety.length} szt.).</p>
+                  <p>Czy chcesz usunąć istniejące palety i utworzyć nowe?</p>
+                  <Alert
+                    message="Uwaga"
+                    description="Ta operacja usunie wszystkie istniejące palety i ich przypisania formatek."
+                    type="warning"
+                    showIcon
+                    style={{ marginTop: 12 }}
+                  />
+                </div>
+              ),
+              okText: 'Tak, usuń i utwórz nowe',
+              cancelText: 'Anuluj',
+              okButtonProps: { danger: true },
+              onOk: async () => {
+                // Najpierw usuń istniejące palety
+                await handleUsunWszystkiePaletyIStworzNowe(params);
+              },
+            });
+          } else {
+            message.warning(result.komunikat || 'Nie udało się zaplanować palet');
+          }
         }
       } else {
         const error = await response.json();
-        message.error(error.error || 'Błąd planowania palet');
+        message.error(error.error || error.message || 'Błąd planowania palet');
       }
     } catch (error) {
       console.error('Error planning palety:', error);
       message.error('Błąd planowania palet');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUsunWszystkiePaletyIStworzNowe = async (params: PlanowaniePaletParams) => {
+    try {
+      setLoading(true);
+      
+      // Krok 1: Usuń istniejące palety
+      const deleteResponse = await fetch(`/api/pallets/zko/${zkoId}/all`, {
+        method: 'DELETE'
+      });
+      
+      if (!deleteResponse.ok) {
+        const error = await deleteResponse.json();
+        message.error(error.error || 'Błąd usuwania palet');
+        return;
+      }
+      
+      const deleteResult = await deleteResponse.json();
+      message.info(`Usunięto ${deleteResult.usuniete} istniejących palet`);
+      
+      // Krok 2: Utwórz nowe palety
+      const planResponse = await fetch(`/api/pallets/zko/${zkoId}/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+      
+      if (planResponse.ok) {
+        const planResult = await planResponse.json();
+        
+        if (planResult.sukces) {
+          message.success(planResult.komunikat || 'Utworzono nowe palety');
+          fetchPalety();
+          onRefresh?.();
+        } else {
+          message.error(planResult.komunikat || 'Nie udało się utworzyć nowych palet');
+        }
+      } else {
+        const error = await planResponse.json();
+        message.error(error.error || 'Błąd tworzenia palet');
+      }
+      
+    } catch (error) {
+      console.error('Error recreating pallets:', error);
+      message.error('Błąd podczas odtwarzania palet');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUsunWszystkiePalety = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/pallets/zko/${zkoId}/all`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.sukces) {
+          message.success(result.komunikat || 'Usunięto wszystkie palety');
+          fetchPalety();
+          onRefresh?.();
+        } else {
+          message.warning(result.komunikat || 'Nie udało się usunąć palet');
+        }
+      } else {
+        const error = await response.json();
+        message.error(error.error || 'Błąd usuwania palet');
+      }
+    } catch (error) {
+      console.error('Error deleting all pallets:', error);
+      message.error('Błąd usuwania palet');
     } finally {
       setLoading(false);
     }
@@ -259,10 +368,28 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           <Button 
             onClick={handleZmienIloscPalet}
             icon={palety.length > 0 ? <MinusOutlined /> : <PlusOutlined />}
-            disabled={loading}
+            disabled={loading || palety.length === 0}
           >
             Zmień ilość
           </Button>
+          {palety.length > 0 && (
+            <Popconfirm
+              title="Usuń wszystkie palety"
+              description="Czy na pewno chcesz usunąć wszystkie palety? Ta operacja jest nieodwracalna."
+              onConfirm={handleUsunWszystkiePalety}
+              okText="Tak, usuń"
+              cancelText="Anuluj"
+              okButtonProps={{ danger: true }}
+            >
+              <Button 
+                icon={<DeleteOutlined />}
+                danger
+                loading={loading}
+              >
+                Usuń wszystkie
+              </Button>
+            </Popconfirm>
+          )}
           <Button 
             onClick={fetchPalety}
             icon={<ReloadOutlined />}
@@ -272,6 +399,9 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           </Button>
         </Space>
       }
+      styles={{
+        body: { padding: '12px' }
+      }}
     >
       {palety.length === 0 ? (
         <Alert

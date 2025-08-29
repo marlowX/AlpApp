@@ -171,7 +171,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     try {
       setLoading(true);
       
-      const values = form.getFieldsValue();
+      const values = await form.validateFields();
       
       if (editMode && pozycjaToEdit) {
         // Tryb edycji
@@ -344,52 +344,54 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       footer={null}
       destroyOnClose
     >
-      <div style={{ padding: '20px 0' }}>
-        <Steps current={currentStep} style={{ marginBottom: 32 }}>
-          {steps.map(item => (
-            <Step key={item.title} title={item.title} />
-          ))}
-        </Steps>
-        
-        <div style={{ minHeight: 400 }}>
-          {steps[currentStep].content}
-        </div>
-        
-        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
-          <div>
-            {currentStep > 0 && (
-              <Button onClick={prev}>
-                Wstecz
-              </Button>
-            )}
+      <Form form={form} layout="vertical">
+        <div style={{ padding: '20px 0' }}>
+          <Steps current={currentStep} style={{ marginBottom: 32 }}>
+            {steps.map(item => (
+              <Step key={item.title} title={item.title} />
+            ))}
+          </Steps>
+          
+          <div style={{ minHeight: 400 }}>
+            {steps[currentStep].content}
           </div>
-          <div>
-            <Space>
-              <Button onClick={() => {
-                resetForm();
-                onCancel();
-              }}>
-                Anuluj
-              </Button>
-              {currentStep < steps.length - 1 && (
-                <Button type="primary" onClick={next}>
-                  Dalej
+          
+          <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
+            <div>
+              {currentStep > 0 && (
+                <Button onClick={prev}>
+                  Wstecz
                 </Button>
               )}
-              {currentStep === steps.length - 1 && (
-                <Button 
-                  type="primary" 
-                  onClick={handleSubmit}
-                  loading={loading}
-                  icon={<CheckCircleOutlined />}
-                >
-                  {editMode ? 'Zapisz zmiany' : 'Dodaj pozycję'}
+            </div>
+            <div>
+              <Space>
+                <Button onClick={() => {
+                  resetForm();
+                  onCancel();
+                }}>
+                  Anuluj
                 </Button>
-              )}
-            </Space>
+                {currentStep < steps.length - 1 && (
+                  <Button type="primary" onClick={next}>
+                    Dalej
+                  </Button>
+                )}
+                {currentStep === steps.length - 1 && (
+                  <Button 
+                    type="primary" 
+                    onClick={handleSubmit}
+                    loading={loading}
+                    icon={<CheckCircleOutlined />}
+                  >
+                    {editMode ? 'Zapisz zmiany' : 'Dodaj pozycję'}
+                  </Button>
+                )}
+              </Space>
+            </div>
           </div>
         </div>
-      </div>
+      </Form>
     </Modal>
   );
 };

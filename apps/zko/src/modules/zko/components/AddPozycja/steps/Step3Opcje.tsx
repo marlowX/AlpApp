@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Card, Form, Space, Typography, Divider, Row, Col, Tag } from 'antd';
+import { Alert, Card, Space, Typography, Divider, Tag } from 'antd';
 import { 
   SettingOutlined,
   InfoCircleOutlined,
@@ -8,11 +8,12 @@ import {
 import { PozycjaAdditionalOptions } from '../PozycjaAdditionalOptions';
 import { PozycjaStatistics } from '../PozycjaStatistics';
 import type { KolorPlyty, Rozkroj } from '../types';
+import type { FormInstance } from 'antd';
 
 const { Text } = Typography;
 
 interface Step3OpcjeProps {
-  form: any;
+  form: FormInstance;
   kolorePlyty: KolorPlyty[];
   selectedRozkroj: Rozkroj | null;
 }
@@ -103,9 +104,7 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           </Space>
         }
       >
-        <Form form={form} layout="vertical">
-          <PozycjaAdditionalOptions />
-        </Form>
+        <PozycjaAdditionalOptions />
         
         <Alert
           message="Te pola są opcjonalne"

@@ -44,7 +44,7 @@ export interface KolorPlyty {
 }
 
 export interface AddPozycjaModalProps {
-  visible: boolean;
+  visible: boolean;  // Zachowujemy dla kompatybilności wstecznej
   zkoId: number;
   onCancel: () => void;
   onSuccess: () => void;
