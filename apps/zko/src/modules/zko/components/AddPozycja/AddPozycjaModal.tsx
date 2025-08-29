@@ -77,41 +77,82 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   // Załaduj dane do edycji
   useEffect(() => {
     if (editMode && pozycjaToEdit && visible) {
+      console.log('Loading data for edit:', pozycjaToEdit);
+      
       // Ustaw rozkrój
       setSelectedRozkrojId(pozycjaToEdit.rozkroj_id);
       
-      // Ustaw kolory płyt
+      // Ustaw kolory płyt - WAŻNE: musimy zachować wszystkie dane
       const koloryData: KolorPlyty[] = [];
-      if (pozycjaToEdit.kolor_plyty && pozycjaToEdit.nazwa_plyty && pozycjaToEdit.ilosc_plyt) {
-        koloryData.push({
-          kolor: pozycjaToEdit.kolor_plyty,
-          nazwa: pozycjaToEdit.nazwa_plyty,
-          ilosc: pozycjaToEdit.ilosc_plyt
-        });
+      
+      // Sprawdź czy mamy dane w formacie pojedynczym
+      if (pozycjaToEdit.kolor_plyty && pozycjaToEdit.nazwa_plyty) {
+        // Parse kolor_plyty jeśli jest w formacie "KOLOR1 x2, KOLOR2 x1"
+        const kolorString = pozycjaToEdit.kolor_plyty;
+        const nazwaString = pozycjaToEdit.nazwa_plyty;
+        
+        // Jeśli jest format z przecinkami (wiele kolorów)
+        if (kolorString.includes(',')) {
+          const kolory = kolorString.split(',').map((k: string) => k.trim());
+          const nazwy = nazwaString.split(',').map((n: string) => n.trim());
+          
+          kolory.forEach((kolorInfo: string, index: number) => {
+            // Format: "KOLOR x2"
+            const match = kolorInfo.match(/^(.+?)\s*x(\d+)$/);
+            if (match) {
+              koloryData.push({
+                kolor: match[1].trim(),
+                nazwa: nazwy[index] || match[1].trim(),
+                ilosc: parseInt(match[2])
+              });
+            } else {
+              // Jeśli nie ma formatu xN, przyjmij ilość z pozycji
+              koloryData.push({
+                kolor: kolorInfo,
+                nazwa: nazwy[index] || kolorInfo,
+                ilosc: pozycjaToEdit.ilosc_plyt || 1
+              });
+            }
+          });
+        } else {
+          // Pojedynczy kolor
+          koloryData.push({
+            kolor: pozycjaToEdit.kolor_plyty,
+            nazwa: pozycjaToEdit.nazwa_plyty,
+            ilosc: pozycjaToEdit.ilosc_plyt || 1
+          });
+        }
       }
       
-      // Jeśli są dodatkowe kolory (jeśli pozycja ma formatki z różnymi kolorami)
+      // Jeśli są dodatkowe kolory w polu kolory_plyty (jako tablica)
       if (pozycjaToEdit.kolory_plyty && Array.isArray(pozycjaToEdit.kolory_plyty)) {
         pozycjaToEdit.kolory_plyty.forEach((kp: any) => {
           if (!koloryData.some(k => k.kolor === kp.kolor)) {
             koloryData.push({
               kolor: kp.kolor,
-              nazwa: kp.nazwa,
-              ilosc: kp.ilosc
+              nazwa: kp.nazwa || kp.kolor,
+              ilosc: kp.ilosc || 1
             });
           }
         });
       }
       
-      if (koloryData.length > 0) {
-        setKolorePlyty(koloryData);
+      // Jeśli nie mamy żadnych danych, ustaw domyślne
+      if (koloryData.length === 0) {
+        koloryData.push({ kolor: '', nazwa: '', ilosc: 1 });
       }
+      
+      console.log('Setting kolory plyty:', koloryData);
+      setKolorePlyty(koloryData);
       
       // Ustaw opcje dodatkowe
       form.setFieldsValue({
         kolejnosc: pozycjaToEdit.kolejnosc,
         uwagi: pozycjaToEdit.uwagi
       });
+    } else if (!editMode && visible) {
+      // Reset dla trybu dodawania
+      resetForm();
     }
   }, [editMode, pozycjaToEdit, visible, form]);
 
@@ -146,11 +187,11 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   // Handlers
   const handleSubmit = async () => {
     try {
-      if (!hasBeenTouched) {
+      if (!hasBeenTouched && !editMode) {
         touchForm();
       }
       
-      if (!isFormValid) {
+      if (!isFormValid && !editMode) {
         notification.error({
           message: 'Formularz zawiera błędy',
           description: 'Sprawdź wszystkie kroki i popraw błędy',
@@ -164,26 +205,28 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       const values = form.getFieldsValue();
       
       if (editMode && pozycjaToEdit) {
-        // Tryb edycji - użyj funkcji edycji
+        // Tryb edycji - ZAWSZE wysyłaj wszystkie dane
         
-        // W trybie edycji obsługujemy tylko jedną płytę (ograniczenie funkcji PostgreSQL)
+        // Pobierz pierwszy kolor (funkcja PostgreSQL obsługuje tylko jeden)
         const pierwszyKolor = kolorePlyty.find(p => p.kolor) || kolorePlyty[0];
         
+        console.log('Edit mode - sending data:', {
+          rozkroj_id: selectedRozkrojId,
+          kolor: pierwszyKolor,
+          values
+        });
+        
+        // ZAWSZE wysyłaj wszystkie pola, nawet jeśli się nie zmieniły
         const editData = {
-          rozkroj_id: selectedRozkrojId !== pozycjaToEdit.rozkroj_id ? selectedRozkrojId : undefined,
-          ilosc_plyt: pierwszyKolor.ilosc !== pozycjaToEdit.ilosc_plyt ? pierwszyKolor.ilosc : undefined,
-          kolor_plyty: pierwszyKolor.kolor !== pozycjaToEdit.kolor_plyty ? pierwszyKolor.kolor : undefined,
-          nazwa_plyty: pierwszyKolor.nazwa !== pozycjaToEdit.nazwa_plyty ? pierwszyKolor.nazwa : undefined,
-          kolejnosc: values.kolejnosc !== pozycjaToEdit.kolejnosc ? values.kolejnosc : undefined,
-          uwagi: values.uwagi !== pozycjaToEdit.uwagi ? values.uwagi : undefined
+          rozkroj_id: selectedRozkrojId,
+          ilosc_plyt: pierwszyKolor.ilosc,
+          kolor_plyty: pierwszyKolor.kolor,
+          nazwa_plyty: pierwszyKolor.nazwa,
+          kolejnosc: values.kolejnosc || null,
+          uwagi: values.uwagi || null
         };
         
-        // Usuń undefined wartości
-        Object.keys(editData).forEach(key => {
-          if (editData[key as keyof typeof editData] === undefined) {
-            delete editData[key as keyof typeof editData];
-          }
-        });
+        console.log('Sending edit data:', editData);
         
         const result = await zkoApi.editPozycja(pozycjaToEdit.id, editData);
         
@@ -217,6 +260,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
         }
       }
     } catch (error: any) {
+      console.error('Submit error:', error);
       notification.error({
         message: 'Błąd',
         description: error.message || 'Wystąpił nieoczekiwany błąd',

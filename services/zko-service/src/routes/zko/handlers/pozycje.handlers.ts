@@ -91,16 +91,35 @@ export const handleDeletePozycja = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
+    // Logowanie szczegółowe
+    logger.info(`DELETE request received for pozycja ID: ${id}`);
+    logger.info(`Request path: ${req.path}`);
+    logger.info(`Request params:`, req.params);
+    logger.info(`Request body:`, req.body);
+    
     // Body jest opcjonalne dla DELETE
     const uzytkownik = req.body?.uzytkownik || 'system';
     const powod = req.body?.powod || null;
     
     logger.info(`Deleting pozycja ID: ${id}`, { uzytkownik, powod });
     
+    // Sprawdź czy ID jest liczbą
+    const pozycjaId = Number(id);
+    if (isNaN(pozycjaId)) {
+      logger.error(`Invalid pozycja ID: ${id}`);
+      return res.status(400).json({
+        sukces: false,
+        error: 'Invalid pozycja ID',
+        komunikat: `ID pozycji musi być liczbą, otrzymano: ${id}`
+      });
+    }
+    
+    logger.info(`Calling zko.usun_pozycje_zko(${pozycjaId}, '${uzytkownik}', ${powod ? `'${powod}'` : 'NULL'})`);
+    
     // Wywołaj funkcję PostgreSQL - zwraca JSONB
     const result = await db.query(
       `SELECT zko.usun_pozycje_zko($1, $2, $3) as result`,
-      [Number(id), uzytkownik, powod]
+      [pozycjaId, uzytkownik, powod]
     );
     
     // Rozpakuj JSONB
@@ -114,15 +133,15 @@ export const handleDeletePozycja = async (req: Request, res: Response) => {
           `SELECT zko_id FROM zko.pozycje WHERE id = $1 
            UNION 
            SELECT zko_id FROM zko.historia_statusow 
-           WHERE komentarz LIKE '%pozycję #${id}%' 
+           WHERE komentarz LIKE '%pozycję #${pozycjaId}%' 
            ORDER BY data_zmiany DESC LIMIT 1`,
-          [id]
+          [pozycjaId]
         );
         
         if (zkoResult.rows.length > 0) {
           emitZKOUpdate(zkoResult.rows[0].zko_id, 'zko:pozycja:deleted', {
             zko_id: zkoResult.rows[0].zko_id,
-            pozycja_id: Number(id),
+            pozycja_id: pozycjaId,
             usuniete_formatki: response.usuniete_formatki,
             usuniete_palety: response.usuniete_palety
           });
@@ -136,10 +155,12 @@ export const handleDeletePozycja = async (req: Request, res: Response) => {
     
   } catch (error: any) {
     logger.error('Error deleting pozycja:', error);
+    logger.error('Error stack:', error.stack);
     res.status(500).json({
       sukces: false,
       error: 'Failed to delete pozycja',
-      komunikat: error.message
+      komunikat: error.message,
+      details: error.detail || error.hint
     });
   }
 };
@@ -152,19 +173,36 @@ export const handleEditPozycja = async (req: Request, res: Response) => {
     const { id } = req.params;
     const data = req.body;
     
-    logger.info(`Editing pozycja ID: ${id}`, data);
+    logger.info(`PUT request received for pozycja ID: ${id}`);
+    logger.info(`Request body:`, data);
     
-    // Wywołaj funkcję PostgreSQL
+    // Sprawdź czy ID jest liczbą
+    const pozycjaId = Number(id);
+    if (isNaN(pozycjaId)) {
+      logger.error(`Invalid pozycja ID: ${id}`);
+      return res.status(400).json({
+        sukces: false,
+        error: 'Invalid pozycja ID',
+        komunikat: `ID pozycji musi być liczbą, otrzymano: ${id}`
+      });
+    }
+    
+    // Logowanie parametrów dla funkcji PostgreSQL
+    logger.info(`Calling zko.edytuj_pozycje_zko with params:`, {
+      pozycja_id: pozycjaId,
+      rozkroj_id: data.rozkroj_id,
+      ilosc_plyt: data.ilosc_plyt,
+      kolor_plyty: data.kolor_plyty,
+      nazwa_plyty: data.nazwa_plyty,
+      kolejnosc: data.kolejnosc,
+      uwagi: data.uwagi
+    });
+    
+    // Wywołaj funkcję PostgreSQL - zwraca JSONB
     const result = await db.query(
-      `SELECT 
-        (result->>'sukces')::boolean as sukces,
-        result->>'komunikat' as komunikat,
-        result->'pozycja' as pozycja
-       FROM (
-         SELECT zko.edytuj_pozycje_zko($1, $2, $3, $4, $5, $6, $7) as result
-       ) t`,
+      `SELECT zko.edytuj_pozycje_zko($1, $2, $3, $4, $5, $6, $7) as result`,
       [
-        Number(id),
+        pozycjaId,
         data.rozkroj_id || null,
         data.ilosc_plyt || null,
         data.kolor_plyty || null,
@@ -174,33 +212,41 @@ export const handleEditPozycja = async (req: Request, res: Response) => {
       ]
     );
     
-    const response = result.rows[0];
+    // Rozpakuj JSONB
+    const response = result.rows[0].result;
     logger.info('Edit result:', response);
     
     if (response.sukces) {
       // Pobierz ZKO ID dla WebSocket
-      const zkoResult = await db.query(
-        'SELECT zko_id FROM zko.pozycje WHERE id = $1',
-        [id]
-      );
-      
-      if (zkoResult.rows.length > 0) {
-        emitZKOUpdate(zkoResult.rows[0].zko_id, 'zko:pozycja:updated', {
-          zko_id: zkoResult.rows[0].zko_id,
-          pozycja_id: Number(id),
-          changes: data
-        });
+      try {
+        const zkoResult = await db.query(
+          'SELECT zko_id FROM zko.pozycje WHERE id = $1',
+          [pozycjaId]
+        );
+        
+        if (zkoResult.rows.length > 0) {
+          emitZKOUpdate(zkoResult.rows[0].zko_id, 'zko:pozycja:updated', {
+            zko_id: zkoResult.rows[0].zko_id,
+            pozycja_id: pozycjaId,
+            changes: data
+          });
+        }
+      } catch (wsError) {
+        logger.warn('Could not emit WebSocket update:', wsError);
       }
     }
     
+    // Zwróć odpowiedź
     res.json(response);
     
   } catch (error: any) {
     logger.error('Error editing pozycja:', error);
+    logger.error('Error stack:', error.stack);
     res.status(500).json({
       sukces: false,
       error: 'Failed to edit pozycja',
-      komunikat: error.message
+      komunikat: error.message,
+      details: error.detail || error.hint
     });
   }
 };
