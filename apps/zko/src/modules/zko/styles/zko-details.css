@@ -1,0 +1,47 @@
+/* Dodatkowe style dla naprawy problemów z z-index w ZKO */
+
+/* Naprawa z-index dla Popconfirm i Tooltip */
+.ant-popover.ant-popconfirm {
+  z-index: 1050 !important;
+}
+
+.ant-tooltip {
+  z-index: 1040 !important;
+}
+
+/* Ukryj tooltip gdy popconfirm jest otwarty */
+.ant-popover.ant-popconfirm.ant-popover-open ~ .ant-tooltip {
+  display: none !important;
+}
+
+/* Upewnij się że przyciski w tabeli mają odpowiedni z-index */
+.ant-table-tbody > tr > td .ant-btn {
+  position: relative;
+  z-index: 1;
+}
+
+/* Dodaj transition dla lepszego UX */
+.ant-popover.ant-popconfirm {
+  transition: opacity 0.2s;
+}
+
+/* Style dla przycisków akcji w tabeli */
+.ant-table-cell-row-hover .ant-btn-text:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Popraw widoczność Popconfirm */
+.ant-popover.ant-popconfirm .ant-popover-inner {
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.15),
+              0 3px 6px -4px rgba(0, 0, 0, 0.2),
+              0 9px 28px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Naprawa dla overlappingu tooltip z modal */
+.ant-modal-wrap {
+  z-index: 1060 !important;
+}
+
+.ant-modal-mask {
+  z-index: 1055 !important;
+}

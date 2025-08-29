@@ -96,10 +96,10 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Import routes
-import zkoRoutes from './routes/zko.routes';
+// Import routes - używamy nowych modułów
+import zkoRoutes from './routes/zko';         // Katalog zko/
+import palletsRoutes from './routes/pallets'; // Katalog pallets/
 import workflowRoutes from './routes/workflow.routes';
-import palletsRoutes from './routes/pallets.routes';
 import productionRoutes from './routes/production.routes';
 import bufferRoutes from './routes/buffer.routes';
 import databaseRoutes from './routes/database.routes';
@@ -111,7 +111,7 @@ import testRoutes from './routes/test.routes';
 app.use('/api/test', testRoutes);
 app.use('/api/zko', zkoRoutes);
 app.use('/api/workflow', workflowRoutes);
-app.use('/api/pallets', palletsRoutes); // Główne palety i reguły są w tym samym pliku
+app.use('/api/pallets', palletsRoutes);  // Używa katalogu pallets/
 app.use('/api/production', productionRoutes);
 app.use('/api/buffer', bufferRoutes);
 app.use('/api/rozkroje', rozkrojeRoutes);

@@ -18,8 +18,7 @@ import {
   Tabs,
   Badge,
   Popconfirm,
-  message,
-  Tooltip
+  message
 } from 'antd';
 import { 
   ArrowLeftOutlined, 
@@ -33,14 +32,18 @@ import {
   CalendarOutlined,
   TeamOutlined,
   DeleteOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  DatabaseOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useZKO } from '../hooks';
 import { statusColors, statusLabels } from '../utils/constants';
 import { AddPozycjaModal } from '../components/AddPozycja';
+import { EditPozycjaModal } from '../components/EditPozycja';
 import { PaletyManager } from '../components/PaletyManager';
+import zkoApi from '../services/zkoApi';
+import '../styles/zko-details.css'; // Import stylów CSS
 
 const { Title, Text } = Typography;
 
@@ -49,8 +52,9 @@ export const ZKODetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: zko, isLoading, error, refetch } = useZKO(Number(id));
   const [showAddPozycja, setShowAddPozycja] = useState(false);
+  const [showEditPozycja, setShowEditPozycja] = useState(false);
+  const [selectedPozycja, setSelectedPozycja] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [editingPozycjaId, setEditingPozycjaId] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -102,39 +106,43 @@ export const ZKODetailsPage: React.FC = () => {
   // Handle successful pozycja addition
   const handlePozycjaAdded = () => {
     setShowAddPozycja(false);
-    refetch(); // Odśwież dane ZKO
+    refetch();
   };
 
-  // Handle pozycja deletion - POPRAWIONA FUNKCJA
+  // Handle successful pozycja edit
+  const handlePozycjaEdited = () => {
+    setShowEditPozycja(false);
+    setSelectedPozycja(null);
+    refetch();
+  };
+
+  // Handle pozycja deletion
   const handleDeletePozycja = async (pozycjaId: number) => {
     try {
       setDeletingId(pozycjaId);
+      const result = await zkoApi.deletePozycja(pozycjaId, 'admin');
       
-      // Mock usuwania - w rzeczywistej aplikacji wywołaj API
-      // const response = await api.deletePozycja(pozycjaId);
-      
-      // Symulacja opóźnienia API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      message.success('Pozycja została usunięta');
-      refetch(); // Odśwież dane ZKO
-      
-    } catch (error) {
+      if (result.sukces) {
+        message.success(result.komunikat || 'Pozycja została usunięta');
+        refetch();
+      } else {
+        message.error(result.komunikat || 'Nie udało się usunąć pozycji');
+      }
+    } catch (error: any) {
       console.error('Error deleting pozycja:', error);
-      message.error('Wystąpił błąd podczas usuwania pozycji');
+      message.error('Błąd podczas usuwania pozycji');
     } finally {
       setDeletingId(null);
     }
   };
 
   // Handle pozycja edit
-  const handleEditPozycja = (pozycjaId: number) => {
-    setEditingPozycjaId(pozycjaId);
-    // Tu można otworzyć modal edycji lub przekierować do strony edycji
-    message.info(`Edycja pozycji #${pozycjaId} - funkcjonalność w przygotowaniu`);
+  const handleEditPozycja = (pozycja: any) => {
+    setSelectedPozycja(pozycja);
+    setShowEditPozycja(true);
   };
 
-  // Kolumny tabeli pozycji z przyciskami akcji
+  // Kolumny tabeli pozycji
   const pozycjeColumns = [
     { 
       title: 'ID', 
@@ -191,53 +199,60 @@ export const ZKODetailsPage: React.FC = () => {
       width: 140,
       render: (_, record: any) => {
         const isDeleting = deletingId === record.id;
-        const canDelete = record.status === 'oczekuje'; // Można usuwać tylko oczekujące
-        const canEdit = record.status === 'oczekuje'; // Można edytować tylko oczekujące
+        const canDelete = record.status === 'oczekuje';
+        const canEdit = record.status === 'oczekuje';
         
         return (
           <Space size="small">
-            <Tooltip title={canEdit ? "Edytuj pozycję" : "Nie można edytować pozycji w realizacji"}>
-              <Button
-                type="text"
-                size="small"
-                icon={<EditOutlined />}
-                onClick={() => handleEditPozycja(record.id)}
-                disabled={!canEdit}
-              >
-                Edytuj
-              </Button>
-            </Tooltip>
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => handleEditPozycja(record)}
+              disabled={!canEdit}
+              title={canEdit ? "Edytuj pozycję" : "Nie można edytować pozycji w trakcie realizacji"}
+            >
+              Edytuj
+            </Button>
             
             <Popconfirm
               title="Czy na pewno usunąć pozycję?"
               description={
                 <Space direction="vertical">
                   <Text>Ta operacja jest nieodwracalna.</Text>
-                  {record.formatki_count > 0 && (
-                    <Text type="warning">
-                      Pozycja zawiera {record.formatki_count} formatek!
-                    </Text>
-                  )}
+                  <Text type="secondary">
+                    <DatabaseOutlined /> Funkcja PostgreSQL: zko.usun_pozycje_zko
+                  </Text>
                 </Space>
               }
               onConfirm={() => handleDeletePozycja(record.id)}
-              okText="Tak, usuń"
+              onCancel={() => {
+                // Ukryj tooltip po anulowaniu
+                setTimeout(() => {
+                  document.querySelectorAll('.ant-tooltip').forEach(el => {
+                    (el as HTMLElement).style.opacity = '0';
+                  });
+                }, 100);
+              }}
+              okText="Usuń pozycję"
               cancelText="Anuluj"
               okButtonProps={{ danger: true }}
               disabled={!canDelete || isDeleting}
+              placement="topRight"
+              showCancel={true}
+              destroyTooltipOnHide={true}
             >
-              <Tooltip title={canDelete ? "Usuń pozycję" : "Nie można usunąć pozycji w realizacji"}>
-                <Button
-                  type="text"
-                  danger
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  loading={isDeleting}
-                  disabled={!canDelete}
-                >
-                  Usuń
-                </Button>
-              </Tooltip>
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<DeleteOutlined />}
+                loading={isDeleting}
+                disabled={!canDelete}
+                title={canDelete ? "" : "Nie można usunąć pozycji w trakcie realizacji"}
+              >
+                Usuń
+              </Button>
             </Popconfirm>
           </Space>
         );
@@ -246,7 +261,7 @@ export const ZKODetailsPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px' }} className="zko-details-page">
       {/* Header */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '24px' }}>
         <Col>
@@ -271,7 +286,7 @@ export const ZKODetailsPage: React.FC = () => {
               icon={<EditOutlined />}
               onClick={() => navigate(`/zko/${id}/edit`)}
             >
-              Edytuj
+              Edytuj ZKO
             </Button>
             <Button 
               type="primary" 
@@ -314,7 +329,7 @@ export const ZKODetailsPage: React.FC = () => {
         />
       </Card>
 
-      {/* Main Content - nowy układ */}
+      {/* Main Content */}
       <Row gutter={24}>
         {/* Lewa kolumna - Informacje podstawowe */}
         <Col span={12}>
@@ -343,21 +358,6 @@ export const ZKODetailsPage: React.FC = () => {
               <Descriptions.Item label="Utworzył">
                 {zko.utworzyl}
               </Descriptions.Item>
-              {zko.data_rozpoczecia && (
-                <Descriptions.Item label="Data rozpoczęcia">
-                  <Space>
-                    <ClockCircleOutlined />
-                    <Text type="success">
-                      {dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm')}
-                    </Text>
-                  </Space>
-                </Descriptions.Item>
-              )}
-              {zko.data_zakonczenia && (
-                <Descriptions.Item label="Data zakończenia">
-                  {dayjs(zko.data_zakonczenia).format('DD.MM.YYYY HH:mm')}
-                </Descriptions.Item>
-              )}
             </Descriptions>
 
             {zko.komentarz && (
@@ -371,9 +371,8 @@ export const ZKODetailsPage: React.FC = () => {
           </Card>
         </Col>
 
-        {/* Prawa kolumna - Szczegóły realizacji i boczne panele */}
+        {/* Prawa kolumna - Szczegóły realizacji */}
         <Col span={12}>
-          {/* Szczegóły realizacji */}
           <Card 
             title={
               <Space>
@@ -455,87 +454,6 @@ export const ZKODetailsPage: React.FC = () => {
               </Tabs.TabPane>
             </Tabs>
           </Card>
-
-          {/* Panele boczne w rzędzie */}
-          <Row gutter={16}>
-            <Col span={12}>
-              <Card 
-                title={
-                  <Space>
-                    <TeamOutlined />
-                    Operatorzy
-                  </Space>
-                } 
-                size="small"
-                style={{ marginBottom: '16px' }}
-              >
-                <Space direction="vertical" style={{ width: '100%' }} size="small">
-                  <div>
-                    <Text type="secondary">Piła:</Text>
-                    <br />
-                    <Text>{zko.operator_pily || 'Nie przypisano'}</Text>
-                  </div>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <div>
-                    <Text type="secondary">Okleiniarka:</Text>
-                    <br />
-                    <Text>{zko.operator_oklejarki || 'Nie przypisano'}</Text>
-                  </div>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <div>
-                    <Text type="secondary">Wiertarka:</Text>
-                    <br />
-                    <Text>{zko.operator_wiertarki || 'Nie przypisano'}</Text>
-                  </div>
-                </Space>
-              </Card>
-            </Col>
-
-            <Col span={12}>
-              <Card 
-                title={
-                  <Space>
-                    <CalendarOutlined />
-                    Daty planowane
-                  </Space>
-                }
-                size="small"
-                style={{ marginBottom: '16px' }}
-              >
-                <Space direction="vertical" style={{ width: '100%' }} size="small">
-                  <div>
-                    <Text type="secondary">Wysłanie:</Text>
-                    <br />
-                    <Text>
-                      {zko.data_wyslania ? 
-                        dayjs(zko.data_wyslania).format('DD.MM.YYYY') : 
-                        'Nie ustalono'}
-                    </Text>
-                  </div>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <div>
-                    <Text type="secondary">Planowana realizacja:</Text>
-                    <br />
-                    <Text>
-                      {zko.data_planowana ? 
-                        dayjs(zko.data_planowana).format('DD.MM.YYYY') : 
-                        'Nie ustalono'}
-                    </Text>
-                  </div>
-                  <Divider style={{ margin: '8px 0' }} />
-                  <div>
-                    <Text type="secondary">Rozpoczęcie:</Text>
-                    <br />
-                    <Text type={zko.data_rozpoczecia ? "success" : undefined}>
-                      {zko.data_rozpoczecia ? 
-                        dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm') : 
-                        'Nie rozpoczęto'}
-                    </Text>
-                  </div>
-                </Space>
-              </Card>
-            </Col>
-          </Row>
         </Col>
       </Row>
 
@@ -546,6 +464,19 @@ export const ZKODetailsPage: React.FC = () => {
         onCancel={() => setShowAddPozycja(false)}
         onSuccess={handlePozycjaAdded}
       />
+
+      {/* Edit Pozycja Modal */}
+      {selectedPozycja && (
+        <EditPozycjaModal
+          visible={showEditPozycja}
+          pozycja={selectedPozycja}
+          onCancel={() => {
+            setShowEditPozycja(false);
+            setSelectedPozycja(null);
+          }}
+          onSuccess={handlePozycjaEdited}
+        />
+      )}
     </div>
   );
 };

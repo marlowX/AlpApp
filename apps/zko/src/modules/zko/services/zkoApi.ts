@@ -3,13 +3,15 @@
 
 import { message } from 'antd';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+// W Vite używamy import.meta.env zamiast process.env
+// Proxy w vite.config.ts przekierowuje /api na backend
+const API_BASE_URL = '/api';
 
 export interface DeletePozycjaResult {
   sukces: boolean;
   komunikat: string;
-  usuniete_formatki: number;
-  usuniete_palety: number;
+  usuniete_formatki?: number;
+  usuniete_palety?: number;
 }
 
 export interface EditPozycjaData {
@@ -19,6 +21,12 @@ export interface EditPozycjaData {
   nazwa_plyty?: string;
   kolejnosc?: number;
   uwagi?: string;
+}
+
+export interface EditPozycjaResult {
+  sukces: boolean;
+  komunikat: string;
+  pozycja?: any;
 }
 
 export class ZKOApiService {
@@ -33,69 +41,61 @@ export class ZKOApiService {
     powod?: string
   ): Promise<DeletePozycjaResult> {
     try {
+      // Budujemy body tylko jeśli mamy dane
+      const requestBody = uzytkownik !== 'system' || powod 
+        ? { uzytkownik, powod }
+        : undefined;
+      
       const response = await fetch(`${API_BASE_URL}/zko/pozycje/${pozycjaId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uzytkownik,
-          powod,
-          // Funkcja PostgreSQL do wywołania
-          postgres_function: 'zko.usun_pozycje_zko'
-        }),
+        headers: requestBody ? { 'Content-Type': 'application/json' } : {},
+        body: requestBody ? JSON.stringify(requestBody) : undefined
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Błąd podczas usuwania pozycji');
+        const errorData = await response.json().catch(() => ({ error: 'Nieznany błąd' }));
+        throw new Error(errorData.komunikat || errorData.error || 'Błąd podczas usuwania pozycji');
       }
 
       const result = await response.json();
       
-      // Jeśli backend zwraca bezpośrednio wynik z PostgreSQL
-      if (result.rows && result.rows[0]) {
-        return result.rows[0];
-      }
-      
-      // Jeśli backend przetwarza wynik
+      // Backend zwraca bezpośrednio rozpakowany JSONB z funkcji PostgreSQL
       return result;
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting pozycja:', error);
       throw error;
     }
   }
 
   /**
-   * Edytuje pozycję ZKO
-   * TODO: Utworzyć funkcję w PostgreSQL: zko.edytuj_pozycje_zko
+   * Edytuje pozycję ZKO używając funkcji PostgreSQL
+   * Wywołuje: zko.edytuj_pozycje_zko(pozycja_id, ...)
    */
   static async editPozycja(
     pozycjaId: number,
-    data: EditPozycjaData,
-    uzytkownik: string = 'system'
-  ): Promise<any> {
+    data: EditPozycjaData
+  ): Promise<EditPozycjaResult> {
     try {
       const response = await fetch(`${API_BASE_URL}/zko/pozycje/${pozycjaId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...data,
-          uzytkownik,
-        }),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Błąd podczas edycji pozycji');
+        const errorData = await response.json().catch(() => ({ error: 'Nieznany błąd' }));
+        throw new Error(errorData.komunikat || errorData.error || 'Błąd podczas edycji pozycji');
       }
 
-      return await response.json();
+      const result = await response.json();
       
-    } catch (error) {
+      // Backend zwraca obiekt z polami: sukces, komunikat, pozycja
+      return result;
+      
+    } catch (error: any) {
       console.error('Error editing pozycja:', error);
       throw error;
     }
@@ -127,7 +127,7 @@ export class ZKOApiService {
 
       return await response.json();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Error calling function ${functionName}:`, error);
       throw error;
     }
@@ -138,30 +138,51 @@ export class ZKOApiService {
 export const zkoApi = {
   
   // Usuwanie pozycji z logiką biznesową w PostgreSQL
-  deletePozycja: async (pozycjaId: number, uzytkownik?: string) => {
-    const result = await ZKOApiService.deletePozycja(
-      pozycjaId, 
-      uzytkownik || 'system'
-    );
-    
-    if (result.sukces) {
-      message.success(result.komunikat);
-    } else {
-      message.error(result.komunikat);
+  deletePozycja: async (pozycjaId: number, uzytkownik?: string): Promise<DeletePozycjaResult> => {
+    try {
+      const result = await ZKOApiService.deletePozycja(
+        pozycjaId, 
+        uzytkownik || 'system'
+      );
+      
+      if (result.sukces) {
+        message.success(result.komunikat || 'Pozycja została usunięta');
+      } else {
+        message.error(result.komunikat || 'Nie udało się usunąć pozycji');
+      }
+      
+      return result;
+    } catch (error: any) {
+      const errorMessage = error.message || 'Błąd podczas usuwania pozycji';
+      message.error(errorMessage);
+      // Zwracamy obiekt błędu w odpowiednim formacie
+      return {
+        sukces: false,
+        komunikat: errorMessage
+      };
     }
-    
-    return result;
   },
 
   // Edycja pozycji
-  editPozycja: async (pozycjaId: number, data: EditPozycjaData) => {
+  editPozycja: async (pozycjaId: number, data: EditPozycjaData): Promise<EditPozycjaResult> => {
     try {
       const result = await ZKOApiService.editPozycja(pozycjaId, data);
-      message.success('Pozycja została zaktualizowana');
+      
+      if (result.sukces) {
+        message.success(result.komunikat || 'Pozycja została zaktualizowana');
+      } else {
+        message.error(result.komunikat || 'Nie udało się zaktualizować pozycji');
+      }
+      
       return result;
     } catch (error: any) {
-      message.error(error.message || 'Błąd podczas edycji pozycji');
-      throw error;
+      const errorMessage = error.message || 'Błąd podczas edycji pozycji';
+      message.error(errorMessage);
+      // Zwracamy obiekt błędu w odpowiednim formacie
+      return {
+        sukces: false,
+        komunikat: errorMessage
+      };
     }
   },
 
