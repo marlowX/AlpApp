@@ -41,14 +41,15 @@ router.post('/create', validateSchema(CreateZKOSchema), async (req: Request, res
 });
 
 /**
- * DELETE /api/zko/:id - Usunięcie ZKO
+ * DELETE /api/zko/delete/:id - Usunięcie całego ZKO
+ * ZMIENIONA TRASA: z /:id na /delete/:id żeby nie konfliktowała z innymi
  * Wywołuje funkcję PostgreSQL: zko.usun_zko
  */
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/delete/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
-    logger.info(`Deleting ZKO ID: ${id}`);
+    logger.info(`Deleting entire ZKO ID: ${id}`);
     
     // Wywołanie funkcji PostgreSQL
     const result = await db.query(

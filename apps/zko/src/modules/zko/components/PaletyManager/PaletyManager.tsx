@@ -1,41 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Card, 
-  Table, 
   Button, 
   Space, 
-  Tag, 
   Modal, 
   InputNumber, 
   message, 
-  Tooltip,
-  Badge,
-  Typography,
   Alert,
   Spin,
-  Form,
-  Select,
-  Slider,
-  Row,
-  Col,
-  Statistic
+  Typography
 } from 'antd';
 import { 
   AppstoreOutlined, 
-  SwapOutlined, 
   PlusOutlined, 
   MinusOutlined,
   ReloadOutlined,
-  ColumnHeightOutlined,
-  SettingOutlined,
-  InfoCircleOutlined,
-  WarningOutlined
+  SettingOutlined
 } from '@ant-design/icons';
 import { PaletaPrzeniesFormatki } from './PaletaPrzeniesFormatki';
 import { PaletaDetails } from './PaletaDetails';
+import { PaletyStats } from './components/PaletyStats';
+import { PaletyTable } from './components/PaletyTable';
+import { PlanowanieModal, PlanowaniePaletParams } from './components/PlanowanieModal';
+import { LIMITY_PALETY } from './types';
 
-const { Text, Title } = Typography;
-const { Option } = Select;
+const { Text } = Typography;
 
 interface Paleta {
   id: number;
@@ -49,14 +38,7 @@ interface Paleta {
   typ?: string;
   created_at?: string;
   updated_at?: string;
-}
-
-interface PlanowaniePaletParams {
-  max_wysokosc_mm: number;
-  max_formatek_na_palete: number;
-  grubosc_plyty: number;
-  strategia: 'kolor' | 'rozmiar' | 'mieszane';
-  typ_palety: 'EURO' | 'STANDARD' | 'MAXI';
+  waga_kg?: number;
 }
 
 interface PaletyManagerProps {
@@ -77,15 +59,15 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const [sourcePaleta, setSourcePaleta] = useState<Paleta | null>(null);
   const [targetPaleta, setTargetPaleta] = useState<Paleta | null>(null);
   
-  const [planParams, setPlanParams] = useState<PlanowaniePaletParams>({
-    max_wysokosc_mm: 1440,
+  const [planParams] = useState<PlanowaniePaletParams>({
+    max_wysokosc_mm: LIMITY_PALETY.DOMYSLNA_WYSOKOSC_MM,
+    max_waga_kg: LIMITY_PALETY.DOMYSLNA_WAGA_KG,
     max_formatek_na_palete: 200,
-    grubosc_plyty: 18,
+    grubosc_plyty: LIMITY_PALETY.GRUBOSC_PLYTY_DEFAULT,
     strategia: 'kolor',
-    typ_palety: 'EURO'
+    typ_palety: 'EURO',
+    uwzglednij_oklejanie: false
   });
-
-  const [form] = Form.useForm();
 
   useEffect(() => {
     fetchPalety();
@@ -111,13 +93,20 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     }
   };
 
-  const handlePlanujPalety = async () => {
+  const handlePlanujPalety = async (params: PlanowaniePaletParams) => {
     try {
       setLoading(true);
+      
+      // Walidacja wagi
+      if (!params.max_waga_kg || params.max_waga_kg < LIMITY_PALETY.MIN_WAGA_KG) {
+        message.error('Maksymalna waga musi być podana i większa niż ' + LIMITY_PALETY.MIN_WAGA_KG + ' kg');
+        return;
+      }
+      
       const response = await fetch(`/api/pallets/zko/${zkoId}/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(planParams)
+        body: JSON.stringify(params)
       });
       
       if (response.ok) {
@@ -204,18 +193,15 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     });
   };
 
-  const handlePrzeniesFormatki = (source: Paleta, target?: Paleta) => {
-    if (!target) {
-      const otherPalety = palety.filter(p => p.id !== source.id);
-      if (otherPalety.length === 0) {
-        message.warning('Brak innych palet do przeniesienia formatek');
-        return;
-      }
-      target = otherPalety[0];
+  const handlePrzeniesFormatki = (source: Paleta) => {
+    const otherPalety = palety.filter(p => p.id !== source.id);
+    if (otherPalety.length === 0) {
+      message.warning('Brak innych palet do przeniesienia formatek');
+      return;
     }
     
     setSourcePaleta(source);
-    setTargetPaleta(target);
+    setTargetPaleta(otherPalety[0]);
     setPrzeniesModalVisible(true);
   };
 
@@ -246,146 +232,10 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch(status?.toLowerCase()) {
-      case 'otwarta': return 'processing';
-      case 'zamknieta': return 'success';
-      case 'wyslana': return 'warning';
-      case 'przygotowanie': return 'default';
-      case 'pakowanie': return 'processing';
-      case 'zapakowana': return 'success';
-      default: return 'default';
-    }
+  const handleViewDetails = (paleta: Paleta) => {
+    setSelectedPaleta(paleta);
+    setDetailsModalVisible(true);
   };
-
-  const getWysokoscColor = (wysokosc: number) => {
-    if (wysokosc > 1440) return '#ff4d4f'; // Za wysoka
-    if (wysokosc > 1200) return '#faad14'; // Blisko limitu
-    return '#52c41a'; // OK
-  };
-
-  const columns = [
-    {
-      title: 'Paleta',
-      dataIndex: 'numer_palety',
-      key: 'numer_palety',
-      render: (text: string, record: Paleta) => (
-        <Space direction="vertical" size="small">
-          <Text strong>{text || `PAL-${record.id}`}</Text>
-          <Space>
-            <Tag>{record.typ || 'EURO'}</Tag>
-            <Tag>{record.kierunek || 'wewnętrzny'}</Tag>
-          </Space>
-        </Space>
-      )
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={getStatusColor(status)}>
-          {(status || 'otwarta').toUpperCase()}
-        </Tag>
-      )
-    },
-    {
-      title: 'Kolory',
-      dataIndex: 'kolory_na_palecie',
-      key: 'kolory_na_palecie',
-      render: (kolory: string) => (
-        kolory ? kolory.split(',').map(k => 
-          <Tag key={k} color="blue">{k.trim()}</Tag>
-        ) : <Text type="secondary">-</Text>
-      )
-    },
-    {
-      title: 'Formatek',
-      dataIndex: 'ilosc_formatek',
-      key: 'ilosc_formatek',
-      align: 'center' as const,
-      render: (ilosc: number) => (
-        <Badge 
-          count={ilosc || 0} 
-          overflowCount={999}
-          style={{ backgroundColor: ilosc > 0 ? '#1890ff' : '#d9d9d9' }}
-        />
-      )
-    },
-    {
-      title: 'Wysokość stosu',
-      dataIndex: 'wysokosc_stosu',
-      key: 'wysokosc_stosu',
-      render: (wysokosc: number) => {
-        const value = wysokosc || 0;
-        return (
-          <Tooltip title={`${value > 1440 ? 'Za wysoka!' : value > 1200 ? 'Blisko limitu' : 'OK'}`}>
-            <Space>
-              <ColumnHeightOutlined style={{ color: getWysokoscColor(value) }} />
-              <Text style={{ color: getWysokoscColor(value) }}>
-                {value} mm
-              </Text>
-            </Space>
-          </Tooltip>
-        );
-      }
-    },
-    {
-      title: 'Akcje',
-      key: 'actions',
-      render: (_: any, record: Paleta) => (
-        <Space>
-          <Tooltip title="Szczegóły">
-            <Button 
-              size="small" 
-              onClick={() => {
-                setSelectedPaleta(record);
-                setDetailsModalVisible(true);
-              }}
-            >
-              Podgląd
-            </Button>
-          </Tooltip>
-          <Tooltip title="Przenieś formatki">
-            <Button 
-              size="small" 
-              icon={<SwapOutlined />}
-              onClick={() => handlePrzeniesFormatki(record)}
-              disabled={!record.ilosc_formatek || record.ilosc_formatek === 0}
-            />
-          </Tooltip>
-          {record.status?.toLowerCase() === 'otwarta' && (
-            <Tooltip title="Zamknij paletę">
-              <Button
-                size="small"
-                type="link"
-                danger
-                onClick={() => {
-                  Modal.confirm({
-                    title: 'Zamknięcie palety',
-                    content: `Czy na pewno chcesz zamknąć paletę ${record.numer_palety || `PAL-${record.id}`}?`,
-                    okText: 'Zamknij',
-                    cancelText: 'Anuluj',
-                    onOk: () => handleZamknijPalete(record.id)
-                  });
-                }}
-              >
-                Zamknij
-              </Button>
-            </Tooltip>
-          )}
-        </Space>
-      )
-    }
-  ];
-
-  // Oblicz statystyki
-  const totalFormatek = palety.reduce((sum, p) => sum + (p.ilosc_formatek || 0), 0);
-  const avgWysokosc = palety.length > 0 
-    ? Math.round(palety.reduce((sum, p) => sum + (p.wysokosc_stosu || 0), 0) / palety.length)
-    : 0;
-  const maxWysokosc = Math.max(...palety.map(p => p.wysokosc_stosu || 0), 0);
-  const paletyPrzekroczone = palety.filter(p => (p.wysokosc_stosu || 0) > 1440).length;
 
   return (
     <Card 
@@ -448,194 +298,26 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         />
       ) : (
         <>
-          {/* Statystyki */}
-          <Row gutter={16} style={{ marginBottom: 16 }}>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Ilość palet"
-                  value={palety.length}
-                  prefix={<AppstoreOutlined />}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Łącznie formatek"
-                  value={totalFormatek}
-                  valueStyle={{ color: '#3f8600' }}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Średnia wysokość"
-                  value={avgWysokosc}
-                  suffix="mm"
-                  valueStyle={{ color: avgWysokosc > 1200 ? '#faad14' : '#3f8600' }}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card size="small">
-                <Statistic
-                  title="Max wysokość"
-                  value={maxWysokosc}
-                  suffix="mm"
-                  valueStyle={{ color: maxWysokosc > 1440 ? '#ff4d4f' : '#3f8600' }}
-                  prefix={maxWysokosc > 1440 ? <WarningOutlined /> : null}
-                />
-              </Card>
-            </Col>
-          </Row>
-
-          {paletyPrzekroczone > 0 && (
-            <Alert
-              message={`Uwaga! ${paletyPrzekroczone} palet${paletyPrzekroczone > 1 ? 'y' : 'a'} przekracza maksymalną wysokość 1440mm`}
-              type="warning"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
-          )}
-
-          <Table
-            columns={columns}
-            dataSource={palety}
-            rowKey="id"
+          <PaletyStats palety={palety} />
+          <PaletyTable
+            palety={palety}
             loading={loading}
-            pagination={false}
-            size="middle"
+            onViewDetails={handleViewDetails}
+            onTransferFormatki={handlePrzeniesFormatki}
+            onClosePaleta={handleZamknijPalete}
           />
         </>
       )}
 
-      {/* Modal planowania palet */}
-      <Modal
-        title={
-          <Space>
-            <SettingOutlined />
-            <Text strong>Parametry planowania palet</Text>
-          </Space>
-        }
-        open={planowanieModalVisible}
+      {/* Modale */}
+      <PlanowanieModal
+        visible={planowanieModalVisible}
+        loading={loading}
+        initialValues={planParams}
         onCancel={() => setPlanowanieModalVisible(false)}
         onOk={handlePlanujPalety}
-        confirmLoading={loading}
-        width={600}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          initialValues={planParams}
-          onValuesChange={(_, values) => setPlanParams(values)}
-        >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="max_wysokosc_mm"
-                label="Maksymalna wysokość (mm)"
-                tooltip="Standardowa wysokość palety EURO to 1440mm"
-              >
-                <Slider
-                  min={800}
-                  max={2000}
-                  marks={{
-                    800: '800',
-                    1200: '1200',
-                    1440: '1440',
-                    2000: '2000'
-                  }}
-                  tooltip={{ formatter: (value) => `${value}mm` }}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="max_formatek_na_palete"
-                label="Max formatek na paletę"
-                tooltip="Optymalna ilość to 150-250 sztuk"
-              >
-                <InputNumber
-                  min={50}
-                  max={500}
-                  style={{ width: '100%' }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+      />
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="grubosc_plyty"
-                label="Grubość płyty (mm)"
-              >
-                <Select>
-                  <Option value={10}>10 mm</Option>
-                  <Option value={12}>12 mm</Option>
-                  <Option value={16}>16 mm</Option>
-                  <Option value={18}>18 mm</Option>
-                  <Option value={22}>22 mm</Option>
-                  <Option value={25}>25 mm</Option>
-                  <Option value={28}>28 mm</Option>
-                  <Option value={36}>36 mm</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="typ_palety"
-                label="Typ palety"
-              >
-                <Select>
-                  <Option value="EURO">EURO (1200x800)</Option>
-                  <Option value="STANDARD">Standard (1200x1000)</Option>
-                  <Option value="MAXI">Maxi (1200x1200)</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="strategia"
-            label="Strategia układania"
-            tooltip="Określa sposób grupowania formatek na paletach"
-          >
-            <Select>
-              <Option value="kolor">
-                <Space>
-                  <Tag color="blue">Według koloru</Tag>
-                  <Text type="secondary">Grupuj formatki tego samego koloru</Text>
-                </Space>
-              </Option>
-              <Option value="rozmiar">
-                <Space>
-                  <Tag color="green">Według rozmiaru</Tag>
-                  <Text type="secondary">Grupuj formatki o podobnych wymiarach</Text>
-                </Space>
-              </Option>
-              <Option value="mieszane">
-                <Space>
-                  <Tag color="orange">Mieszane</Tag>
-                  <Text type="secondary">Optymalne wypełnienie palet</Text>
-                </Space>
-              </Option>
-            </Select>
-          </Form.Item>
-
-          <Alert
-            message="Informacja"
-            description={`System automatycznie zaplanuje rozmieszczenie formatek na paletach według wybranych parametrów. 
-              Formatki zostaną pogrupowane według strategii: ${planParams.strategia}.`}
-            type="info"
-            showIcon
-          />
-        </Form>
-      </Modal>
-
-      {/* Modal przenoszenia formatek */}
       {sourcePaleta && targetPaleta && (
         <PaletaPrzeniesFormatki
           visible={przeniesModalVisible}
@@ -657,7 +339,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         />
       )}
 
-      {/* Modal szczegółów palety */}
       {selectedPaleta && (
         <PaletaDetails
           visible={detailsModalVisible}

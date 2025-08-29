@@ -29,23 +29,16 @@ interface WymiaryGrupa {
 const WymiarGrupaCard: React.FC<{
   wymiarKey: string;
   grupa: WymiaryGrupa;
-  rozmiarRozkroju: { dlugosc: number; szerokosc: number } | null;
   totalSztuk: number;
-}> = ({ wymiarKey, grupa, rozmiarRozkroju, totalSztuk }) => {
-  const isCorrectSize = rozmiarRozkroju && (
-    (grupa.dlugosc === rozmiarRozkroju.dlugosc && 
-     grupa.szerokosc === rozmiarRozkroju.szerokosc) ||
-    (grupa.dlugosc === rozmiarRozkroju.szerokosc && 
-     grupa.szerokosc === rozmiarRozkroju.dlugosc)
-  );
+}> = ({ wymiarKey, grupa, totalSztuk }) => {
   
   return (
     <Card 
       key={wymiarKey} 
       size="small"
       style={{ 
-        backgroundColor: isCorrectSize === false ? '#fff2f0' : '#f6ffed',
-        border: `1px solid ${isCorrectSize === false ? '#ffccc7' : '#b7eb8f'}`
+        backgroundColor: '#f6ffed',
+        border: `1px solid #b7eb8f`
       }}
     >
       <Space direction="vertical" style={{ width: '100%' }}>
@@ -56,7 +49,7 @@ const WymiarGrupaCard: React.FC<{
             showZero
           >
             <Tag 
-              color={isCorrectSize === false ? 'error' : 'processing'} 
+              color="processing" 
               style={{ fontSize: '14px', padding: '4px 12px' }}
             >
               {grupa.dlugosc} x {grupa.szerokosc} mm
@@ -69,12 +62,6 @@ const WymiarGrupaCard: React.FC<{
                 Grubości: {Array.from(grupa.grubosci).join(', ')} mm
               </Tag>
             </Tooltip>
-          )}
-          
-          {isCorrectSize === false && (
-            <Text type="danger" strong>
-              <WarningOutlined /> Nieprawidłowy rozmiar!
-            </Text>
           )}
         </Space>
         
@@ -145,7 +132,6 @@ export const WymiaryInfo: React.FC<WymiaryInfoProps> = ({ plyty, kolorePlyty, ro
       grupa.grubosci.add(plyta.grubosc);
     });
     
-    let rozkrojPasuje = true;
     let rozmiarRozkroju = null;
     
     if (rozkroj?.rozmiar_plyty) {
@@ -155,27 +141,19 @@ export const WymiaryInfo: React.FC<WymiaryInfoProps> = ({ plyty, kolorePlyty, ro
           dlugosc: parseInt(match[1]),
           szerokosc: parseInt(match[2])
         };
-        
-        rozkrojPasuje = Array.from(grupy.values()).every(grupa => 
-          (grupa.dlugosc === rozmiarRozkroju!.dlugosc && 
-           grupa.szerokosc === rozmiarRozkroju!.szerokosc) ||
-          (grupa.dlugosc === rozmiarRozkroju!.szerokosc && 
-           grupa.szerokosc === rozmiarRozkroju!.dlugosc)
-        );
       }
     }
     
     return {
       grupy: Array.from(grupy.entries()),
       wszystkieTeSame: grupy.size === 1,
-      rozkrojPasuje,
       rozmiarRozkroju
     };
   }, [plyty, kolorePlyty, rozkroj]);
   
   if (!wymiaryAnaliza) return null;
   
-  const { grupy, wszystkieTeSame, rozkrojPasuje, rozmiarRozkroju } = wymiaryAnaliza;
+  const { grupy, wszystkieTeSame, rozmiarRozkroju } = wymiaryAnaliza;
   
   return (
     <Card 
@@ -196,19 +174,6 @@ export const WymiaryInfo: React.FC<WymiaryInfoProps> = ({ plyty, kolorePlyty, ro
         </Space>
       }
       style={{ marginBottom: 16 }}
-      extra={
-        rozkroj && (
-          rozkrojPasuje ? (
-            <Tag color="success">Wymiary zgodne z rozkrojem</Tag>
-          ) : (
-            <Tooltip title="Wybrane płyty mają różne wymiary niż rozkrój!">
-              <Tag color="error" icon={<WarningOutlined />}>
-                Niezgodność wymiarów!
-              </Tag>
-            </Tooltip>
-          )
-        )
-      }
     >
       {rozmiarRozkroju && (
         <Alert
@@ -221,7 +186,7 @@ export const WymiaryInfo: React.FC<WymiaryInfoProps> = ({ plyty, kolorePlyty, ro
               </Tag>
             </Space>
           }
-          type={rozkrojPasuje ? "success" : "error"}
+          type="info"
           style={{ marginBottom: 12 }}
         />
       )}
@@ -234,7 +199,6 @@ export const WymiaryInfo: React.FC<WymiaryInfoProps> = ({ plyty, kolorePlyty, ro
               key={key}
               wymiarKey={key}
               grupa={grupa}
-              rozmiarRozkroju={rozmiarRozkroju}
               totalSztuk={totalSztuk}
             />
           );
@@ -244,7 +208,13 @@ export const WymiaryInfo: React.FC<WymiaryInfoProps> = ({ plyty, kolorePlyty, ro
       {!wszystkieTeSame && (
         <Alert
           message="Uwaga: Różne wymiary płyt"
-          description="Wybrane płyty mają różne wymiary. Upewnij się, że rozkrój jest odpowiedni dla wszystkich formatów płyt."
+          description={
+            <Space direction="vertical">
+              <Text>Wybrane płyty mają różne wymiary. Upewnij się, że rozkrój jest odpowiedni dla wszystkich formatów płyt.</Text>
+              <Text type="secondary">• Operator powinien być poinformowany o zmianie formatu</Text>
+              <Text type="secondary">• Maszyna musi być przygotowana na zmianę wymiarów</Text>
+            </Space>
+          }
           type="warning"
           icon={<WarningOutlined />}
           style={{ marginTop: 12 }}

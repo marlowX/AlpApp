@@ -17,11 +17,15 @@ import functionsRoutes from './functions.routes';
  */
 const router = Router();
 
-// Montowanie pod-routerów
+// TYMCZASOWO: Wracamy do starej kolejności
+// Problem z routingiem trzeba rozwiązać inaczej
 router.use('/', listRoutes);        // GET /api/zko
 router.use('/', detailsRoutes);     // GET /api/zko/:id, /api/zko/:id/status
-router.use('/', createRoutes);      // POST /api/zko/create, DELETE /api/zko/:id
+
+// Pozycje PRZED create żeby /pozycje/:id działało
 router.use('/', pozycjeRoutes);     // Operacje na pozycjach
+
+router.use('/', createRoutes);      // POST /api/zko/create, DELETE /api/zko/:id
 router.use('/', statusRoutes);      // POST /api/zko/status/change
 router.use('/', completeRoutes);    // POST /api/zko/:id/complete
 router.use('/', functionsRoutes);   // POST /api/zko/functions

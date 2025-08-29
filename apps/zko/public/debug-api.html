@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug ZKO API</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f4f4f4; padding: 10px; overflow: auto; border-radius: 3px; }
+        .log { background: #333; color: #0f0; padding: 10px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>Debug ZKO API - Test Bezpośredni</h1>
+    
+    <div class="log" id="console">
+        === Console Log ===<br>
+    </div>
+    
+    <div class="test">
+        <h2>Test 1: Sprawdź Backend</h2>
+        <button onclick="testBackend()">Test Backend (port 5001)</button>
+        <button onclick="testProxy()">Test Proxy (port 3001)</button>
+        <pre id="backend-result"></pre>
+    </div>
+    
+    <div class="test">
+        <h2>Test 2: Lista ZKO</h2>
+        <button onclick="testList()">GET /api/zko</button>
+        <pre id="list-result"></pre>
+    </div>
+    
+    <div class="test">
+        <h2>Test 3: Edycja Pozycji</h2>
+        <input type="number" id="edit-id" value="39" placeholder="ID pozycji">
+        <button onclick="testEdit()">PUT /api/zko/pozycje/{id}</button>
+        <pre id="edit-result"></pre>
+    </div>
+    
+    <div class="test">
+        <h2>Test 4: Usuwanie Pozycji</h2>
+        <input type="number" id="delete-id" value="43" placeholder="ID pozycji">
+        <button onclick="testDelete()">DELETE /api/zko/pozycje/{id}</button>
+        <pre id="delete-result"></pre>
+    </div>
+
+    <script>
+        const log = (msg, type = 'info') => {
+            const console = document.getElementById('console');
+            const time = new Date().toISOString().substr(11, 8);
+            const color = type === 'error' ? '#f66' : type === 'success' ? '#6f6' : '#fff';
+            console.innerHTML += `<span style="color: ${color}">[${time}] ${msg}</span><br>`;
+            console.scrollTop = console.scrollHeight;
+        };
+
+        async function testBackend() {
+            const resultEl = document.getElementById('backend-result');
+            log('Testing direct backend connection...');
+            
+            try {
+                const response = await fetch('http://localhost:5001/health');
+                const data = await response.json();
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                resultEl.parentElement.className = 'test success';
+                log('Backend is running!', 'success');
+            } catch (error) {
+                resultEl.textContent = 'ERROR: Backend not responding\n' + error.message;
+                resultEl.parentElement.className = 'test error';
+                log('Backend error: ' + error.message, 'error');
+            }
+        }
+
+        async function testProxy() {
+            const resultEl = document.getElementById('backend-result');
+            log('Testing proxy connection...');
+            
+            try {
+                const response = await fetch('/api/test/connection');
+                const text = await response.text();
+                log(`Response status: ${response.status}`);
+                log(`Response: ${text.substring(0, 100)}...`);
+                
+                if (response.ok) {
+                    const data = JSON.parse(text);
+                    resultEl.textContent = JSON.stringify(data, null, 2);
+                    resultEl.parentElement.className = 'test success';
+                    log('Proxy is working!', 'success');
+                } else {
+                    resultEl.textContent = `HTTP ${response.status}: ${text}`;
+                    resultEl.parentElement.className = 'test error';
+                    log(`Proxy error: HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message;
+                resultEl.parentElement.className = 'test error';
+                log('Proxy error: ' + error.message, 'error');
+            }
+        }
+        
+        async function testList() {
+            const resultEl = document.getElementById('list-result');
+            log('Testing GET /api/zko...');
+            
+            try {
+                const response = await fetch('/api/zko');
+                log(`Response status: ${response.status}`);
+                
+                const text = await response.text();
+                log(`Raw response: ${text.substring(0, 100)}...`);
+                
+                const data = JSON.parse(text);
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                resultEl.parentElement.className = response.ok ? 'test success' : 'test error';
+                log(response.ok ? 'List loaded!' : 'List error!', response.ok ? 'success' : 'error');
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message;
+                resultEl.parentElement.className = 'test error';
+                log('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function testEdit() {
+            const id = document.getElementById('edit-id').value;
+            const resultEl = document.getElementById('edit-result');
+            log(`Testing PUT /api/zko/pozycje/${id}...`);
+            
+            const body = {
+                rozkroj_id: 2,
+                ilosc_plyt: 5,
+                kolor_plyty: 'TEST_KOLOR',
+                nazwa_plyty: 'TEST_NAZWA',
+                kolejnosc: 1,
+                uwagi: 'Test from browser ' + new Date().toISOString()
+            };
+            
+            log('Request body: ' + JSON.stringify(body));
+            
+            try {
+                const response = await fetch(`/api/zko/pozycje/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
+                log(`Response status: ${response.status}`);
+                const text = await response.text();
+                log(`Raw response: ${text.substring(0, 200)}...`);
+                
+                if (text) {
+                    const data = JSON.parse(text);
+                    resultEl.textContent = JSON.stringify(data, null, 2);
+                    resultEl.parentElement.className = data.sukces ? 'test success' : 'test error';
+                    log(data.sukces ? 'Edit successful!' : 'Edit failed!', data.sukces ? 'success' : 'error');
+                } else {
+                    resultEl.textContent = 'Empty response';
+                    resultEl.parentElement.className = 'test error';
+                    log('Empty response from server', 'error');
+                }
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message + '\n' + error.stack;
+                resultEl.parentElement.className = 'test error';
+                log('Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function testDelete() {
+            const id = document.getElementById('delete-id').value;
+            const resultEl = document.getElementById('delete-result');
+            log(`Testing DELETE /api/zko/pozycje/${id}...`);
+            
+            try {
+                const response = await fetch(`/api/zko/pozycje/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ uzytkownik: 'test-browser' })
+                });
+                
+                log(`Response status: ${response.status}`);
+                const text = await response.text();
+                log(`Raw response: ${text}`);
+                
+                if (response.status === 404) {
+                    resultEl.textContent = 'ERROR 404: Endpoint not found\n\nThis means the route /api/zko/pozycje/:id is not registered in backend';
+                    resultEl.parentElement.className = 'test error';
+                    log('PROBLEM: Endpoint not registered in backend!', 'error');
+                    return;
+                }
+                
+                if (text) {
+                    const data = JSON.parse(text);
+                    resultEl.textContent = JSON.stringify(data, null, 2);
+                    resultEl.parentElement.className = data.sukces ? 'test success' : 'test error';
+                    log(data.sukces ? 'Delete successful!' : 'Delete failed!', data.sukces ? 'success' : 'error');
+                } else {
+                    resultEl.textContent = 'Empty response';
+                    resultEl.parentElement.className = 'test error';
+                }
+            } catch (error) {
+                resultEl.textContent = 'ERROR: ' + error.message;
+                resultEl.parentElement.className = 'test error';
+                log('Error: ' + error.message, 'error');
+            }
+        }
+        
+        // Auto-test on load
+        window.onload = () => {
+            log('Page loaded. Ready for testing.');
+            log('Make sure backend is running on port 5001');
+            log('Make sure frontend dev server is running on port 3001');
+        };
+    </script>
+</body>
+</html>
