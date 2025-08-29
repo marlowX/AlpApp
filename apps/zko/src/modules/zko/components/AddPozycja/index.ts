@@ -11,6 +11,7 @@ export { ValidationAlerts } from './ValidationAlerts';
 export { SystemInfoAlert } from './SystemInfoAlert';
 export { PozycjaAdditionalOptions } from './PozycjaAdditionalOptions';
 export { RozkrojPreview } from './RozkrojPreview';
+export { WymiaryVisualizer } from './WymiaryVisualizer';
 
 // Typy
 export type {
@@ -19,5 +20,7 @@ export type {
   AddPozycjaFormData,
   Plyta,
   Rozkroj,
-  Formatka
+  Formatka,
+  WymiaryGrupa,
+  WymiaryAnaliza
 } from './types';

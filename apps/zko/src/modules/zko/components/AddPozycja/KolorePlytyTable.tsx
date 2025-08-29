@@ -1,7 +1,10 @@
-import React from 'react';
-import { Table, Button, InputNumber, Typography, Space, Card, Tag } from 'antd';
-import { DeleteOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import React, { useMemo } from 'react';
+import { Table, Button, Card, Tag, Tooltip, Space, Typography, Badge } from 'antd';
+import { DeleteOutlined, InfoCircleOutlined, WarningOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { PlytySelectorV2 } from './PlytySelectorV2';
+import { WymiaryColumn } from './components/WymiaryColumn';
+import { ParametryColumn } from './components/ParametryColumn';
+import { IloscColumn } from './components/IloscColumn';
 import type { KolorPlyty, Plyta } from './types';
 
 const { Text } = Typography;
@@ -14,6 +17,7 @@ interface KolorePlytyTableProps {
   onSearchChange: (value: string) => void;
   onUpdateKolor: (index: number, field: string, value: any) => void;
   onRemoveKolor: (index: number) => void;
+  maxPlytNaPozycje?: number; // Nowy prop dla globalnego limitu
 }
 
 export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
@@ -23,42 +27,79 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
   searchText,
   onSearchChange,
   onUpdateKolor,
-  onRemoveKolor
+  onRemoveKolor,
+  maxPlytNaPozycje = 5 // Domyślnie 5
 }) => {
 
-  const getMaxPlytForColor = (kolor: string): number => {
+  // Oblicz sumę wszystkich płyt
+  const totalPlyty = kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
+  const przekroczonyLimit = totalPlyty > maxPlytNaPozycje;
+
+  const wymiaryAnaliza = useMemo(() => {
+    const wybranePlyty = kolorePlyty
+      .filter(k => k.kolor)
+      .map(k => {
+        const plyta = plyty.find(p => p.kolor_nazwa === k.kolor);
+        return plyta ? { ...plyta, ilosc: k.ilosc } : null;
+      })
+      .filter(Boolean) as (Plyta & { ilosc: number })[];
+    
+    if (wybranePlyty.length === 0) return { wszystkieTeSame: true, grupy: new Map() };
+    
+    const grupy = new Map<string, number>();
+    wybranePlyty.forEach(plyta => {
+      const key = `${plyta.dlugosc || 0}x${plyta.szerokosc || 0}`;
+      grupy.set(key, (grupy.get(key) || 0) + 1);
+    });
+    
+    return {
+      wszystkieTeSame: grupy.size === 1,
+      grupy,
+      najczestszyRozmiar: grupy.size > 0 ? 
+        Array.from(grupy.entries()).sort((a, b) => b[1] - a[1])[0][0] : null
+    };
+  }, [kolorePlyty, plyty]);
+
+  const getMaxPlytForColor = (kolor: string, currentIndex: number): number => {
     const plyta = plyty.find(p => p.kolor_nazwa === kolor);
-    return plyta && plyta.grubosc >= 18 ? 5 : 50;
+    const gruboscLimit = plyta && plyta.grubosc >= 18 ? 5 : 50;
+    
+    // Oblicz ile płyt jest już w innych kolorach
+    const plytyInneKolory = kolorePlyty.reduce((sum, k, idx) => {
+      if (idx === currentIndex) return sum; // Pomiń aktualny kolor
+      return sum + (k.ilosc || 0);
+    }, 0);
+    
+    // Maksymalna ilość dla tego koloru to minimum z:
+    // 1. Limitu grubości (5 lub 50)
+    // 2. Pozostałej ilości do globalnego limitu
+    const pozostalo = maxPlytNaPozycje - plytyInneKolory;
+    return Math.min(gruboscLimit, Math.max(0, pozostalo));
   };
 
   const handlePlytaChange = (index: number, plyta: Plyta | null) => {
-    console.log('🔄 handlePlytaChange called:', { index, plyta, currentState: kolorePlyty });
-    
     if (plyta) {
-      console.log('✅ Wybrano płytę:', plyta.kolor_nazwa, plyta);
-      // Aktualizuj wszystkie pola jedną operacją
       const updatedKolor = {
         kolor: plyta.kolor_nazwa,
         nazwa: plyta.nazwa,
-        ilosc: kolorePlyty[index]?.ilosc || 1, // Zachowaj poprzednią ilość
+        ilosc: kolorePlyty[index]?.ilosc || 1,
         plyta_id: plyta.id,
         stan_magazynowy: plyta.stan_magazynowy,
-        grubosc: plyta.grubosc
+        grubosc: plyta.grubosc,
+        dlugosc: plyta.dlugosc,
+        szerokosc: plyta.szerokosc
       };
-      
-      console.log('📦 Aktualizacja pełnego obiektu:', updatedKolor);
-      // Użyj specjalnego pola do aktualizacji całego obiektu
       onUpdateKolor(index, '__FULL_UPDATE__', updatedKolor);
     } else {
-      console.log('❌ Wyczyszczono płytę dla pozycji:', index);
-      // Wyczyść wszystkie pola jednocześnie
       const clearedKolor = {
         kolor: '',
         nazwa: '',
         ilosc: 1,
         plyta_id: undefined,
         stan_magazynowy: undefined,
-        grubosc: undefined
+        grubosc: undefined,
+        dlugosc: undefined,
+        szerokosc: undefined
       };
       onUpdateKolor(index, '__FULL_UPDATE__', clearedKolor);
     }
@@ -74,21 +115,30 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       ),
       dataIndex: 'kolor',
       key: 'kolor',
-      width: '45%',
+      width: '35%',
+      render: (_: any, __: any, index: number) => (
+        <PlytySelectorV2
+          plyty={plyty}
+          loading={plytyLoading}
+          value={kolorePlyty[index]?.kolor}
+          onChange={(plyta) => handlePlytaChange(index, plyta)}
+          placeholder={`Wybierz płytę dla pozycji ${index + 1}`}
+        />
+      ),
+    },
+    {
+      title: 'Wymiary',
+      dataIndex: 'wymiary',
+      key: 'wymiary',
+      width: '20%',
       render: (_: any, __: any, index: number) => {
-        const currentValue = kolorePlyty[index]?.kolor;
-        console.log('🎯 Render selector for index:', index, 'current value:', currentValue);
-        
+        const kolor = kolorePlyty[index];
+        const plyta = plyty.find(p => p.kolor_nazwa === kolor?.kolor);
         return (
-          <PlytySelectorV2
-            plyty={plyty}
-            loading={plytyLoading}
-            value={currentValue}
-            onChange={(plyta) => {
-              console.log('📝 PlytySelectorV2 onChange called:', { index, plyta });
-              handlePlytaChange(index, plyta);
-            }}
-            placeholder={`Wybierz płytę dla pozycji ${index + 1}`}
+          <WymiaryColumn 
+            kolor={kolor}
+            plyta={plyta}
+            wymiaryAnaliza={wymiaryAnaliza}
           />
         );
       },
@@ -97,96 +147,33 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       title: 'Parametry',
       dataIndex: 'parametry',
       key: 'parametry',
-      width: '20%',
-      render: (_: any, __: any, index: number) => {
-        const kolor = kolorePlyty[index];
-        
-        if (!kolor?.kolor) {
-          return <Text type="secondary">Wybierz płytę</Text>;
-        }
-        
-        const stockColor = (kolor.stan_magazynowy || 0) > 20 ? '#52c41a' : 
-                          (kolor.stan_magazynowy || 0) > 5 ? '#faad14' : '#ff4d4f';
-        
-        return (
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-            <div>
-              <Text strong style={{ fontSize: '12px' }}>
-                Grubość: {kolor.grubosc}mm
-              </Text>
-            </div>
-            <div>
-              <Text 
-                style={{ 
-                  fontSize: '12px',
-                  color: stockColor,
-                  fontWeight: 500
-                }}
-              >
-                Stan: {kolor.stan_magazynowy || 0} szt.
-              </Text>
-            </div>
-            {(kolor.grubosc || 0) >= 18 && (
-              <Tag size="small" color="orange">
-                MAX 5 szt.
-              </Tag>
-            )}
-          </Space>
-        );
-      },
+      width: '15%',
+      render: (_: any, __: any, index: number) => (
+        <ParametryColumn kolor={kolorePlyty[index]} />
+      ),
     },
     {
       title: 'Ilość płyt',
       dataIndex: 'ilosc',
       key: 'ilosc',
-      width: '25%',
+      width: '20%',
       render: (_: any, __: any, index: number) => {
         const kolor = kolorePlyty[index];
-        const maxPlyt = kolor?.kolor ? getMaxPlytForColor(kolor.kolor) : 5;
-        const stanMagazynowy = kolor?.stan_magazynowy || 0;
-        const currentValue = kolor?.ilosc || 1;
-        
-        const hasError = currentValue > stanMagazynowy;
-        const exceedsLimit = currentValue > maxPlyt;
-        
+        const maxPlyt = kolor?.kolor ? getMaxPlytForColor(kolor.kolor, index) : maxPlytNaPozycje;
         return (
-          <div>
-            <InputNumber
-              min={1}
-              max={Math.min(maxPlyt, stanMagazynowy)}
-              value={currentValue}
-              onChange={(value) => onUpdateKolor(index, 'ilosc', value || 1)}
-              style={{ width: '100%' }}
-              status={hasError || exceedsLimit ? 'error' : undefined}
-              disabled={!kolor?.kolor}
+          <>
+            <IloscColumn
+              kolor={kolor}
+              index={index}
+              maxPlyt={maxPlyt}
+              onUpdateKolor={onUpdateKolor}
             />
-            <div style={{ marginTop: 4 }}>
-              {!kolor?.kolor ? (
-                <Text type="secondary" style={{ fontSize: '11px' }}>
-                  Wybierz płytę
-                </Text>
-              ) : (
-                <Space direction="vertical" size={0}>
-                  <Text style={{ fontSize: '10px', color: '#666' }}>
-                    Limit: {maxPlyt} szt.
-                  </Text>
-                  <Text style={{ fontSize: '10px', color: '#666' }}>
-                    Dostępne: {stanMagazynowy}
-                  </Text>
-                  {hasError && (
-                    <Text style={{ fontSize: '10px', color: '#ff4d4f' }}>
-                      ⚠ Przekroczono stan!
-                    </Text>
-                  )}
-                  {exceedsLimit && (
-                    <Text style={{ fontSize: '10px', color: '#ff4d4f' }}>
-                      ⚠ Za dużo płyt!
-                    </Text>
-                  )}
-                </Space>
-              )}
-            </div>
-          </div>
+            {kolor?.kolor && maxPlyt === 0 && (
+              <Text type="danger" style={{ fontSize: '10px' }}>
+                Brak miejsca! Zmniejsz inne kolory.
+              </Text>
+            )}
+          </>
         );
       },
     },
@@ -203,10 +190,11 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
             icon={<DeleteOutlined />}
             onClick={() => onRemoveKolor(index)}
             disabled={kolorePlyty.length === 1}
-            title={kolorePlyty.length === 1 ? "Musi zostać przynajmniej jedna pozycja" : "Usuń pozycję"}
+            title={kolorePlyty.length === 1 ? 
+              "Musi zostać przynajmniej jedna pozycja" : "Usuń pozycję"}
           />
           <div style={{ fontSize: '10px', color: '#666', marginTop: 2 }}>
-            Pozycja {index + 1}
+            #{index + 1}
           </div>
         </div>
       ),
@@ -214,37 +202,101 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
   ];
 
   return (
-    <Card size="small" title="Kolory płyt do rozkroju">
+    <Card 
+      size="small" 
+      title={
+        <Space>
+          <Text strong>Kolory płyt do rozkroju</Text>
+          {przekroczonyLimit && (
+            <Tooltip title={`Suma płyt (${totalPlyty}) przekracza limit ${maxPlytNaPozycje}!`}>
+              <Tag color="error" icon={<ExclamationCircleOutlined />}>
+                PRZEKROCZONY LIMIT!
+              </Tag>
+            </Tooltip>
+          )}
+          {!wymiaryAnaliza.wszystkieTeSame && wymiaryAnaliza.grupy.size > 1 && (
+            <Tooltip title="Wybrane płyty mają różne wymiary">
+              <Tag color="warning" icon={<WarningOutlined />}>
+                {wymiaryAnaliza.grupy.size} różne wymiary
+              </Tag>
+            </Tooltip>
+          )}
+        </Space>
+      }
+      style={{ borderColor: przekroczonyLimit ? '#ff4d4f' : undefined }}
+    >
       <Table
         columns={columns}
         dataSource={kolorePlyty.map((item, index) => ({ ...item, key: index }))}
         pagination={false}
         size="small"
-        // Usunięty scroll={{ x: 800 }} - to powodowało problem!
-        locale={{
-          emptyText: 'Brak wybranych płyt'
-        }}
-        style={{ overflow: 'hidden' }} // Dodatkowe zabezpieczenie
+        locale={{ emptyText: 'Brak wybranych płyt' }}
+        style={{ overflow: 'hidden' }}
       />
       
-      {kolorePlyty.length > 0 && (
-        <div style={{ 
-          marginTop: 12, 
-          padding: 8, 
-          backgroundColor: '#fafafa',
-          borderRadius: 4
-        }}>
-          <Space>
-            <InfoCircleOutlined style={{ color: '#1890ff' }} />
-            <Text style={{ fontSize: '12px' }}>
-              <strong>Łącznie pozycji:</strong> {kolorePlyty.length}
-            </Text>
-            <Text style={{ fontSize: '12px' }}>
-              <strong>Łączna ilość płyt:</strong> {kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0)}
-            </Text>
-          </Space>
+      <TableFooter 
+        kolorePlyty={kolorePlyty}
+        wymiaryAnaliza={wymiaryAnaliza}
+        totalPlyty={totalPlyty}
+        maxPlytNaPozycje={maxPlytNaPozycje}
+        przekroczonyLimit={przekroczonyLimit}
+      />
+    </Card>
+  );
+};
+
+// Podkomponent stopki tabeli
+const TableFooter: React.FC<{
+  kolorePlyty: KolorPlyty[];
+  wymiaryAnaliza: any;
+  totalPlyty: number;
+  maxPlytNaPozycje: number;
+  przekroczonyLimit: boolean;
+}> = ({ kolorePlyty, wymiaryAnaliza, totalPlyty, maxPlytNaPozycje, przekroczonyLimit }) => {
+  if (kolorePlyty.length === 0) return null;
+  
+  return (
+    <div style={{ 
+      marginTop: 12, 
+      padding: 8, 
+      backgroundColor: przekroczonyLimit ? '#fff2f0' : '#fafafa',
+      borderRadius: 4,
+      border: przekroczonyLimit ? '1px solid #ffccc7' : undefined
+    }}>
+      <Space split="|">
+        <Text style={{ fontSize: '12px' }}>
+          <strong>Pozycji:</strong> {kolorePlyty.length}
+        </Text>
+        <Text 
+          style={{ 
+            fontSize: '12px',
+            color: przekroczonyLimit ? '#ff4d4f' : undefined,
+            fontWeight: przekroczonyLimit ? 'bold' : 'normal'
+          }}
+        >
+          <strong>Łącznie płyt:</strong> {totalPlyty}/{maxPlytNaPozycje}
+          {przekroczonyLimit && (
+            <ExclamationCircleOutlined style={{ marginLeft: 4 }} />
+          )}
+        </Text>
+        {wymiaryAnaliza.grupy.size > 0 && (
+          <Text style={{ fontSize: '12px' }}>
+            <strong>Wymiarów:</strong> {wymiaryAnaliza.grupy.size}
+            {!wymiaryAnaliza.wszystkieTeSame && (
+              <Tag color="warning" style={{ marginLeft: 4, fontSize: '10px' }}>
+                RÓŻNE
+              </Tag>
+            )}
+          </Text>
+        )}
+      </Space>
+      {przekroczonyLimit && (
+        <div style={{ marginTop: 8 }}>
+          <Text type="danger" strong style={{ fontSize: '12px' }}>
+            ⚠️ Zmniejsz ilość płyt o {totalPlyty - maxPlytNaPozycje} sztuk aby kontynuować!
+          </Text>
         </div>
       )}
-    </Card>
+    </div>
   );
 };

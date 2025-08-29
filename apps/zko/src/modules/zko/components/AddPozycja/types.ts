@@ -39,6 +39,8 @@ export interface KolorPlyty {
   plyta_id?: number;
   stan_magazynowy?: number;
   grubosc?: number;
+  dlugosc?: number;  // Dodane pole
+  szerokosc?: number; // Dodane pole
 }
 
 export interface AddPozycjaModalProps {
@@ -58,4 +60,25 @@ export interface AddPozycjaFormData {
   rozkroj_id: number;
   kolejnosc?: number;
   uwagi?: string;
+}
+
+// Nowy interfejs dla analizy wymiarów
+export interface WymiaryGrupa {
+  dlugosc: number;
+  szerokosc: number;
+  plyty: Array<{
+    plyta: Plyta;
+    ilosc: number;
+  }>;
+  grubosci: Set<number>;
+}
+
+export interface WymiaryAnaliza {
+  grupy: Map<string, WymiaryGrupa>;
+  wszystkieTeSame: boolean;
+  rozkrojPasuje: boolean;
+  rozmiarRozkroju: {
+    dlugosc: number;
+    szerokosc: number;
+  } | null;
 }

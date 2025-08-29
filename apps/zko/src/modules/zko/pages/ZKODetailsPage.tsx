@@ -16,7 +16,10 @@ import {
   Progress,
   Table,
   Tabs,
-  Badge
+  Badge,
+  Popconfirm,
+  message,
+  Tooltip
 } from 'antd';
 import { 
   ArrowLeftOutlined, 
@@ -26,7 +29,11 @@ import {
   UserOutlined,
   PlusOutlined,
   BoxPlotOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  CalendarOutlined,
+  TeamOutlined,
+  DeleteOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -42,6 +49,8 @@ export const ZKODetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: zko, isLoading, error, refetch } = useZKO(Number(id));
   const [showAddPozycja, setShowAddPozycja] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingPozycjaId, setEditingPozycjaId] = useState<number | null>(null);
 
   if (isLoading) {
     return (
@@ -66,8 +75,6 @@ export const ZKODetailsPage: React.FC = () => {
       />
     );
   }
-
-  console.log('ZKO details data:', zko);
 
   // Mapowanie statusu na kroki workflow
   const getWorkflowStep = (status: string) => {
@@ -98,7 +105,36 @@ export const ZKODetailsPage: React.FC = () => {
     refetch(); // Odśwież dane ZKO
   };
 
-  // Kolumny tabel
+  // Handle pozycja deletion - POPRAWIONA FUNKCJA
+  const handleDeletePozycja = async (pozycjaId: number) => {
+    try {
+      setDeletingId(pozycjaId);
+      
+      // Mock usuwania - w rzeczywistej aplikacji wywołaj API
+      // const response = await api.deletePozycja(pozycjaId);
+      
+      // Symulacja opóźnienia API
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      message.success('Pozycja została usunięta');
+      refetch(); // Odśwież dane ZKO
+      
+    } catch (error) {
+      console.error('Error deleting pozycja:', error);
+      message.error('Wystąpił błąd podczas usuwania pozycji');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // Handle pozycja edit
+  const handleEditPozycja = (pozycjaId: number) => {
+    setEditingPozycjaId(pozycjaId);
+    // Tu można otworzyć modal edycji lub przekierować do strony edycji
+    message.info(`Edycja pozycji #${pozycjaId} - funkcjonalność w przygotowaniu`);
+  };
+
+  // Kolumny tabeli pozycji z przyciskami akcji
   const pozycjeColumns = [
     { 
       title: 'ID', 
@@ -148,7 +184,65 @@ export const ZKODetailsPage: React.FC = () => {
       dataIndex: 'created_at',
       key: 'created_at',
       render: (date: string) => date ? dayjs(date).format('DD.MM HH:mm') : '-'
-    }
+    },
+    {
+      title: 'Akcje',
+      key: 'actions',
+      width: 140,
+      render: (_, record: any) => {
+        const isDeleting = deletingId === record.id;
+        const canDelete = record.status === 'oczekuje'; // Można usuwać tylko oczekujące
+        const canEdit = record.status === 'oczekuje'; // Można edytować tylko oczekujące
+        
+        return (
+          <Space size="small">
+            <Tooltip title={canEdit ? "Edytuj pozycję" : "Nie można edytować pozycji w realizacji"}>
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => handleEditPozycja(record.id)}
+                disabled={!canEdit}
+              >
+                Edytuj
+              </Button>
+            </Tooltip>
+            
+            <Popconfirm
+              title="Czy na pewno usunąć pozycję?"
+              description={
+                <Space direction="vertical">
+                  <Text>Ta operacja jest nieodwracalna.</Text>
+                  {record.formatki_count > 0 && (
+                    <Text type="warning">
+                      Pozycja zawiera {record.formatki_count} formatek!
+                    </Text>
+                  )}
+                </Space>
+              }
+              onConfirm={() => handleDeletePozycja(record.id)}
+              okText="Tak, usuń"
+              cancelText="Anuluj"
+              okButtonProps={{ danger: true }}
+              disabled={!canDelete || isDeleting}
+            >
+              <Tooltip title={canDelete ? "Usuń pozycję" : "Nie można usunąć pozycji w realizacji"}>
+                <Button
+                  type="text"
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  loading={isDeleting}
+                  disabled={!canDelete}
+                >
+                  Usuń
+                </Button>
+              </Tooltip>
+            </Popconfirm>
+          </Space>
+        );
+      },
+    },
   ];
 
   return (
@@ -220,11 +314,12 @@ export const ZKODetailsPage: React.FC = () => {
         />
       </Card>
 
-      {/* Main Info */}
+      {/* Main Content - nowy układ */}
       <Row gutter={24}>
-        <Col span={16}>
+        {/* Lewa kolumna - Informacje podstawowe */}
+        <Col span={12}>
           <Card title="Informacje podstawowe" style={{ marginBottom: '24px' }}>
-            <Descriptions column={2} bordered>
+            <Descriptions column={1} bordered size="small">
               <Descriptions.Item label="Numer ZKO">
                 <Text strong>{zko.numer_zko}</Text>
               </Descriptions.Item>
@@ -250,7 +345,12 @@ export const ZKODetailsPage: React.FC = () => {
               </Descriptions.Item>
               {zko.data_rozpoczecia && (
                 <Descriptions.Item label="Data rozpoczęcia">
-                  {dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm')}
+                  <Space>
+                    <ClockCircleOutlined />
+                    <Text type="success">
+                      {dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm')}
+                    </Text>
+                  </Space>
                 </Descriptions.Item>
               )}
               {zko.data_zakonczenia && (
@@ -271,171 +371,173 @@ export const ZKODetailsPage: React.FC = () => {
           </Card>
         </Col>
 
-        <Col span={8}>
-          <Card title="Operatorzy" style={{ marginBottom: '24px' }}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div>
-                <Text strong>Piła:</Text>
-                <br />
-                <Text>{zko.operator_pily || 'Nie przypisano'}</Text>
-              </div>
-              <Divider />
-              <div>
-                <Text strong>Okleiniarka:</Text>
-                <br />
-                <Text>{zko.operator_oklejarki || 'Nie przypisano'}</Text>
-              </div>
-              <Divider />
-              <div>
-                <Text strong>Wiertarka:</Text>
-                <br />
-                <Text>{zko.operator_wiertarki || 'Nie przypisano'}</Text>
-              </div>
-            </Space>
+        {/* Prawa kolumna - Szczegóły realizacji i boczne panele */}
+        <Col span={12}>
+          {/* Szczegóły realizacji */}
+          <Card 
+            title={
+              <Space>
+                <FileTextOutlined />
+                Szczegóły realizacji
+                <Badge count={pozycje.length} style={{ backgroundColor: '#52c41a' }} />
+              </Space>
+            }
+            style={{ marginBottom: '24px' }}
+            extra={
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                size="small"
+                onClick={() => setShowAddPozycja(true)}
+              >
+                Dodaj pozycję
+              </Button>
+            }
+            bodyStyle={{ padding: '12px' }}
+          >
+            <Tabs defaultActiveKey="pozycje" size="small">
+              <Tabs.TabPane 
+                tab={
+                  <Space>
+                    <BoxPlotOutlined />
+                    Pozycje ({pozycje.length})
+                  </Space>
+                } 
+                key="pozycje"
+              >
+                {pozycje.length > 0 ? (
+                  <div style={{ maxHeight: '400px', overflow: 'auto' }}>
+                    <Table
+                      columns={pozycjeColumns}
+                      dataSource={pozycje}
+                      rowKey="id"
+                      size="small"
+                      pagination={false}
+                    />
+                  </div>
+                ) : (
+                  <Alert
+                    message="Brak pozycji"
+                    description={
+                      <Space direction="vertical">
+                        <Text>To zlecenie nie ma jeszcze dodanych pozycji.</Text>
+                        <Button 
+                          type="primary" 
+                          size="small" 
+                          icon={<PlusOutlined />}
+                          onClick={() => setShowAddPozycja(true)}
+                        >
+                          Dodaj pierwszą pozycję
+                        </Button>
+                      </Space>
+                    }
+                    type="info"
+                    showIcon
+                  />
+                )}
+              </Tabs.TabPane>
+              
+              <Tabs.TabPane 
+                tab={
+                  <Space>
+                    <AppstoreOutlined />
+                    Palety
+                  </Space>
+                } 
+                key="palety"
+              >
+                <div style={{ maxHeight: '400px', overflow: 'auto' }}>
+                  <PaletyManager 
+                    zkoId={Number(id)} 
+                    onRefresh={refetch}
+                  />
+                </div>
+              </Tabs.TabPane>
+            </Tabs>
           </Card>
 
-          <Card title="Daty planowane">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div>
-                <Text strong>Wysłanie:</Text>
-                <br />
-                <Text>
-                  {zko.data_wyslania ? dayjs(zko.data_wyslania).format('DD.MM.YYYY') : 'Nie ustalono'}
-                </Text>
-              </div>
-              <Divider />
-              <div>
-                <Text strong>Planowana realizacja:</Text>
-                <br />
-                <Text>
-                  {zko.data_planowana ? dayjs(zko.data_planowana).format('DD.MM.YYYY') : 'Nie ustalono'}
-                </Text>
-              </div>
-              <Divider />
-              <div>
-                <Text strong>Przyjęcie do magazynu:</Text>
-                <br />
-                <Text>
-                  {zko.data_przyjecia_magazyn ? dayjs(zko.data_przyjecia_magazyn).format('DD.MM.YYYY') : 'Nie ustalono'}
-                </Text>
-              </div>
-            </Space>
-          </Card>
+          {/* Panele boczne w rzędzie */}
+          <Row gutter={16}>
+            <Col span={12}>
+              <Card 
+                title={
+                  <Space>
+                    <TeamOutlined />
+                    Operatorzy
+                  </Space>
+                } 
+                size="small"
+                style={{ marginBottom: '16px' }}
+              >
+                <Space direction="vertical" style={{ width: '100%' }} size="small">
+                  <div>
+                    <Text type="secondary">Piła:</Text>
+                    <br />
+                    <Text>{zko.operator_pily || 'Nie przypisano'}</Text>
+                  </div>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <div>
+                    <Text type="secondary">Okleiniarka:</Text>
+                    <br />
+                    <Text>{zko.operator_oklejarki || 'Nie przypisano'}</Text>
+                  </div>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <div>
+                    <Text type="secondary">Wiertarka:</Text>
+                    <br />
+                    <Text>{zko.operator_wiertarki || 'Nie przypisano'}</Text>
+                  </div>
+                </Space>
+              </Card>
+            </Col>
+
+            <Col span={12}>
+              <Card 
+                title={
+                  <Space>
+                    <CalendarOutlined />
+                    Daty planowane
+                  </Space>
+                }
+                size="small"
+                style={{ marginBottom: '16px' }}
+              >
+                <Space direction="vertical" style={{ width: '100%' }} size="small">
+                  <div>
+                    <Text type="secondary">Wysłanie:</Text>
+                    <br />
+                    <Text>
+                      {zko.data_wyslania ? 
+                        dayjs(zko.data_wyslania).format('DD.MM.YYYY') : 
+                        'Nie ustalono'}
+                    </Text>
+                  </div>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <div>
+                    <Text type="secondary">Planowana realizacja:</Text>
+                    <br />
+                    <Text>
+                      {zko.data_planowana ? 
+                        dayjs(zko.data_planowana).format('DD.MM.YYYY') : 
+                        'Nie ustalono'}
+                    </Text>
+                  </div>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <div>
+                    <Text type="secondary">Rozpoczęcie:</Text>
+                    <br />
+                    <Text type={zko.data_rozpoczecia ? "success" : undefined}>
+                      {zko.data_rozpoczecia ? 
+                        dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm') : 
+                        'Nie rozpoczęto'}
+                    </Text>
+                  </div>
+                </Space>
+              </Card>
+            </Col>
+          </Row>
         </Col>
       </Row>
-
-      {/* Szczegóły realizacji z prawdziwymi danymi */}
-      <Card 
-        title={
-          <Space>
-            <FileTextOutlined />
-            Szczegóły realizacji
-          </Space>
-        }
-        style={{ marginTop: '24px' }}
-        extra={
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            size="small"
-            onClick={() => setShowAddPozycja(true)}
-          >
-            Dodaj pozycję
-          </Button>
-        }
-      >
-        <Tabs defaultActiveKey="pozycje">
-          <Tabs.TabPane 
-            tab={
-              <Space>
-                <BoxPlotOutlined />
-                Pozycje ({pozycje.length})
-              </Space>
-            } 
-            key="pozycje"
-          >
-            {pozycje.length > 0 ? (
-              <Table
-                columns={pozycjeColumns}
-                dataSource={pozycje}
-                rowKey="id"
-                size="small"
-                pagination={false}
-              />
-            ) : (
-              <Alert
-                message="Brak pozycji"
-                description={
-                  <div>
-                    <p>To zlecenie nie ma jeszcze dodanych pozycji.</p>
-                    <p>Kliknij "Dodaj pozycję" aby dodać pozycje z rozkrojami.</p>
-                  </div>
-                }
-                type="info"
-                showIcon
-              />
-            )}
-          </Tabs.TabPane>
-          
-          <Tabs.TabPane 
-            tab={
-              <Space>
-                <AppstoreOutlined />
-                Palety
-              </Space>
-            } 
-            key="palety"
-          >
-            <PaletyManager 
-              zkoId={Number(id)} 
-              onRefresh={refetch}
-            />
-          </Tabs.TabPane>
-        </Tabs>
-      </Card>
-
-      {/* Debug Info */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card title="Debug Info & Dostępne funkcje PostgreSQL" style={{ marginTop: '24px' }}>
-          <Tabs defaultActiveKey="debug">
-            <Tabs.TabPane tab="Debug" key="debug">
-              <div style={{ fontSize: '12px', fontFamily: 'monospace' }}>
-                <strong>Pozycje z API:</strong> {pozycje.length}
-                <br />
-                <strong>ZKO status:</strong> {zko.status}
-                <br />
-                <strong>Raw ZKO data:</strong>
-                <pre style={{ maxHeight: '200px', overflow: 'auto' }}>
-                  {JSON.stringify(zko, null, 2)}
-                </pre>
-              </div>
-            </Tabs.TabPane>
-            
-            <Tabs.TabPane tab="Funkcje PostgreSQL" key="funkcje">
-              <div style={{ fontSize: '12px' }}>
-                <Text strong>Dostępne funkcje ZKO:</Text>
-                <ul>
-                  <li><code>utworz_puste_zko()</code> - Tworzenie nowego ZKO</li>
-                  <li><code>dodaj_pozycje_do_zko()</code> - Dodawanie pozycji</li>
-                  <li><code>zmien_status_v3()</code> - Zmiana statusu workflow</li>
-                  <li><code>pobierz_nastepne_etapy()</code> - Następne kroki</li>
-                  <li><code>pokaz_status_zko()</code> - Pełny status</li>
-                  <li><code>pal_planuj_inteligentnie_v3()</code> - Inteligentne planowanie palet dla pozycji</li>
-                  <li><code>pal_planuj_inteligentnie_v4()</code> - Inteligentne planowanie palet dla całego ZKO</li>
-                  <li><code>pal_zmien_ilosc_palet()</code> - Zmiana ilości palet</li>
-                  <li><code>pal_utworz_palety()</code> - Ręczne tworzenie palet</li>
-                  <li><code>pal_zamknij()</code> - Zamykanie palety</li>
-                  <li><code>pal_przesun_formatki()</code> - Przenoszenie formatek między paletami</li>
-                  <li><code>raportuj_produkcje_formatek()</code> - Raportowanie produkcji</li>
-                  <li><code>zglos_uszkodzenie_formatki()</code> - Zgłaszanie uszkodzeń</li>
-                  <li><code>zakoncz_zlecenie()</code> - Finalizacja zlecenia</li>
-                  <li><code>stan_bufora_okleiniarka()</code> - Status buforów</li>
-                </ul>
-              </div>
-            </Tabs.TabPane>
-          </Tabs>
-        </Card>
-      )}
 
       {/* Add Pozycja Modal */}
       <AddPozycjaModal

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db } from '../index';
 import pino from 'pino';
 
-const router = Router();
+const router: Router = Router();
 const logger = pino();
 
 // GET /api/test/connection - Test połączenia z bazą
@@ -52,7 +52,7 @@ router.get('/schema', async (req, res) => {
 router.get('/zko', async (req, res) => {
   try {
     logger.info('Testing ZKO query...');
-    
+
     const result = await db.query(`
       SELECT 
         id,
@@ -65,9 +65,9 @@ router.get('/zko', async (req, res) => {
       ORDER BY id DESC 
       LIMIT 5
     `);
-    
+
     logger.info(`Found ${result.rows.length} ZKO records`);
-    
+
     res.json({
       status: 'success',
       count: result.rows.length,
