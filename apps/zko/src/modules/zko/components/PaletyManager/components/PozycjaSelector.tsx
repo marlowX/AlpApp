@@ -7,11 +7,13 @@ import {
   Alert, 
   Spin,
   Tag,
-  Tooltip
+  Tooltip,
+  Badge
 } from 'antd';
 import { 
   InfoCircleOutlined,
-  AppstoreOutlined 
+  AppstoreOutlined,
+  TableOutlined 
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -19,14 +21,16 @@ const { Option } = Select;
 
 interface Pozycja {
   id: number;
-  kolejnosc: number;
-  kolor_plyty: string;
-  ilosc_plyt: number;
-  nazwa_plyty: string;
-  uwagi?: string;
+  pozycja_id?: number;
+  rozkroj_id?: number;
   kod_rozkroju?: string;
   rozkroj_opis?: string;
-  formatki_count?: number;
+  kolor_plyty: string;
+  nazwa_plyty: string;
+  ilosc_plyt: number;
+  typy_formatek?: number;
+  sztuk_formatek?: number;
+  uwagi?: string;
 }
 
 interface PozycjaSelectorProps {
@@ -53,45 +57,21 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
     try {
       setLoadingPozycje(true);
       
-      // Pobierz pozycje wraz z liczbą formatek
-      const response = await fetch(`/api/zko/${zkoId}`);
+      // Pobierz pozycje z backendu
+      const response = await fetch(`/api/zko/${zkoId}/pozycje`);
       
       if (response.ok) {
         const data = await response.json();
+        const pozycjeData = data.pozycje || data || [];
         
-        // Pobierz pozycje z ZKO i dodaj licznik formatek
-        const pozycjeData = data.pozycje || [];
-        
-        // Dla każdej pozycji pobierz liczbę formatek
-        const pozycjeWithCounts = await Promise.all(
-          pozycjeData.map(async (pozycja: any) => {
-            try {
-              const formatkiResponse = await fetch(`/api/zko/pozycje/${pozycja.id}/formatki`);
-              if (formatkiResponse.ok) {
-                const formatkiData = await formatkiResponse.json();
-                return {
-                  ...pozycja,
-                  formatki_count: formatkiData.total || 0
-                };
-              }
-            } catch (error) {
-              console.warn(`Could not fetch formatki count for pozycja ${pozycja.id}`);
-            }
-            return {
-              ...pozycja,
-              formatki_count: 0
-            };
-          })
-        );
-        
-        setPozycje(pozycjeWithCounts);
+        setPozycje(pozycjeData);
         
         // Jeśli jest tylko jedna pozycja, automatycznie ją wybierz
-        if (pozycjeWithCounts.length === 1 && !selectedPozycjaId) {
-          onSelect(pozycjeWithCounts[0].id);
+        if (pozycjeData.length === 1 && !selectedPozycjaId) {
+          onSelect(pozycjeData[0].id || pozycjeData[0].pozycja_id);
         }
       } else {
-        console.error('Error fetching ZKO details:', await response.text());
+        console.error('Error fetching pozycje:', await response.text());
       }
     } catch (error) {
       console.error('Error fetching pozycje:', error);
@@ -100,7 +80,24 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
     }
   };
 
-  const selectedPozycja = pozycje.find(p => p.id === selectedPozycjaId);
+  const selectedPozycja = pozycje.find(p => (p.id || p.pozycja_id) === selectedPozycjaId);
+
+  // Funkcja formatująca numer pozycji
+  const formatPozycjaNr = (pozycja: Pozycja, index: number) => {
+    // Użyj ID pozycji jako numer jeśli nie ma innego pola
+    const numer = pozycja.pozycja_id || pozycja.id;
+    return `#${numer}`;
+  };
+
+  // Funkcja formatująca liczbę formatek
+  const formatFormatkiInfo = (pozycja: Pozycja) => {
+    if (pozycja.sztuk_formatek && pozycja.typy_formatek) {
+      return `${pozycja.typy_formatek} typów (${pozycja.sztuk_formatek} szt.)`;
+    } else if (pozycja.typy_formatek) {
+      return `${pozycja.typy_formatek} typów formatek`;
+    }
+    return 'Brak formatek';
+  };
 
   return (
     <Card size="small" style={{ marginBottom: 16 }}>
@@ -110,34 +107,39 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
           <Text strong>Wybierz pozycję ZKO:</Text>
           
           <Select
-            style={{ minWidth: 400 }}
+            style={{ minWidth: 500 }}
             placeholder="Wybierz pozycję do zarządzania paletami"
             value={selectedPozycjaId}
             onChange={onSelect}
             loading={loadingPozycje || loading}
             showSearch
             optionFilterProp="children"
-            filterOption={(input, option) =>
-              (option?.children as unknown as string)?.toLowerCase().includes(input.toLowerCase())
-            }
+            filterOption={(input, option) => {
+              const content = option?.children as any;
+              const searchText = JSON.stringify(content).toLowerCase();
+              return searchText.includes(input.toLowerCase());
+            }}
           >
-            {pozycje.map(pozycja => (
-              <Option key={pozycja.id} value={pozycja.id}>
+            {pozycje.map((pozycja, index) => (
+              <Option key={pozycja.id || pozycja.pozycja_id} value={pozycja.id || pozycja.pozycja_id}>
                 <Space>
-                  <Text strong>#{pozycja.kolejnosc}</Text>
+                  <Badge 
+                    count={formatPozycjaNr(pozycja, index)} 
+                    style={{ backgroundColor: '#1890ff' }}
+                  />
                   <Tag color="blue">{pozycja.kolor_plyty}</Tag>
                   <Text>{pozycja.nazwa_plyty}</Text>
                   <Text type="secondary">({pozycja.ilosc_plyt} płyt)</Text>
-                  {pozycja.formatki_count !== undefined && (
-                    <Tag color="green">{pozycja.formatki_count} formatek</Tag>
-                  )}
+                  <Tag color="green" icon={<TableOutlined />}>
+                    {formatFormatkiInfo(pozycja)}
+                  </Tag>
                 </Space>
               </Option>
             ))}
           </Select>
 
-          {selectedPozycja && (
-            <Tooltip title={`Rozkrój: ${selectedPozycja.kod_rozkroju || 'Nieznany'}`}>
+          {selectedPozycja && selectedPozycja.kod_rozkroju && (
+            <Tooltip title={`Rozkrój: ${selectedPozycja.kod_rozkroju} - ${selectedPozycja.rozkroj_opis || ''}`}>
               <InfoCircleOutlined />
             </Tooltip>
           )}
@@ -145,8 +147,31 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
 
         {selectedPozycja && (
           <Alert
-            message={`Wybrana pozycja: #${selectedPozycja.kolejnosc} - ${selectedPozycja.kolor_plyty}`}
-            description={`${selectedPozycja.nazwa_plyty} | ${selectedPozycja.ilosc_plyt} płyt | ${selectedPozycja.formatki_count || 0} formatek | Rozkrój: ${selectedPozycja.kod_rozkroju || 'Nieznany'}`}
+            message={
+              <Space>
+                <Text strong>Wybrana pozycja:</Text>
+                <Badge 
+                  count={formatPozycjaNr(selectedPozycja, 0)} 
+                  style={{ backgroundColor: '#52c41a' }}
+                />
+                <Text>{selectedPozycja.kolor_plyty}</Text>
+              </Space>
+            }
+            description={
+              <Space direction="vertical">
+                <Text>
+                  {selectedPozycja.nazwa_plyty} | {selectedPozycja.ilosc_plyt} płyt
+                </Text>
+                <Text>
+                  Formatki: {formatFormatkiInfo(selectedPozycja)}
+                </Text>
+                {selectedPozycja.kod_rozkroju && (
+                  <Text type="secondary">
+                    Rozkrój: {selectedPozycja.kod_rozkroju} - {selectedPozycja.rozkroj_opis || ''}
+                  </Text>
+                )}
+              </Space>
+            }
             type="info"
             showIcon
           />
