@@ -11,12 +11,14 @@ const PlanowanieModularneSchema = z.object({
   max_wysokosc_mm: z.number().min(400).max(2000).default(1440),
   max_formatek_na_palete: z.number().min(50).max(500).default(80),
   nadpisz_istniejace: z.boolean().default(false),
-  operator: z.string().optional().default('system')
+  operator: z.string().optional().default('system'),
+  strategia: z.enum(['modular', 'kolory']).default('modular')  // 🆕 NOWA OPCJA
 });
 
 /**
  * POST /api/pallets/zko/:zkoId/plan-modular - POPRAWNE PLANOWANIE Z ILOŚCIAMI
  * Używa funkcji pal_planuj_modularnie + wypełnia palety_formatki_ilosc
+ * 🆕 NOWA OPCJA: strategia 'kolory' dla grupowania po kolorach
  */
 router.post('/zko/:zkoId/plan-modular', async (req: Request, res: Response) => {
   let client;
@@ -36,17 +38,31 @@ router.post('/zko/:zkoId/plan-modular', async (req: Request, res: Response) => {
     client = await db.connect();
     await client.query('BEGIN');
     
-    logger.info(`Modular planning for ZKO ${zkoId} with max_formatek: ${params.max_formatek_na_palete}`);
+    logger.info(`Modular planning for ZKO ${zkoId} with strategy: ${params.strategia}`);
     
-    // KROK 1: Użyj poprawnej funkcji modularnej
-    const planResult = await client.query(`
-      SELECT * FROM zko.pal_planuj_modularnie($1, $2, $3, $4)
-    `, [
-      zkoId,
-      params.max_wysokosc_mm,
-      params.max_formatek_na_palete,
-      params.nadpisz_istniejace
-    ]);
+    // 🆕 WYBIERZ STRATEGIĘ PLANOWANIA
+    let planResult;
+    if (params.strategia === 'kolory') {
+      // KROK 1A: Użyj funkcji grupowania po kolorach
+      planResult = await client.query(`
+        SELECT * FROM zko.pal_planuj_z_kolorami($1, $2, $3, $4)
+      `, [
+        zkoId,
+        params.max_wysokosc_mm,
+        params.max_formatek_na_palete,
+        params.nadpisz_istniejace
+      ]);
+    } else {
+      // KROK 1B: Użyj standardowej funkcji modularnej
+      planResult = await client.query(`
+        SELECT * FROM zko.pal_planuj_modularnie($1, $2, $3, $4)
+      `, [
+        zkoId,
+        params.max_wysokosc_mm,
+        params.max_formatek_na_palete,
+        params.nadpisz_istniejace
+      ]);
+    }
     
     const response = planResult.rows[0];
     
@@ -57,14 +73,76 @@ router.post('/zko/:zkoId/plan-modular', async (req: Request, res: Response) => {
         komunikat: 'Błąd funkcji planowania modularnego'
       });
     }
+
+    // 🆕 DLA STRATEGII KOLORY - pobierz szczegóły od razu (funkcja już wypełniła tabelę)
+    if (params.strategia === 'kolory') {
+      await client.query('COMMIT');
+      
+      const paletyIds = response.palety_utworzone;
+      
+      // Pobierz szczegółowe dane z ilościami
+      const detailsResult = await client.query(`
+        SELECT 
+          p.id,
+          p.numer_palety,
+          p.ilosc_formatek as sztuk_total,
+          p.wysokosc_stosu,
+          p.waga_kg,
+          p.kolory_na_palecie,
+          COALESCE(
+            jsonb_agg(
+              jsonb_build_object(
+                'formatka_id', pfi.formatka_id,
+                'ilosc', pfi.ilosc,
+                'nazwa', pf.nazwa_formatki,
+                'dlugosc', pf.dlugosc,
+                'szerokosc', pf.szerokosc,
+                'kolor', TRIM(SPLIT_PART(pf.nazwa_formatki, ' - ', 2))
+              ) ORDER BY pf.id
+            ) FILTER (WHERE pfi.formatka_id IS NOT NULL),
+            '[]'::jsonb
+          ) as formatki_szczegoly
+        FROM zko.palety p
+        LEFT JOIN zko.palety_formatki_ilosc pfi ON pfi.paleta_id = p.id
+        LEFT JOIN zko.pozycje_formatki pf ON pf.id = pfi.formatka_id
+        WHERE p.id = ANY($1)
+        GROUP BY p.id, p.numer_palety, p.ilosc_formatek, p.wysokosc_stosu, p.waga_kg, p.kolory_na_palecie
+        ORDER BY p.numer_palety
+      `, [paletyIds]);
+      
+      const responseData = {
+        sukces: true,
+        komunikat: response.komunikat,
+        palety_utworzone: paletyIds,
+        palety_szczegoly: detailsResult.rows,
+        statystyki: response.statystyki,
+        strategia: 'kolory',
+        wersja: 'modular_v2_colors'
+      };
+      
+      // WebSocket update
+      emitZKOUpdate(zkoId, 'pallets:planned-colors', {
+        zko_id: zkoId,
+        palety_utworzone: paletyIds,
+        total_palet: paletyIds.length,
+        strategia: 'kolory'
+      });
+      
+      logger.info(`Successfully created ${paletyIds.length} color-grouped pallets for ZKO ${zkoId}`);
+      
+      return res.json(responseData);
+    }
     
+    // STANDARDOWE PLANOWANIE MODULARNIE (bez kolorów)
     // KROK 2: Pobierz dane o formatek ZKO
     const formatkiResult = await client.query(`
       SELECT 
         pf.id,
         pf.ilosc_planowana,
         pf.nazwa_formatki,
-        p.kolor_plyty
+        p.kolor_plyty,
+        pf.dlugosc,
+        pf.szerokosc
       FROM zko.pozycje_formatki pf
       JOIN zko.pozycje p ON p.id = pf.pozycja_id
       WHERE p.zko_id = $1
@@ -147,7 +225,14 @@ router.post('/zko/:zkoId/plan-modular', async (req: Request, res: Response) => {
             jsonb_build_object(
               'formatka_id', pfi.formatka_id,
               'ilosc', pfi.ilosc,
-              'nazwa', pf.nazwa_formatki
+              'nazwa', pf.nazwa_formatki,
+              'dlugosc', pf.dlugosc,
+              'szerokosc', pf.szerokosc,
+              'kolor', CASE 
+                WHEN pf.nazwa_formatki LIKE '%-%' 
+                THEN TRIM(SPLIT_PART(pf.nazwa_formatki, ' - ', 2))
+                ELSE 'BRAK_KOLORU'
+              END
             ) ORDER BY pf.id
           ) FILTER (WHERE pfi.formatka_id IS NOT NULL),
           '[]'::jsonb
@@ -170,6 +255,7 @@ router.post('/zko/:zkoId/plan-modular', async (req: Request, res: Response) => {
         typy_formatek: formatki.length,
         total_sztuk: totalSztuk
       },
+      strategia: 'modular',
       wersja: 'modular_v1_with_quantities'
     };
     
@@ -178,7 +264,8 @@ router.post('/zko/:zkoId/plan-modular', async (req: Request, res: Response) => {
       zko_id: zkoId,
       palety_utworzone: paletyIds,
       total_palet: paletyIds.length,
-      total_sztuk: totalSztuk
+      total_sztuk: totalSztuk,
+      strategia: 'modular'
     });
     
     logger.info(`Successfully created ${paletyIds.length} pallets with proper quantities for ZKO ${zkoId}`);

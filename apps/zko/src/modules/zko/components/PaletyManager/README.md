@@ -45,6 +45,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 - `zko.palety` → `zko.palety_historia` (historia zmian)
 - `zko.palety` → `zko.transport_palety` (transport)
 - `zko.palety` → `zko.palety_formatki` (przypisania formatek)
+- `zko.palety` → `zko.palety_formatki_ilosc` (ilości formatek) **🆕 NOWA TABELA**
 
 ### 🛡️ Zasady bezpieczeństwa:
 1. **Zawsze sprawdzaj powiązania** przed DELETE
@@ -110,6 +111,49 @@ curl http://localhost:5001/api/pallets/functions/check
 3. **Sprawdź czy baza istnieje:** `psql -U postgres -l`
 4. **Użyj pgAdmin** dla graficznej instalacji
 
+## 🆕 NOWE FUNKCJE MODULARNE (2025-08-30)
+
+### 🧩 Architektura modularna
+System palet został podzielony na małe, testowalne funkcje pomocnicze które można łatwo debugować i modyfikować:
+
+#### Funkcje pomocnicze:
+1. **`pal_helper_policz_sztuki(zko_id)`** - Liczy rzeczywiste sztuki formatek
+   - Zwraca: sztuk_total, typy_formatek, pozycje_count
+   - Test: `SELECT * FROM zko.pal_helper_policz_sztuki(28);`
+
+2. **`pal_helper_oblicz_parametry(sztuk, max_wysokosc, max_formatek, grubosc)`** - Oblicza parametry palet
+   - Zwraca: sztuk_na_palete, liczba_palet, wysokosc_na_palete, waga_na_palete
+   - Test: `SELECT * FROM zko.pal_helper_oblicz_parametry(334, 1440, 80, 18);`
+
+3. **`pal_helper_usun_palety(zko_id)`** - Usuwa palety z obsługą FK constraints
+   - Zwraca: liczba usuniętych
+   - Obsługuje: palety_formatki_ilosc, palety_historia
+
+4. **`pal_helper_utworz_palete(...)`** - Tworzy pojedynczą paletę
+   - Zwraca: ID utworzonej palety
+   - Parametry: zko_id, numer, sztuk, wysokosc, waga, typ
+
+#### Główna funkcja modularna:
+**`pal_planuj_modularnie(zko_id, max_wysokosc, max_formatek, nadpisz)`**
+- Używa wszystkich funkcji pomocniczych
+- Łatwa do debugowania (każdy krok osobno)
+- Prawidłowo obsługuje RZECZYWISTE ILOŚCI sztuk
+
+### 📊 Problem z ilościami - ROZWIĄZANY!
+**Problem:** System traktował ID formatek jako sztuki zamiast sprawdzać `ilosc_planowana`
+**Rozwiązanie:** 
+- Nowa tabela `palety_formatki_ilosc` przechowuje rzeczywiste ilości
+- Funkcje modularne prawidłowo sumują `ilosc_planowana`
+- Endpoint `/api/pallets/zko/:zkoId/details` zwraca pełne dane z ilościami
+
+### Przykład użycia:
+```sql
+-- Użyj funkcji modularnej zamiast błędnej V5
+SELECT * FROM zko.pal_planuj_modularnie(28, 1440, 80, true);
+
+-- Zwróci: 5 palet dla 334 sztuk (poprawnie!)
+```
+
 ## 🚀 NAJWAŻNIEJSZE ZMIANY W V5
 
 ### ✨ Nowe funkcjonalności:
@@ -119,12 +163,16 @@ curl http://localhost:5001/api/pallets/functions/check
 - **Reorganizacja palet** - optymalizacja istniejących układów
 - **Lepsze walidacje** - sprawdzanie limitów przed operacjami
 - **Szczegółowe statystyki** - procent wykorzystania, wagi, etc.
+- **🆕 Funkcje modularne** - łatwe testowanie i debugowanie
+- **🆕 Tabela palety_formatki_ilosc** - przechowuje rzeczywiste ilości
 
 ### 🔧 Ulepszone funkcje PostgreSQL:
-- `pal_planuj_inteligentnie_v5()` - Nowy algorytm planowania
+- `pal_planuj_inteligentnie_v5()` - Nowy algorytm planowania (MA BŁĄD Z ILOŚCIAMI!)
 - `pal_usun_inteligentnie()` - Inteligentne usuwanie z transferem formatek
 - `pal_reorganizuj_v5()` - Reorganizacja z optymalizacją
 - `pal_wyczysc_puste_v2()` - Ulepszone czyszczenie pustych palet
+- **🆕 `pal_planuj_modularnie()`** - POPRAWNA funkcja planowania z obsługą ilości
+- **🆕 `pal_helper_*`** - Zestaw funkcji pomocniczych
 
 ## 🗄️ WAŻNE: Logika biznesowa w PostgreSQL
 
@@ -133,6 +181,7 @@ curl http://localhost:5001/api/pallets/functions/check
 
 Logika biznesowa zarządzania paletami jest zaimplementowana w bazie danych PostgreSQL w schemacie `zko` poprzez:
 - **Funkcje składowane V5** - nowe algorytmy z inteligentnymi strategiami
+- **🆕 Funkcje modularne** - małe, testowalne komponenty
 - **Widoki** - gotowe zestawienia i raporty o paletach
 - **Triggery** - automatyczne generowanie numerów palet i historia zmian
 - **Procedury** - złożone operacje logistyczne
@@ -142,8 +191,17 @@ Logika biznesowa zarządzania paletami jest zaimplementowana w bazie danych Post
 ### Planowanie i tworzenie palet V5
 | Funkcja | Opis | Nowe parametry | Zwraca |
 |---------|------|-----------------|---------|
-| `pal_planuj_inteligentnie_v5()` | 🆕 Nowy algorytm z 6 strategiami | strategia, uwzglednij_oklejanie, nadpisz_istniejace | plan + statystyki + szczegóły |
+| `pal_planuj_inteligentnie_v5()` | ⚠️ Ma błąd z ilościami! | strategia, uwzglednij_oklejanie, nadpisz_istniejace | plan + statystyki + szczegóły |
+| **`pal_planuj_modularnie()`** | 🆕 ✅ POPRAWNA wersja | max_wysokosc, max_formatek, nadpisz | sukces + palety_utworzone + statystyki |
 | `pal_utworz_palety()` | Tworzenie pustych palet | zko_id, operator | sukces, komunikat, palety_utworzone |
+
+### Funkcje pomocnicze (modularne) 🆕
+| Funkcja | Opis | Parametry | Zwraca |
+|---------|------|-----------|---------|
+| `pal_helper_policz_sztuki()` | Liczy rzeczywiste sztuki | zko_id | sztuk_total, typy_formatek |
+| `pal_helper_oblicz_parametry()` | Oblicza parametry palet | sztuk, max_wysokosc, max_formatek | sztuk_na_palete, liczba_palet |
+| `pal_helper_usun_palety()` | Usuwa z obsługą FK | zko_id | liczba_usunietych |
+| `pal_helper_utworz_palete()` | Tworzy pojedynczą paletę | zko_id, numer, sztuk, etc. | paleta_id |
 
 ### Zarządzanie formatkami V5 (ulepszone)
 | Funkcja | Opis | Ulepszone funkcje | Zwraca |
@@ -455,11 +513,46 @@ Response:
 }
 ```
 
+### 🆕 Szczegółowe dane z ilościami
+```http
+GET /api/pallets/zko/:zkoId/details
+
+Response:
+{
+  "sukces": true,
+  "palety": [
+    {
+      "id": 288,
+      "numer_palety": "PAL-ZKO-00028-001",
+      "sztuk_total": 80,  // rzeczywista liczba sztuk
+      "formatki_szczegoly": [  // szczegółowe ilości
+        {
+          "formatka_id": 265,
+          "ilosc": 20,
+          "nazwa": "800x400 - SONOMA"
+        }
+      ]
+    }
+  ],
+  "podsumowanie": {
+    "typy_formatek": 13,
+    "sztuk_total": 334
+  }
+}
+```
+
 ## 🛠️ Troubleshooting V5
 
-### ❌ Problem: "pal_planuj_inteligentnie_v5" does not exist
-**To jest Twój aktualny problem! Funkcje V5 nie są zainstalowane w bazie.**
+### ❌ Problem: Funkcje V5 źle liczą ilości formatek
+**Przyczyna:** Funkcje V5 traktują ID formatek jako sztuki zamiast sprawdzać `ilosc_planowana`
 
+**ROZWIĄZANIE:** Użyj funkcji modularnej:
+```sql
+-- Zamiast błędnej pal_planuj_inteligentnie_v5
+SELECT * FROM zko.pal_planuj_modularnie(28, 1440, 80, true);
+```
+
+### ❌ Problem: "pal_planuj_inteligentnie_v5" does not exist
 **SZYBKIE ROZWIĄZANIE przez pgAdmin:**
 1. Otwórz **pgAdmin**
 2. Połącz się z bazą **alpsys**
@@ -515,10 +608,8 @@ JOIN zko.pozycje p ON pf.pozycja_id = p.id
 WHERE p.zko_id = [ZKO_ID]
 LIMIT 5;
 
--- Test funkcji manualnie
-SELECT * FROM zko.pal_planuj_inteligentnie_v5(
-  [ZKO_ID], 'inteligentna', 1440, 200, 700, 18, 'EURO', true, 'test', false
-);
+-- Użyj funkcji modularnej zamiast V5
+SELECT * FROM zko.pal_planuj_modularnie([ZKO_ID], 1440, 80, true);
 ```
 
 ### Problem: Inteligentne usuwanie nie działa
@@ -600,7 +691,10 @@ curl http://localhost:5001/api/pallets/functions/check
     "pal_planuj_inteligentnie_v5",
     "pal_usun_inteligentnie", 
     "pal_reorganizuj_v5",
-    "pal_wyczysc_puste_v2"
+    "pal_wyczysc_puste_v2",
+    "pal_helper_policz_sztuki",
+    "pal_helper_oblicz_parametry",
+    "pal_planuj_modularnie"
   ],
   "wersja": "V5",
   "status": "ready"
@@ -649,6 +743,13 @@ curl http://localhost:5001/api/pallets/stats/27
 - Analiza kolorów na paletach
 - Wskaźniki optymalizacji
 
+### 🆕 PaletyTable.tsx (NAPRAWIONE)
+**Poprawki:**
+- Obsługa rzeczywistych ilości sztuk
+- Tooltip z szczegółami formatek
+- Poprawne konwersje typów (toFixed error)
+- Wsparcie dla tabeli palety_formatki_ilosc
+
 ## 🐛 Znane problemy i rozwiązania V5
 
 ### Problem: Funkcja V5 nie istnieje w bazie
@@ -672,6 +773,10 @@ curl http://localhost:5001/api/pallets/stats/27
 ### Problem: Formatki się gubią podczas transferu
 **Rozwiązanie:** Funkcja `pal_przesun_formatki` ma teraz pełne logowanie - sprawdź `zko.historia_statusow`
 
+### 🆕 Problem: System pokazuje liczbę typów zamiast sztuk
+**Przyczyna:** Funkcje V5 źle interpretują dane
+**Rozwiązanie:** Użyj funkcji modularnej `pal_planuj_modularnie` zamiast `pal_planuj_inteligentnie_v5`
+
 ## 🔄 Migration z V4 do V5
 
 ### Co się zmieniło:
@@ -679,12 +784,16 @@ curl http://localhost:5001/api/pallets/stats/27
 2. **Strategia planowania** - więcej opcji
 3. **Inteligentne usuwanie** - nowy endpoint `/delete-smart`
 4. **Reorganizacja** - osobny endpoint `/reorganize`
+5. **🆕 Tabela `palety_formatki_ilosc`** - przechowuje rzeczywiste ilości
+6. **🆕 Endpoint `/details`** - zwraca pełne dane z ilościami
 
 ### Jak migrować:
 1. Zainstaluj funkcje V5 w bazie danych: `quick-install-palety-v5.bat`
-2. Zastąp wywołania w komponencie React
-3. Przetestuj nowe funkcjonalności
-4. Opcjonalnie usuń stare endpointy V4
+2. Utwórz tabelę `palety_formatki_ilosc`
+3. Zastąp wywołania w komponencie React
+4. Użyj funkcji modularnych zamiast V5 dla poprawnej obsługi ilości
+5. Przetestuj nowe funkcjonalności
+6. Opcjonalnie usuń stare endpointy V4
 
 ## 🚀 Przyszłe rozszerzenia V6
 
@@ -701,10 +810,16 @@ Planowane funkcjonalności:
 ## 📚 Dokumentacja techniczna
 
 ### Pliki funkcji PostgreSQL:
-- `/database/functions/palety_v5.sql` - Główne funkcje planowania
+- `/database/functions/palety_v5.sql` - Główne funkcje planowania (MA BŁĄD!)
 - `/database/functions/palety_management_v5.sql` - Zarządzanie i usuwanie
-- `/database/views/palety_v5.sql` - Nowe widoki (TODO)
-- `/database/functions/FULL_V5_FUNCTIONS_FIXED.sql` - PEŁNE funkcje z naprawionymi błędami
+- `/database/functions/palety_v6_fixed.sql` - Próba naprawy V6 (częściowa)
+- `/database/functions/fix_palety_quantities.sql` - Poprawki ilości
+- **🆕 `/database/functions/palety_modularne.sql`** - DZIAŁAJĄCE funkcje modularne
+
+### Pliki komponentów React:
+- `/apps/zko/src/modules/zko/components/PaletyManager/PaletyManager.tsx` - Główny komponent
+- `/apps/zko/src/modules/zko/components/PaletyManager/components/PaletyTable.tsx` - Tabela (naprawiona)
+- `/services/zko-service/src/routes/pallets/details.routes.ts` - Endpoint z ilościami
 
 ### Testy:
 - `/tests/palety-v5/` - Testy jednostkowe funkcji V5
@@ -717,6 +832,18 @@ Planowane funkcjonalności:
 ---
 
 ## 📝 Changelog V5
+
+### v5.1.0 (2025-08-30) - MODULAR FUNCTIONS
+**Dodane:**
+- ✅ Funkcje modularne (pal_helper_*, pal_planuj_modularnie)
+- ✅ Tabela palety_formatki_ilosc dla rzeczywistych ilości
+- ✅ Endpoint /api/pallets/zko/:zkoId/details z pełnymi danymi
+- ✅ Obsługa rzeczywistych ilości w PaletyTable.tsx
+
+**Naprawione:**
+- 🔧 Błąd toFixed w PaletyTable.tsx
+- 🔧 System teraz prawidłowo liczy SZTUKI, nie typy
+- 🔧 Poprawne tworzenie palet dla dużych ilości (334 sztuki = 5 palet)
 
 ### v5.0.2 (2025-08-30) - CRITICAL FIX
 **Dodane:**
@@ -772,16 +899,19 @@ Planowane funkcjonalności:
 - [x] Naprawić błędy Foreign Key Constraints
 - [x] Przetestować endpoint `/plan-v5`
 - [x] Przetestować inteligentne usuwanie
+- [x] Naprawić obsługę ilości formatek
+- [x] Utworzyć funkcje modularne
 - [ ] Sprawdzić działanie wszystkich strategii
 
 ### Ważne (ten tydzień):
-- [ ] Napisać testy jednostkowe dla V5
-- [ ] Utworzyć dokumentację API V5
-- [ ] Migracja istniejących ZKO na V5
+- [ ] Napisać testy jednostkowe dla funkcji modularnych
+- [ ] Utworzyć endpoint używający pal_planuj_modularnie
+- [ ] Migracja istniejących ZKO na nowy system
 - [ ] Performance testing dla dużych ZKO
 
 ### Przyszłe:
 - [ ] Usuń deprecated funkcje V4
+- [ ] Napraw funkcje V5 aby prawidłowo obsługiwały ilości
 - [ ] Dodaj wizualizację 3D
 - [ ] Integracja z systemem etykiet
 
@@ -792,15 +922,17 @@ Planowane funkcjonalności:
 1. **ZAWSZE sprawdzaj powiązania tabel** przed operacjami DELETE
 2. **Loguj błędy backendu** - tam są prawdziwe komunikaty SQL
 3. **Testuj funkcje w pgAdmin** przed wdrożeniem
-4. **Używaj V5** - nie korzystaj z starych funkcji V4
-5. **Testuj strategie** - każda ma inne zastosowanie
-6. **Monitoruj wykorzystanie** - cel to >85% wykorzystania palety
-7. **Używaj presets** - oszczędzają czas i zapewniają optymalne ustawienia
-8. **Dokumentuj zmiany** - wszystkie funkcje V5 mają wbudowane logowanie
+4. **Używaj funkcji modularnych** - łatwiejsze debugowanie
+5. **NIE używaj pal_planuj_inteligentnie_v5** - ma błąd z ilościami!
+6. **Używaj pal_planuj_modularnie** - poprawnie obsługuje ilości
+7. **Testuj każdą funkcję pomocniczą osobno** - łatwiej znaleźć błędy
+8. **Monitoruj wykorzystanie** - cel to >85% wykorzystania palety
+9. **Używaj presets** - oszczędzają czas i zapewniają optymalne ustawienia
+10. **Dokumentuj zmiany** - wszystkie funkcje V5 mają wbudowane logowanie
 
 ---
 
 **Autor:** marlowX  
 **Email:** biuro@alpmeb.pl  
-**Wersja:** 5.0.2  
+**Wersja:** 5.1.0  
 **Data aktualizacji:** 2025-08-30

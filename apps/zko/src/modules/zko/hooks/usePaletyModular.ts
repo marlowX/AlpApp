@@ -6,12 +6,16 @@ interface PlanowanieModularneParams {
   max_formatek_na_palete?: number;
   nadpisz_istniejace?: boolean;
   operator?: string;
+  strategia?: 'modular' | 'kolory';  // 🆕 NOWA OPCJA
 }
 
 interface FormatkaSzczegol {
   formatka_id: number;
   ilosc: number;
   nazwa: string;
+  dlugosc?: number;
+  szerokosc?: number;
+  kolor?: string;
 }
 
 interface PaletaSzczegol {
@@ -20,6 +24,7 @@ interface PaletaSzczegol {
   sztuk_total: number;
   wysokosc_stosu: number;
   waga_kg: number;
+  kolory_na_palecie?: string;
   formatki_szczegoly: FormatkaSzczegol[];
 }
 
@@ -34,10 +39,11 @@ interface PlanowanieModularneResponse {
     typy_formatek: number;
     sztuk_na_palete: number;
   };
-  formatki_info: {
+  formatki_info?: {
     typy_formatek: number;
     total_sztuk: number;
   };
+  strategia?: 'modular' | 'kolory';
   wersja: string;
 }
 
@@ -72,6 +78,7 @@ export const usePaletyModular = () => {
 
   /**
    * NOWE PLANOWANIE MODULARICZNE - POPRAWNE Z ILOŚCIAMI
+   * 🆕 Obsługuje strategię 'kolory' dla grupowania po kolorach
    */
   const planujModularnie = async (
     zkoId: number, 
@@ -81,18 +88,23 @@ export const usePaletyModular = () => {
     setError(null);
     
     try {
+      const requestParams = {
+        max_wysokosc_mm: 1440,
+        max_formatek_na_palete: 80,
+        nadpisz_istniejace: false,
+        operator: 'user',
+        strategia: 'kolory' as const, // 🆕 DOMYŚLNIE KOLORY
+        ...params
+      };
+
+      console.log(`🎯 Planowanie ${requestParams.strategia} dla ZKO ${zkoId}:`, requestParams);
+
       const response = await fetch(`/api/pallets/zko/${zkoId}/plan-modular`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          max_wysokosc_mm: 1440,
-          max_formatek_na_palete: 80,
-          nadpisz_istniejace: false,
-          operator: 'user',
-          ...params
-        })
+        body: JSON.stringify(requestParams)
       });
 
       const data = await response.json();
@@ -105,9 +117,10 @@ export const usePaletyModular = () => {
         throw new Error(data.komunikat || 'Planowanie nie powiodło się');
       }
 
-      console.log('✅ Planowanie modulariczne sukces:', {
+      console.log(`✅ Planowanie ${requestParams.strategia} sukces:`, {
         palety: data.palety_utworzone?.length || 0,
-        sztuki_total: data.formatki_info?.total_sztuk || 0,
+        sztuki_total: data.formatki_info?.total_sztuk || data.statystyki?.sztuk_total || 0,
+        strategia: data.strategia,
         wersja: data.wersja
       });
 
@@ -121,6 +134,16 @@ export const usePaletyModular = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * 🆕 PLANOWANIE Z KOLORAMI - dedykowana funkcja
+   */
+  const planujZKolorami = async (
+    zkoId: number,
+    params: Omit<PlanowanieModularneParams, 'strategia'> = {}
+  ): Promise<PlanowanieModularneResponse | null> => {
+    return planujModularnie(zkoId, { ...params, strategia: 'kolory' });
   };
 
   /**
@@ -193,24 +216,30 @@ export const usePaletyModular = () => {
 
   /**
    * PEŁNY WORKFLOW - PLANOWANIE + WERYFIKACJA
+   * 🔧 POPRAWKA: Respektuje nadpisz_istniejace i strategię
    */
   const pelnyWorkflow = async (
     zkoId: number, 
     params: PlanowanieModularneParams = {}
   ) => {
-    console.log(`🚀 Rozpoczynamy pełny workflow dla ZKO ${zkoId}`);
+    const strategia = params.strategia || 'kolory';
+    console.log(`🚀 Rozpoczynamy pełny workflow ${strategia} dla ZKO ${zkoId}`);
     
-    // 1. Najpierw sprawdź obecny stan
-    console.log('📊 Krok 1: Sprawdzanie obecnego stanu...');
-    const stanPrzed = await sprawdzIlosci(zkoId);
-    
-    if (stanPrzed?.status === 'OK') {
-      console.log('✅ ZKO ma już poprawnie zaplanowane palety!');
-      return await pobierzSzczegoly(zkoId);
+    // 1. Sprawdź obecny stan tylko jeśli nie nadpisujemy
+    if (!params.nadpisz_istniejace) {
+      console.log('📊 Krok 1: Sprawdzanie obecnego stanu...');
+      const stanPrzed = await sprawdzIlosci(zkoId);
+      
+      if (stanPrzed?.status === 'OK' && stanPrzed.podsumowanie?.palety?.liczba_palet > 0) {
+        console.log('✅ ZKO ma już poprawnie zaplanowane palety! Zwracam obecne dane.');
+        return await pobierzSzczegoly(zkoId);
+      }
+    } else {
+      console.log('🔄 Krok 1: Nadpisywanie istniejących palet...');
     }
 
-    // 2. Planowanie modulariczne
-    console.log('🔧 Krok 2: Planowanie modulariczne...');
+    // 2. Planowanie modulariczne (zawsze gdy nadpisujemy lub gdy nie ma palet)
+    console.log(`🔧 Krok 2: Planowanie ${strategia}...`);
     const planResult = await planujModularnie(zkoId, params);
     
     if (!planResult) {
@@ -229,7 +258,7 @@ export const usePaletyModular = () => {
     console.log('📋 Krok 4: Pobieranie szczegółów...');
     const szczegoly = await pobierzSzczegoly(zkoId);
 
-    console.log('🎉 Workflow zakończony pomyślnie!');
+    console.log(`🎉 Workflow ${strategia} zakończony pomyślnie!`);
     
     return {
       planowanie: planResult,
@@ -238,12 +267,54 @@ export const usePaletyModular = () => {
     };
   };
 
+  /**
+   * 🆕 INTELIGENTNE PLANOWANIE - sprawdza status i pyta użytkownika
+   * Teraz z obsługą strategii
+   */
+  const inteligentneZnalowanie = async (
+    zkoId: number,
+    params: PlanowanieModularneParams = {},
+    forceOverwrite: boolean = false
+  ) => {
+    const strategia = params.strategia || 'kolory';
+    console.log(`🤖 Inteligentne planowanie ${strategia} dla ZKO ${zkoId}`);
+    
+    // Sprawdź obecny stan
+    const stanPrzed = await sprawdzIlosci(zkoId);
+    
+    const maPalety = (stanPrzed?.podsumowanie?.palety?.liczba_palet || 0) > 0;
+    const statusOK = stanPrzed?.status === 'OK';
+    
+    console.log(`📊 Stan: palety=${maPalety}, status=${stanPrzed?.status}, strategia=${strategia}`);
+    
+    if (maPalety && !forceOverwrite) {
+      return {
+        potrzebaTPotwierdzenia: true,
+        obecnyStatus: stanPrzed,
+        komunikat: statusOK 
+          ? `ZKO ma już ${stanPrzed.podsumowanie.palety.liczba_palet} palet (status OK). Czy zastąpić planowaniem ${strategia === 'kolory' ? 'z kolorami' : 'modularicznym'}?`
+          : `ZKO ma ${stanPrzed.podsumowanie.palety.liczba_palet} palet z błędami. Zalecane planowanie ${strategia === 'kolory' ? 'z kolorami' : 'modulariczne'}.`,
+        zalecaneNadpisanie: !statusOK,
+        strategia: strategia
+      };
+    }
+    
+    // Planuj z odpowiednimi parametrami
+    return await pelnyWorkflow(zkoId, {
+      ...params,
+      nadpisz_istniejace: forceOverwrite || maPalety,
+      strategia: strategia
+    });
+  };
+
   return {
     loading,
     error,
     planujModularnie,
+    planujZKolorami, // 🆕 Dedykowana funkcja dla kolorów
     sprawdzIlosci, 
     pobierzSzczegoly,
-    pelnyWorkflow
+    pelnyWorkflow,
+    inteligentneZnalowanie
   };
 };

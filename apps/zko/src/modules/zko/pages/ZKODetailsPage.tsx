@@ -310,6 +310,64 @@ export const ZKODetailsPage: React.FC = () => {
         </Row>
       </Card>
 
+      {/* 1. INFORMACJE PODSTAWOWE - PEŁNA SZEROKOŚĆ */}
+      <Card 
+        title={
+          <Space>
+            <UserOutlined />
+            Informacje podstawowe
+          </Space>
+        }
+        style={{ marginBottom: '24px' }}
+      >
+        <Row gutter={[24, 16]}>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Numer ZKO">
+                <Text strong>{zko.numer_zko}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={statusColors[zko.status] || 'default'}>
+                  {statusLabels[zko.status] || zko.status}
+                </Tag>
+              </Descriptions.Item>
+            </Descriptions>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Kooperant">
+                <Space>
+                  <UserOutlined />
+                  {zko.kooperant}
+                </Space>
+              </Descriptions.Item>
+              <Descriptions.Item label="Priorytet">
+                <Tag color={priorityColor}>{priorityText} ({zko.priorytet})</Tag>
+              </Descriptions.Item>
+            </Descriptions>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Data utworzenia">
+                {dayjs(zko.data_utworzenia).format('DD.MM.YYYY HH:mm')}
+              </Descriptions.Item>
+              <Descriptions.Item label="Utworzył">
+                {zko.utworzyl}
+              </Descriptions.Item>
+            </Descriptions>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            {zko.komentarz && (
+              <div>
+                <Text strong>Komentarz:</Text>
+                <br />
+                <Text>{zko.komentarz}</Text>
+              </div>
+            )}
+          </Col>
+        </Row>
+      </Card>
+
       {/* Workflow Steps */}
       <Card title="Etapy realizacji" style={{ marginBottom: '24px' }}>
         <Steps
@@ -321,130 +379,114 @@ export const ZKODetailsPage: React.FC = () => {
         />
       </Card>
 
-      {/* Main Content */}
+      {/* 2. SZCZEGÓŁY REALIZACJI - PEŁNA SZEROKOŚĆ, ŚRODEK STRONY */}
+      <Card 
+        title={
+          <Space>
+            <FileTextOutlined />
+            Szczegóły realizacji
+            <Badge count={pozycje.length} style={{ backgroundColor: '#52c41a' }} />
+          </Space>
+        }
+        style={{ marginBottom: '24px' }}
+        extra={
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={() => setShowAddPozycja(true)}
+          >
+            Dodaj pozycję
+          </Button>
+        }
+      >
+        <Tabs defaultActiveKey="pozycje" size="large">
+          <Tabs.TabPane 
+            tab={
+              <Space>
+                <BoxPlotOutlined />
+                Pozycje ({pozycje.length})
+              </Space>
+            } 
+            key="pozycje"
+          >
+            {pozycje.length > 0 ? (
+              <Table
+                columns={pozycjeColumns}
+                dataSource={pozycje}
+                rowKey="id"
+                pagination={pozycje.length > 10 ? { pageSize: 10, showSizeChanger: true } : false}
+                scroll={{ x: 1200 }}
+              />
+            ) : (
+              <Alert
+                message="Brak pozycji"
+                description={
+                  <Space direction="vertical">
+                    <Text>To zlecenie nie ma jeszcze dodanych pozycji.</Text>
+                    <Button 
+                      type="primary" 
+                      icon={<PlusOutlined />}
+                      onClick={() => setShowAddPozycja(true)}
+                    >
+                      Dodaj pierwszą pozycję
+                    </Button>
+                  </Space>
+                }
+                type="info"
+                showIcon
+                style={{ textAlign: 'center' }}
+              />
+            )}
+          </Tabs.TabPane>
+          
+          <Tabs.TabPane 
+            tab={
+              <Space>
+                <AppstoreOutlined />
+                Zarządzanie paletami
+              </Space>
+            } 
+            key="palety"
+          >
+            <PaletyManager 
+              zkoId={Number(id)} 
+              onRefresh={refetch}
+            />
+          </Tabs.TabPane>
+        </Tabs>
+      </Card>
+
+      {/* 3. DODATKOWE INFORMACJE - na dole, można zostawić w kolumnach */}
       <Row gutter={24}>
-        {/* Lewa kolumna - Informacje podstawowe */}
         <Col span={12}>
-          <Card title="Informacje podstawowe" style={{ marginBottom: '24px' }}>
-            <Descriptions column={1} bordered size="small">
-              <Descriptions.Item label="Numer ZKO">
-                <Text strong>{zko.numer_zko}</Text>
+          <Card title="Daty realizacji" style={{ marginBottom: '24px' }}>
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Data planowana">
+                {zko.data_planowana ? dayjs(zko.data_planowana).format('DD.MM.YYYY') : '-'}
               </Descriptions.Item>
-              <Descriptions.Item label="Status">
-                <Tag color={statusColors[zko.status] || 'default'}>
-                  {statusLabels[zko.status] || zko.status}
-                </Tag>
+              <Descriptions.Item label="Data rozpoczęcia">
+                {zko.data_rozpoczecia ? dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm') : '-'}
               </Descriptions.Item>
-              <Descriptions.Item label="Kooperant">
-                <Space>
-                  <UserOutlined />
-                  {zko.kooperant}
-                </Space>
-              </Descriptions.Item>
-              <Descriptions.Item label="Priorytet">
-                <Tag color={priorityColor}>{priorityText} ({zko.priorytet})</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Data utworzenia">
-                {dayjs(zko.data_utworzenia).format('DD.MM.YYYY HH:mm')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Utworzył">
-                {zko.utworzyl}
+              <Descriptions.Item label="Data zakończenia">
+                {zko.data_zakonczenia ? dayjs(zko.data_zakonczenia).format('DD.MM.YYYY HH:mm') : '-'}
               </Descriptions.Item>
             </Descriptions>
-
-            {zko.komentarz && (
-              <>
-                <Divider />
-                <Text strong>Komentarz:</Text>
-                <br />
-                <Text>{zko.komentarz}</Text>
-              </>
-            )}
           </Card>
         </Col>
 
-        {/* Prawa kolumna - Szczegóły realizacji */}
         <Col span={12}>
-          <Card 
-            title={
-              <Space>
-                <FileTextOutlined />
-                Szczegóły realizacji
-                <Badge count={pozycje.length} style={{ backgroundColor: '#52c41a' }} />
-              </Space>
-            }
-            style={{ marginBottom: '24px' }}
-            extra={
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                size="small"
-                onClick={() => setShowAddPozycja(true)}
-              >
-                Dodaj pozycję
-              </Button>
-            }
-            bodyStyle={{ padding: '12px' }}
-          >
-            <Tabs defaultActiveKey="pozycje" size="small">
-              <Tabs.TabPane 
-                tab={
-                  <Space>
-                    <BoxPlotOutlined />
-                    Pozycje ({pozycje.length})
-                  </Space>
-                } 
-                key="pozycje"
-              >
-                {pozycje.length > 0 ? (
-                  <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-                    <Table
-                      columns={pozycjeColumns}
-                      dataSource={pozycje}
-                      rowKey="id"
-                      size="small"
-                      pagination={false}
-                    />
-                  </div>
-                ) : (
-                  <Alert
-                    message="Brak pozycji"
-                    description={
-                      <Space direction="vertical">
-                        <Text>To zlecenie nie ma jeszcze dodanych pozycji.</Text>
-                        <Button 
-                          type="primary" 
-                          size="small" 
-                          icon={<PlusOutlined />}
-                          onClick={() => setShowAddPozycja(true)}
-                        >
-                          Dodaj pierwszą pozycję
-                        </Button>
-                      </Space>
-                    }
-                    type="info"
-                    showIcon
-                  />
-                )}
-              </Tabs.TabPane>
-              
-              <Tabs.TabPane 
-                tab={
-                  <Space>
-                    <AppstoreOutlined />
-                    Palety
-                  </Space>
-                } 
-                key="palety"
-              >
-                <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-                  <PaletyManager 
-                    zkoId={Number(id)} 
-                    onRefresh={refetch}
-                  />
-                </div>
-              </Tabs.TabPane>
-            </Tabs>
+          <Card title="Operatorzy" style={{ marginBottom: '24px' }}>
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Operator piły">
+                {zko.operator_pily || <Text type="secondary">Nieprzypisany</Text>}
+              </Descriptions.Item>
+              <Descriptions.Item label="Operator oklejarki">
+                {zko.operator_oklejarki || <Text type="secondary">Nieprzypisany</Text>}
+              </Descriptions.Item>
+              <Descriptions.Item label="Operator wiertarki">
+                {zko.operator_wiertarki || <Text type="secondary">Nieprzypisany</Text>}
+              </Descriptions.Item>
+            </Descriptions>
           </Card>
         </Col>
       </Row>

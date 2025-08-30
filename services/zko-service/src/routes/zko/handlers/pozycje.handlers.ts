@@ -250,3 +250,84 @@ export const handleEditPozycja = async (req: Request, res: Response) => {
     });
   }
 };
+
+/**
+ * 🔥 NOWY HANDLER - Pobierz formatki z pozycji dla ręcznego zarządzania paletami
+ */
+export const handleGetPozycjaFormatki = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    logger.info(`GET formatki request for pozycja ID: ${id}`);
+    
+    // Sprawdź czy ID jest liczbą
+    const pozycjaId = Number(id);
+    if (isNaN(pozycjaId)) {
+      logger.error(`Invalid pozycja ID: ${id}`);
+      return res.status(400).json({
+        sukces: false,
+        error: 'Invalid pozycja ID',
+        komunikat: `ID pozycji musi być liczbą, otrzymano: ${id}`
+      });
+    }
+    
+    // Pobierz formatki z pozycji wraz z szczegółami
+    const result = await db.query(`
+      SELECT 
+        pf.id,
+        pf.nazwa_formatki as nazwa,
+        pf.dlugosc as dlugosc,
+        pf.szerokosc as szerokosc,
+        18 as grubosc,  -- Domyślna grubość płyty
+        p.kolor_plyty as kolor,
+        pf.ilosc_planowana,
+        -- Oblicz wagę teoretyczną (dł × szer × grub × gęstość) / konwersja na kg
+        (pf.dlugosc * pf.szerokosc * 18 * 0.8) / 1000000000.0 as waga_sztuka,
+        pf.typ_formatki,
+        p.id as pozycja_id,
+        p.zko_id,
+        -- Oblicz ile już jest przypisane do palet
+        COALESCE((
+          SELECT SUM(pfi.ilosc) 
+          FROM zko.palety_formatki_ilosc pfi 
+          JOIN zko.palety pal ON pal.id = pfi.paleta_id
+          WHERE pfi.formatka_id = pf.id 
+          AND pal.pozycja_id = p.id
+        ), 0) as ilosc_w_paletach
+      FROM zko.pozycje_formatki pf
+      JOIN zko.pozycje p ON p.id = pf.pozycja_id
+      WHERE pf.pozycja_id = $1
+      ORDER BY pf.nazwa_formatki
+    `, [pozycjaId]);
+    
+    logger.info(`Found ${result.rows.length} formatki for pozycja ${pozycjaId}`);
+    
+    // Dodaj informacje o dostępności
+    const formatkiWithAvailability = result.rows.map(formatka => ({
+      ...formatka,
+      ilosc_dostepna: Math.max(0, formatka.ilosc_planowana - formatka.ilosc_w_paletach),
+      czy_w_pelni_przypisana: formatka.ilosc_planowana <= formatka.ilosc_w_paletach
+    }));
+    
+    res.json({
+      sukces: true,
+      pozycja_id: pozycjaId,
+      formatki: formatkiWithAvailability,
+      total: formatkiWithAvailability.length,
+      podsumowanie: {
+        formatki_total: formatkiWithAvailability.length,
+        sztuk_planowanych: formatkiWithAvailability.reduce((sum, f) => sum + f.ilosc_planowana, 0),
+        sztuk_w_paletach: formatkiWithAvailability.reduce((sum, f) => sum + f.ilosc_w_paletach, 0),
+        sztuk_dostepnych: formatkiWithAvailability.reduce((sum, f) => sum + f.ilosc_dostepna, 0)
+      }
+    });
+    
+  } catch (error: any) {
+    logger.error('Error fetching pozycja formatki:', error);
+    res.status(500).json({
+      sukces: false,
+      error: 'Failed to fetch pozycja formatki',
+      komunikat: error.message
+    });
+  }
+};

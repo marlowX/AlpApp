@@ -110,7 +110,15 @@ AlpApp/
 ./run-scripts.sh cleanup
 ```
 
-## 🆕 Kluczowe Ulepszenia
+## 🆕 Kluczowe Ulepszenia (2025-08-30)
+
+### ✅ NAPRAWIONO: Liczenie wysokości palet w planowaniu V2
+- **Problem:** System liczył wysokość jako `sztuki × grubość` (np. 80 × 18mm = 1440mm)
+- **Rozwiązanie:** Teraz prawidłowo liczy poziomy z formatkami obok siebie
+- **Wynik:** 80 sztuk = 20 poziomów × 18mm = **360mm** (realistyczna wysokość!)
+- **Naprawione funkcje:**
+  - `pal_helper_oblicz_parametry` - liczy poziomy zamiast mnożyć sztuki
+  - `pal_planuj_modularnie` - używa prawidłowej wysokości dla każdej palety
 
 ### ✅ Eliminacja Duplikacji
 - **Przed:** 8 różnych skryptów startowych
@@ -150,6 +158,12 @@ restart.bat clean
 start.bat debug  # Sprawdź co zajmuje porty
 ```
 
+### Problem: Wysokości palet są nierealistyczne (np. 1440mm)
+To oznacza, że używasz starej wersji funkcji. Rozwiązanie:
+1. Wykonaj skrypt SQL naprawiający funkcje pomocnicze
+2. Użyj przycisków "Szybko ⚡" lub "Planuj V2 ⭐" w aplikacji
+3. System teraz prawidłowo rozumie, że formatki układa się obok siebie na poziomach
+
 ## 📊 Baza Danych
 
 Aplikacja używa PostgreSQL z schematem `zko`:
@@ -157,20 +171,29 @@ Aplikacja używa PostgreSQL z schematem `zko`:
 - `pozycje` - Pozycje w ramach ZKO
 - `rozkroje` - Definicje rozkrojów płyt
 - `palety` - Zarządzanie paletami
+- `palety_formatki_ilosc` - Rzeczywiste ilości formatek na paletach
 - `bufor_okleiniarka` - Bufory oklejarni
 
 ## 🎯 Dostępne Funkcje ZKO
 
+### Podstawowe operacje:
 - `utworz_puste_zko()` - Tworzenie nowego ZKO
 - `dodaj_pozycje_do_zko()` - Dodawanie pozycji
 - `zmien_status_v3()` - Zmiana statusu workflow  
 - `pobierz_nastepne_etapy()` - Następne kroki
 - `pokaz_status_zko()` - Pełny status
-- `pal_planuj_inteligentnie_v3()` - Inteligentne palety
-- `raportuj_produkcje_formatek()` - Raportowanie
-- `zglos_uszkodzenie_formatki()` - Uszkodzenia
-- `zakoncz_zlecenie()` - Finalizacja
-- `stan_bufora_okleiniarka()` - Status buforów
+
+### Zarządzanie paletami (V2 - ZALECANE):
+- `pal_planuj_modularnie()` - ✅ Planowanie z prawidłowym liczeniem wysokości
+- `pal_helper_oblicz_parametry()` - ✅ Oblicza poziomy, nie mnoży sztuki
+- `pal_planuj_z_kolorami()` - Grupowanie po kolorach
+- `napraw_wysokosc_palet()` - Naprawa istniejących wysokości
+
+### Produkcja i raportowanie:
+- `raportuj_produkcje_formatek()` - Raportowanie produkcji
+- `zglos_uszkodzenie_formatki()` - Zgłaszanie uszkodzeń
+- `zakoncz_zlecenie()` - Finalizacja zlecenia
+- `stan_bufora_okleiniarka()` - Status buforów oklejarni
 
 ## 🔄 Workflow Development
 
@@ -190,9 +213,22 @@ git push
 restart.bat clean
 ```
 
+## 📈 Metryki Palet (po naprawie)
+
+### Prawidłowe wysokości palet:
+| Formatek | Poziomy | Wysokość | Status |
+|----------|---------|----------|--------|
+| 80 szt   | 20      | 360mm    | ✅ OK  |
+| 60 szt   | 15      | 270mm    | ✅ OK  |
+| 40 szt   | 10      | 180mm    | ✅ OK  |
+| 20 szt   | 5       | 90mm     | ✅ OK  |
+
+(Przy założeniu 4 formatek na poziom, grubość płyty 18mm)
+
 ## 📞 Wsparcie
 
 1. **Podstawowa diagnostyka:** `./run-scripts.sh diagnose`
 2. **Sprawdź porty:** `start.bat debug`
 3. **Wyczyść cache:** `restart.bat clean`
 4. **Sprawdź logi:** W oknach terminala backend/frontend
+5. **Napraw wysokości palet:** Użyj funkcji `napraw_wysokosc_palet(zko_id)`
