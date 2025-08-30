@@ -19,12 +19,12 @@ interface Paleta {
   numer_palety: string;
   kierunek: string;
   status: string;
-  sztuk_total?: number; // Nowe - rzeczywista liczba sztuk
-  ilosc_formatek?: number; // Stare - dla kompatybilności
+  sztuk_total?: number;
+  ilosc_formatek?: number;
   wysokosc_stosu: number;
   kolory_na_palecie: string;
   formatki_ids?: number[];
-  formatki_szczegoly?: FormatkaDetail[]; // Nowe - szczegóły z ilościami
+  formatki_szczegoly?: FormatkaDetail[];
   typ?: string;
   created_at?: string;
   updated_at?: string;
@@ -62,9 +62,9 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
   };
 
   const getWysokoscColor = (wysokosc: number) => {
-    if (wysokosc > 1440) return '#ff4d4f'; // Za wysoka
-    if (wysokosc > 1200) return '#faad14'; // Blisko limitu
-    return '#52c41a'; // OK
+    if (wysokosc > 1440) return '#ff4d4f';
+    if (wysokosc > 1200) return '#faad14';
+    return '#52c41a';
   };
 
   const handleClosePaleta = (record: Paleta) => {
@@ -84,7 +84,6 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
 
     const sztuk = paleta.sztuk_total || paleta.ilosc_formatek || 0;
     
-    // Jeśli mamy szczegóły z ilościami
     if (paleta.formatki_szczegoly && paleta.formatki_szczegoly.length > 0) {
       return (
         <Tooltip
@@ -111,7 +110,6 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       );
     }
 
-    // Fallback do prostego licznika
     return (
       <Badge 
         count={sztuk} 
@@ -153,7 +151,6 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       render: (kolory: string) => {
         if (!kolory) return <Text type="secondary">-</Text>;
         
-        // Parsuj kolory - mogą być w formacie "SUROWA x2, LANCELOT x2" lub "SUROWA, LANCELOT"
         const kolorList = kolory.split(',').map(k => {
           const parts = k.trim().split(' x');
           return parts[0];
@@ -177,7 +174,7 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       dataIndex: 'wysokosc_stosu',
       key: 'wysokosc_stosu',
       render: (wysokosc: number) => {
-        const value = wysokosc || 0;
+        const value = Number(wysokosc) || 0;
         return (
           <Tooltip title={`${value > 1440 ? 'Za wysoka!' : value > 1200 ? 'Blisko limitu' : 'OK'}`}>
             <Space>
@@ -194,13 +191,15 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Waga',
       dataIndex: 'waga_kg',
       key: 'waga_kg',
-      render: (waga: number) => {
-        if (!waga) return <Text type="secondary">-</Text>;
+      render: (waga: any) => {
+        // Konwertuj do liczby i sprawdź czy jest poprawna
+        const wagaNum = Number(waga);
+        if (!waga || isNaN(wagaNum)) return <Text type="secondary">-</Text>;
         
-        const color = waga > 700 ? '#ff4d4f' : waga > 600 ? '#faad14' : '#52c41a';
+        const color = wagaNum > 700 ? '#ff4d4f' : wagaNum > 600 ? '#faad14' : '#52c41a';
         return (
           <Text style={{ color }}>
-            {waga.toFixed(1)} kg
+            {wagaNum.toFixed(1)} kg
           </Text>
         );
       }
@@ -209,13 +208,16 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Wykorzystanie',
       dataIndex: 'procent_wykorzystania',
       key: 'procent_wykorzystania',
-      render: (procent: number) => {
-        if (procent === undefined || procent === null) return <Text type="secondary">-</Text>;
+      render: (procent: any) => {
+        const procentNum = Number(procent);
+        if (procent === undefined || procent === null || isNaN(procentNum)) {
+          return <Text type="secondary">-</Text>;
+        }
         
-        const color = procent < 50 ? '#ff4d4f' : procent < 75 ? '#faad14' : '#52c41a';
+        const color = procentNum < 50 ? '#ff4d4f' : procentNum < 75 ? '#faad14' : '#52c41a';
         return (
           <Text style={{ color }}>
-            {procent}%
+            {Math.round(procentNum)}%
           </Text>
         );
       }
