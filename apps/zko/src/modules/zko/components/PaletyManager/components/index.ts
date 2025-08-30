@@ -4,3 +4,7 @@ export * from './PlanowanieModal';
 export * from './PlanowanieModularneModal';
 export * from './PaletaVisualizer';
 export * from './ManualPalletCreator';
+export * from './PozycjaSelector';
+export * from './AutomaticPlanningTab';
+export * from './ManualCreationTab';
+export * from './DestinationTab';
