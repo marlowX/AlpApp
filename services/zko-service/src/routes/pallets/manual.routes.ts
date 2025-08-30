@@ -122,6 +122,12 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
       
     const { palety } = req.body;
     
+    logger.info('Batch create request:', { 
+      pozycja_id, 
+      palety_count: palety?.length,
+      body: req.body 
+    });
+    
     if (!pozycja_id || isNaN(pozycja_id) || !Array.isArray(palety)) {
       logger.error('Invalid input:', { pozycja_id, palety: Array.isArray(palety) });
       return res.status(400).json({
@@ -144,12 +150,22 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
     
     const utworzonePalety = [];
     
-    for (const paleta of niepustePalety) {
+    for (let i = 0; i < niepustePalety.length; i++) {
+      const paleta = niepustePalety[i];
       try {
+        logger.info(`Processing pallet ${i + 1}:`, paleta);
+        
+        // Domyślny operator jeśli brak
+        if (!paleta.operator) {
+          paleta.operator = 'user';
+        }
+        
         const params = ManualPaletaSchema.parse({
           pozycja_id,
           ...paleta
         });
+        
+        logger.info(`Parsed params for pallet ${i + 1}:`, params);
         
         // Użyj POPRAWIONEJ funkcji
         const result = await client.query(`
@@ -167,19 +183,36 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
         const response = result.rows[0];
         
         if (!response.sukces) {
+          logger.error(`Failed to create pallet ${i + 1}:`, response.komunikat);
           await client.query('ROLLBACK');
           return res.status(400).json({
-            error: `Błąd tworzenia palety: ${response.komunikat}`,
+            error: `Błąd tworzenia palety ${i + 1}: ${response.komunikat}`,
             sukces: false
           });
         }
         
+        logger.info(`Successfully created pallet ${i + 1}:`, response.numer_palety);
         utworzonePalety.push(response);
+        
       } catch (parseError: any) {
-        logger.error('Error parsing pallet data:', parseError);
+        logger.error(`Error parsing pallet ${i + 1} data:`, {
+          error: parseError.message,
+          issues: parseError instanceof z.ZodError ? parseError.issues : undefined,
+          paleta
+        });
+        
         await client.query('ROLLBACK');
+        
+        if (parseError instanceof z.ZodError) {
+          return res.status(400).json({
+            error: `Błąd walidacji danych palety ${i + 1}`,
+            details: parseError.issues,
+            paleta_index: i
+          });
+        }
+        
         return res.status(400).json({
-          error: 'Błąd walidacji danych palety',
+          error: `Błąd przetwarzania palety ${i + 1}`,
           details: parseError.message
         });
       }
