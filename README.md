@@ -2,47 +2,47 @@
 
 ## 🚀 Szybki Start
 
-### Opcja 1: Automatyczne uruchomienie (Rekomendowane)
+### ⚡ Nowe, uproszczone skrypty
 
-**Windows:**
+**Uruchamianie aplikacji:**
 ```bash
-# Uruchom skrypt automatycznego startu
-./start-full-app.bat
+# Pełne uruchomienie (backend + frontend)
+start.bat
+
+# Tylko backend (port 5001)
+start.bat backend
+
+# Tylko frontend (port 3001)  
+start.bat frontend
+
+# Restart z czyszczeniem procesów
+start.bat clean
+
+# Pomoc i opcje
+start.bat help
 ```
 
-**Linux/Mac:**
+**Restart aplikacji:**
 ```bash
-# Ustaw uprawnienia
-chmod +x start-full-app.sh
+# Pełny restart
+restart.bat
 
-# Uruchom aplikację
-./start-full-app.sh
+# Restart tylko backendu
+restart.bat backend
+
+# Restart z czyszczeniem cache
+restart.bat clean
 ```
 
-### Opcja 2: Ręczne uruchomienie
+### 🎯 Jeden skrypt zamiast ośmiu!
 
-**1. Zainstaluj zależności:**
-```bash
-pnpm install
-```
-
-**2. Uruchom backend (ZKO-SERVICE):**
-```bash
-# Terminal 1 - Backend na porcie 5000
-pnpm --filter @alp/zko-service dev
-```
-
-**3. Uruchom frontend:**
-```bash
-# Terminal 2 - Frontend na porcie 3001  
-pnpm run dev:zko
-```
+Zastąpiliśmy wszystkie duplikujące się skrypty (`start-all.bat`, `start-app.bat`, `start-zko-app.bat`, `start-zko-service.bat`, `restart-backend.bat`, etc.) dwoma inteligentnymi skryptami z opcjami.
 
 ## 🌐 Dostępne Endpointy
 
 - **Frontend ZKO:** http://localhost:3001
-- **Backend API:** http://localhost:5000
-- **Health Check:** http://localhost:5000/health
+- **Backend API:** http://localhost:5001  
+- **Health Check:** http://localhost:5001/health
 
 ## 🔧 Architektura
 
@@ -50,107 +50,114 @@ pnpm run dev:zko
 - React + TypeScript + Vite
 - Ant Design UI
 - React Query + Zustand
-- Proxy na backend (/api -> localhost:5000)
+- Proxy na backend (/api -> localhost:5001)
 
-### Backend (Port 5000)
+### Backend (Port 5001)
 - Express.js + TypeScript
 - PostgreSQL database
 - WebSocket support
 - RESTful API
 
-## 📁 Kluczowe Katalogi
+## 📁 Uporządkowana Struktura
 
 ```
 AlpApp/
+├── start.bat                    # 🆕 Uniwersalny launcher
+├── restart.bat                  # 🆕 Inteligentny restart
+├── run-scripts.sh              # 🆕 Uruchamianie skryptów pomocniczych
+│
 ├── apps/zko/                    # Frontend aplikacji ZKO
 │   ├── src/
 │   │   ├── modules/zko/         # Moduły ZKO
 │   │   │   ├── components/      # Komponenty React
-│   │   │   │   └── AddPozycja/  # 🆕 Nowy formularz dodawania pozycji
 │   │   │   ├── hooks/           # React hooks
 │   │   │   └── pages/           # Strony aplikacji
 │   │   └── layout/              # Layout aplikacji
+│
 ├── services/zko-service/        # Backend API
-│   └── src/                     # Kod źródłowy backend
-└── packages/                    # Wspólne biblioteki
+│   └── src/
+│       └── routes/zko/          # 🎯 Dobrze zorganizowane routes
+│           ├── handlers/        # Handlery logiki biznesowej
+│           ├── utils/           # Utilities
+│           └── *.routes.ts      # Poszczególne routery
+│
+├── packages/                    # Wspólne biblioteki
+│
+└── scripts/                     # 🆕 Uporządkowane skrypty pomocnicze
+    ├── analysis/                # Skrypty analizy kodu
+    ├── testing/                 # Skrypty testowe
+    ├── diagnostics/             # Diagnostyka problemów
+    └── archive/                 # Stare, zastąpione skrypty
 ```
 
-## 🆕 Nowe Funkcjonalności
+## 🛠️ Skrypty Pomocnicze
 
-### PlytySelectorV2 - Nowoczesny wybór płyt
-- ✅ Karty zamiast długich Selectów
-- ✅ Inteligentne filtrowanie po opisie
-- ✅ Kolorowe statusy magazynowe
-- ✅ Podgląd wybranej płyty
-- ✅ Responsywny design
+### Szybkie uruchomienie:
+```bash
+# Zobacz dostępne skrypty
+./run-scripts.sh help
 
-### Ulepszona Tabela Kolorów
-- ✅ Walidacja w czasie rzeczywistym
-- ✅ Automatyczne limity (5 szt. dla 18mm+)
-- ✅ Statystyki na górze formularza
-- ✅ Lepsze UX z błędami
+# Analiza struktury routes
+./run-scripts.sh analyze-routes
+
+# Test endpointów ZKO  
+./run-scripts.sh test-zko
+
+# Diagnostyka problemów
+./run-scripts.sh diagnose
+
+# Sprawdź niepotrzebne pliki
+./run-scripts.sh cleanup
+```
+
+## 🆕 Kluczowe Ulepszenia
+
+### ✅ Eliminacja Duplikacji
+- **Przed:** 8 różnych skryptów startowych
+- **Po:** 2 inteligentne skrypty z opcjami
+- **Korzyść:** Łatwiejsza konserwacja i użytkowanie
+
+### ✅ Uporządkowanie Skryptów Pomocniczych  
+- **Przed:** Skrypty rozrzucone w głównym katalogu
+- **Po:** Zorganizowane w `scripts/` według funkcji
+- **Korzyść:** Czytelna struktura projektu
+
+### ✅ Moduł ZKO Routes
+- Podzielony na mniejsze pliki (< 300 linii każdy)
+- Handlers oddzielone od routingu
+- Utilities w osobnym katalogu
+- Dokumentacja w README.md
 
 ## 🐛 Rozwiązywanie Problemów
 
 ### Problem: "Cannot GET /"
-**Przyczyna:** Frontend nie działa
-**Rozwiązanie:**
 ```bash
-cd apps/zko
-npm run dev
+start.bat frontend
 ```
 
 ### Problem: "Proxy error" lub błędy API
-**Przyczyna:** Backend nie działa  
-**Rozwiązanie:**
-```bash
-cd services/zko-service
-npm run dev
+```bash  
+start.bat backend
 ```
 
-### Problem: "PNPM not found"
-**Rozwiązanie:**
+### Problem: Aplikacja nie odpowiada
 ```bash
-npm install -g pnpm
+restart.bat clean
 ```
 
-### Problem: Stary cache przeglądarki
-**Rozwiązanie:**
-- Ctrl+Shift+R (force refresh)
-- Wyczyść cache przeglądarki
-- DevTools -> Network -> Disable cache
+### Problem: Port zajęty
+```bash
+start.bat debug  # Sprawdź co zajmuje porty
+```
 
 ## 📊 Baza Danych
 
-Aplikacja używa PostgreSQL z następującymi schematami:
-
-### Schema: `zko`
-- `zlecenia` - Zlecenia kooperantów  
+Aplikacja używa PostgreSQL z schematem `zko`:
+- `zlecenia` - Zlecenia kooperantów (główna tabela ZKO)
 - `pozycje` - Pozycje w ramach ZKO
 - `rozkroje` - Definicje rozkrojów płyt
-- `rozkroje_formatki` - Formatki w rozkrojach
 - `palety` - Zarządzanie paletami
 - `bufor_okleiniarka` - Bufory oklejarni
-
-### Schema: `public`  
-- `plyty` - Katalog płyt
-- `kolory` - Kolory płyt
-- `produkty` - Produkty systemowe
-
-## 🔄 Workflow Development
-
-1. **Commitowanie zmian:**
-```bash
-git add .
-git commit -m "opis zmian"  
-git push
-```
-
-2. **Konfiguracja Git:**
-```bash
-git config --global user.name "marlowX"
-git config --global user.email "biuro@alpmeb.pl"
-```
 
 ## 🎯 Dostępne Funkcje ZKO
 
@@ -165,10 +172,27 @@ git config --global user.email "biuro@alpmeb.pl"
 - `zakoncz_zlecenie()` - Finalizacja
 - `stan_bufora_okleiniarka()` - Status buforów
 
+## 🔄 Workflow Development
+
+```bash
+# 1. Uruchom aplikację
+start.bat
+
+# 2. Rozwój i testowanie
+./run-scripts.sh test-zko
+
+# 3. Commit zmian
+git add .
+git commit -m "opis zmian"
+git push
+
+# 4. Restart po zmianach
+restart.bat clean
+```
+
 ## 📞 Wsparcie
 
-Jeśli masz problemy:
-1. Sprawdź konsolę przeglądarki (F12)
-2. Sprawdź logi backendu  
-3. Zrestartuj aplikację
-4. Wyczyść cache przeglądarki
+1. **Podstawowa diagnostyka:** `./run-scripts.sh diagnose`
+2. **Sprawdź porty:** `start.bat debug`
+3. **Wyczyść cache:** `restart.bat clean`
+4. **Sprawdź logi:** W oknach terminala backend/frontend

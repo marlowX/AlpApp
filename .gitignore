@@ -40,6 +40,11 @@ coverage/
 tmp/
 temp/
 .cache/
+*.tmp
+*.temp
+*.bak
+*.old
+*.backup
 
 # Database
 *.sqlite
@@ -53,3 +58,15 @@ public/uploads/
 # Misc
 .eslintcache
 .prettierignore
+
+# Skrypty tymczasowe (jeśli ktoś będzie tworzyć ad-hoc)
+test-*.sh
+test-*.bat
+check-*.sh  
+check-*.bat
+analyze-*.sh
+analyze-*.bat
+debug-*.sh
+debug-*.bat
+temp-*.sh
+temp-*.bat
