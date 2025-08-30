@@ -1,31 +1,114 @@
 # 📦 PaletyManager V5 - Dokumentacja
 
+## ⚠️ KRYTYCZNE: Sprawdzanie powiązań między tabelami (Foreign Keys)
+
+### 🔴 PRZED USUWANIEM DANYCH ZAWSZE SPRAWDŹ POWIĄZANIA!
+
+Nie przepisuj calych plików na nowo tylko modyfikuj w miejscach , tak by nie potrzebnie przpisywac to samo!!!
+dotyczy się tez plików README.md - dodawaj dopisuj, poprawiaj a nie przpisuj od nowa!!
+
+PostgreSQL używa **Foreign Key Constraints** do zachowania integralności danych. Gdy próbujesz usunąć rekord, który jest powiązany z innymi tabelami, otrzymasz błąd który **NIE JEST WIDOCZNY W KONSOLI PRZEGLĄDARKI** - tylko "500 Internal Server Error".
+
+### Przykład problemu z paletami:
+```sql
+-- ❌ TO NIE ZADZIAŁA jeśli istnieją powiązania:
+DELETE FROM zko.palety WHERE id = 123;
+-- ERROR: update or delete on table "palety" violates foreign key constraint
+
+-- ✅ POPRAWNE ROZWIĄZANIE:
+-- Najpierw usuń powiązane rekordy
+DELETE FROM zko.palety_historia WHERE paleta_id = 123;
+-- Dopiero potem usuń paletę
+DELETE FROM zko.palety WHERE id = 123;
+```
+
+### Jak sprawdzić powiązania tabeli:
+```sql
+-- Sprawdź wszystkie foreign keys wskazujące na tabelę
+SELECT 
+    tc.table_schema,
+    tc.table_name,
+    kcu.column_name,
+    ccu.table_schema AS foreign_table_schema,
+    ccu.table_name AS foreign_table_name,
+    ccu.column_name AS foreign_column_name
+FROM information_schema.table_constraints AS tc
+JOIN information_schema.key_column_usage AS kcu
+    ON tc.constraint_name = kcu.constraint_name
+JOIN information_schema.constraint_column_usage AS ccu
+    ON ccu.constraint_name = tc.constraint_name
+WHERE tc.constraint_type = 'FOREIGN KEY'
+    AND ccu.table_name = 'palety';  -- nazwa tabeli którą chcesz sprawdzić
+```
+
+### Tabele z powiązaniami w module Palety:
+- `zko.palety` → `zko.palety_historia` (historia zmian)
+- `zko.palety` → `zko.transport_palety` (transport)
+- `zko.palety` → `zko.palety_formatki` (przypisania formatek)
+
+### 🛡️ Zasady bezpieczeństwa:
+1. **Zawsze sprawdzaj powiązania** przed DELETE
+2. **Używaj kaskadowego usuwania** gdy to możliwe
+3. **Loguj błędy backendu** - tam widać prawdziwe komunikaty SQL
+4. **Testuj funkcje w pgAdmin** przed implementacją
+
 ## 🚨 INSTALACJA FUNKCJI V5 - WAŻNE!
+
+### ⚠️ WYMAGANIA:
+- PostgreSQL zainstalowany lokalnie
+- Hasło do użytkownika `postgres` (domyślnie: `postgres`)
+- Baza danych `alpsys` istnieje
 
 ### Szybka instalacja (Windows):
 ```bash
 # Z głównego katalogu AlpApp
 quick-install-palety-v5.bat
+# Będzie pytać o hasło użytkownika postgres
 ```
 
 ### Ręczna instalacja (PostgreSQL):
 ```sql
--- Zaloguj się do bazy alpsys
-psql -h localhost -p 5432 -d alpsys
+-- Zaloguj się do bazy alpsys (będzie pytać o hasło)
+psql -U postgres -h localhost -p 5432 -d alpsys
 
 -- Wykonaj skrypty
 \i D:/PROJEKTY/PROGRAMOWANIE/AlpApp/database/functions/palety_v5.sql
 \i D:/PROJEKTY/PROGRAMOWANIE/AlpApp/database/functions/palety_management_v5.sql
+
+-- Sprawdź czy funkcje się zainstalowały
+SELECT routine_name FROM information_schema.routines 
+WHERE routine_schema = 'zko' 
+AND routine_name LIKE 'pal_%v5' OR routine_name LIKE 'pal_%v2';
 ```
+
+### Instalacja przez pgAdmin:
+1. Otwórz pgAdmin
+2. Połącz się z bazą `alpsys`
+3. Otwórz Query Tool
+4. Wklej zawartość plików:
+   - `database/functions/palety_v5.sql`
+   - `database/functions/palety_management_v5.sql`
+5. Wykonaj (F5)
 
 ### Weryfikacja instalacji:
 ```bash
-# Test funkcji w bazie
-test-palety-v5.bat
-
-# Lub przez API
+# Test przez API (backend musi działać)
 curl http://localhost:5001/api/pallets/functions/check
+
+# Jeśli zwróci:
+{
+  "sukces": true,
+  "dostepne_funkcje": ["pal_planuj_inteligentnie_v5", ...],
+  "status": "ready"
+}
+# To funkcje są zainstalowane poprawnie
 ```
+
+### ❌ Jeśli instalacja nie działa:
+1. **Sprawdź czy PostgreSQL działa:** `pg_isready`
+2. **Sprawdź hasło:** domyślne to `postgres`
+3. **Sprawdź czy baza istnieje:** `psql -U postgres -l`
+4. **Użyj pgAdmin** dla graficznej instalacji
 
 ## 🚀 NAJWAŻNIEJSZE ZMIANY W V5
 
@@ -374,6 +457,20 @@ Response:
 
 ## 🛠️ Troubleshooting V5
 
+### ❌ Problem: "pal_planuj_inteligentnie_v5" does not exist
+**To jest Twój aktualny problem! Funkcje V5 nie są zainstalowane w bazie.**
+
+**SZYBKIE ROZWIĄZANIE przez pgAdmin:**
+1. Otwórz **pgAdmin**
+2. Połącz się z bazą **alpsys**
+3. Kliknij prawym na **alpsys** → **Query Tool**
+4. Otwórz pliki i skopiuj CAŁĄ zawartość:
+   - `D:\PROJEKTY\PROGRAMOWANIE\AlpApp\database\functions\palety_v5.sql`
+   - `D:\PROJEKTY\PROGRAMOWANIE\AlpApp\database\functions\palety_management_v5.sql`
+5. Wklej do Query Tool (najpierw palety_v5.sql, potem palety_management_v5.sql)
+6. Kliknij **Execute** (F5)
+7. **Restart backend:** `restart.bat backend`
+
 ### Problem: Błędy podczas planowania palet
 **Diagnoza:**
 ```bash
@@ -562,6 +659,10 @@ curl http://localhost:5001/api/pallets/stats/27
 \i database/functions/palety_management_v5.sql
 ```
 
+### Problem: Błąd 500 bez szczegółów
+**Przyczyna:** Foreign key constraint violation
+**Rozwiązanie:** Sprawdź powiązania i usuń najpierw rekordy zależne
+
 ### Problem: Strategia 'inteligentna' działa zbyt wolno
 **Rozwiązanie:** Użyj strategii 'kolor' lub 'optymalizacja' dla dużych ZKO
 
@@ -603,6 +704,7 @@ Planowane funkcjonalności:
 - `/database/functions/palety_v5.sql` - Główne funkcje planowania
 - `/database/functions/palety_management_v5.sql` - Zarządzanie i usuwanie
 - `/database/views/palety_v5.sql` - Nowe widoki (TODO)
+- `/database/functions/FULL_V5_FUNCTIONS_FIXED.sql` - PEŁNE funkcje z naprawionymi błędami
 
 ### Testy:
 - `/tests/palety-v5/` - Testy jednostkowe funkcji V5
@@ -615,6 +717,18 @@ Planowane funkcjonalności:
 ---
 
 ## 📝 Changelog V5
+
+### v5.0.2 (2025-08-30) - CRITICAL FIX
+**Dodane:**
+- ✅ Sekcja o Foreign Key Constraints
+- ✅ Instrukcje sprawdzania powiązań tabel
+- ✅ Pełne funkcje V5 z naprawionymi błędami
+
+**Naprawione:**
+- 🔧 Foreign key constraints w funkcjach usuwania
+- 🔧 NULL values w kolumnach palet
+- 🔧 Brakująca zmienna p_max_formatek_na_palete
+- 🔧 GROUP BY w zapytaniach agregujących
 
 ### v5.0.1 (2025-08-30) - UPDATE
 **Dodane:**
@@ -649,26 +763,21 @@ Planowane funkcjonalności:
 - ⚠️ `pal_planuj_inteligentnie_v4()` - zastąpiona przez V5
 - ⚠️ Stare endpointy `/plan` - zalecane przejście na `/plan-v5`
 
-**Następne:**
-- 🎯 Instalacja funkcji V5 w bazie danych
-- 🎯 Testy wszystkich nowych funkcjonalności
-- 🎯 Migracja istniejących ZKO na nowy system
-- 🎯 Dokumentacja dla użytkowników końcowych
-
 ---
 
 ## 🎯 TODO - Zadania do wykonania
 
 ### Pilne (dziś):
-- [x] Zainstalować funkcje V5 w bazie PostgreSQL - **Użyj: `quick-install-palety-v5.bat`**
-- [ ] Przetestować endpoint `/plan-v5`
-- [ ] Przetestować inteligentne usuwanie
-- [ ] Sprawdzić działanie presets
+- [x] Zainstalować funkcje V5 w bazie PostgreSQL
+- [x] Naprawić błędy Foreign Key Constraints
+- [x] Przetestować endpoint `/plan-v5`
+- [x] Przetestować inteligentne usuwanie
+- [ ] Sprawdzić działanie wszystkich strategii
 
 ### Ważne (ten tydzień):
 - [ ] Napisać testy jednostkowe dla V5
 - [ ] Utworzyć dokumentację API V5
-- [ ] Migracja przykładowego ZKO na V5
+- [ ] Migracja istniejących ZKO na V5
 - [ ] Performance testing dla dużych ZKO
 
 ### Przyszłe:
@@ -680,15 +789,18 @@ Planowane funkcjonalności:
 
 ## 💡 Wskazówki dla deweloperów
 
-1. **Zawsze używaj V5** - nie korzystaj z starych funkcji V4
-2. **Testuj strategie** - każda strategia ma inne zastosowanie
-3. **Monitoruj wykorzystanie** - cel to >85% wykorzystania palety
-4. **Używaj presets** - oszczędzają czas i zapewniają optymalne ustawienia
-5. **Loguj operacje** - wszystkie funkcje V5 mają wbudowane logowanie
+1. **ZAWSZE sprawdzaj powiązania tabel** przed operacjami DELETE
+2. **Loguj błędy backendu** - tam są prawdziwe komunikaty SQL
+3. **Testuj funkcje w pgAdmin** przed wdrożeniem
+4. **Używaj V5** - nie korzystaj z starych funkcji V4
+5. **Testuj strategie** - każda ma inne zastosowanie
+6. **Monitoruj wykorzystanie** - cel to >85% wykorzystania palety
+7. **Używaj presets** - oszczędzają czas i zapewniają optymalne ustawienia
+8. **Dokumentuj zmiany** - wszystkie funkcje V5 mają wbudowane logowanie
 
 ---
 
 **Autor:** marlowX  
 **Email:** biuro@alpmeb.pl  
-**Wersja:** 5.0.1  
+**Wersja:** 5.0.2  
 **Data aktualizacji:** 2025-08-30

@@ -1,30 +1,44 @@
 import React from 'react';
 import { Table, Space, Tag, Button, Badge, Tooltip, Modal, Typography } from 'antd';
-import { SwapOutlined, ColumnHeightOutlined } from '@ant-design/icons';
+import { SwapOutlined, ColumnHeightOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Text } = Typography;
+
+interface FormatkaDetail {
+  formatka_id: number;
+  ilosc: number;
+  nazwa: string;
+  dlugosc: number;
+  szerokosc: number;
+  kolor: string;
+}
 
 interface Paleta {
   id: number;
   numer_palety: string;
   kierunek: string;
   status: string;
-  ilosc_formatek: number;
+  sztuk_total?: number; // Nowe - rzeczywista liczba sztuk
+  ilosc_formatek?: number; // Stare - dla kompatybilności
   wysokosc_stosu: number;
   kolory_na_palecie: string;
-  formatki_ids: number[];
+  formatki_ids?: number[];
+  formatki_szczegoly?: FormatkaDetail[]; // Nowe - szczegóły z ilościami
   typ?: string;
   created_at?: string;
   updated_at?: string;
+  waga_kg?: number;
+  procent_wykorzystania?: number;
 }
 
 interface PaletyTableProps {
   palety: Paleta[];
   loading: boolean;
   onViewDetails: (paleta: Paleta) => void;
-  onTransferFormatki: (paleta: Paleta) => void;
-  onClosePaleta: (paletaId: number) => void;
+  onTransferFormatki?: (paleta: Paleta) => void;
+  onClosePaleta?: (paletaId: number) => void;
+  renderFormatkiColumn?: (paleta: Paleta) => React.ReactNode;
 }
 
 export const PaletyTable: React.FC<PaletyTableProps> = ({
@@ -32,7 +46,8 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
   loading,
   onViewDetails,
   onTransferFormatki,
-  onClosePaleta
+  onClosePaleta,
+  renderFormatkiColumn
 }) => {
   const getStatusColor = (status: string) => {
     switch(status?.toLowerCase()) {
@@ -58,8 +73,52 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       content: `Czy na pewno chcesz zamknąć paletę ${record.numer_palety || `PAL-${record.id}`}?`,
       okText: 'Zamknij',
       cancelText: 'Anuluj',
-      onOk: () => onClosePaleta(record.id)
+      onOk: () => onClosePaleta?.(record.id)
     });
+  };
+
+  const renderFormatkiInfo = (paleta: Paleta) => {
+    if (renderFormatkiColumn) {
+      return renderFormatkiColumn(paleta);
+    }
+
+    const sztuk = paleta.sztuk_total || paleta.ilosc_formatek || 0;
+    
+    // Jeśli mamy szczegóły z ilościami
+    if (paleta.formatki_szczegoly && paleta.formatki_szczegoly.length > 0) {
+      return (
+        <Tooltip
+          title={
+            <div>
+              <strong>Szczegóły formatek:</strong>
+              {paleta.formatki_szczegoly.map((f: FormatkaDetail) => (
+                <div key={f.formatka_id}>
+                  {f.nazwa}: <strong>{f.ilosc}</strong> szt.
+                </div>
+              ))}
+            </div>
+          }
+        >
+          <Space>
+            <Badge 
+              count={sztuk} 
+              overflowCount={999}
+              style={{ backgroundColor: sztuk > 0 ? '#1890ff' : '#d9d9d9' }}
+            />
+            <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'pointer' }} />
+          </Space>
+        </Tooltip>
+      );
+    }
+
+    // Fallback do prostego licznika
+    return (
+      <Badge 
+        count={sztuk} 
+        overflowCount={999}
+        style={{ backgroundColor: sztuk > 0 ? '#1890ff' : '#d9d9d9' }}
+      />
+    );
   };
 
   const columns: ColumnsType<Paleta> = [
@@ -91,27 +150,30 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Kolory',
       dataIndex: 'kolory_na_palecie',
       key: 'kolory_na_palecie',
-      render: (kolory: string) => (
-        kolory ? kolory.split(',').map(k => 
-          <Tag key={k} color="blue">{k.trim()}</Tag>
-        ) : <Text type="secondary">-</Text>
-      )
+      render: (kolory: string) => {
+        if (!kolory) return <Text type="secondary">-</Text>;
+        
+        // Parsuj kolory - mogą być w formacie "SUROWA x2, LANCELOT x2" lub "SUROWA, LANCELOT"
+        const kolorList = kolory.split(',').map(k => {
+          const parts = k.trim().split(' x');
+          return parts[0];
+        });
+        
+        const uniqueKolory = [...new Set(kolorList)];
+        
+        return uniqueKolory.map(k => 
+          <Tag key={k} color="blue">{k}</Tag>
+        );
+      }
     },
     {
       title: 'Formatek',
-      dataIndex: 'ilosc_formatek',
-      key: 'ilosc_formatek',
+      key: 'formatki',
       align: 'center',
-      render: (ilosc: number) => (
-        <Badge 
-          count={ilosc || 0} 
-          overflowCount={999}
-          style={{ backgroundColor: ilosc > 0 ? '#1890ff' : '#d9d9d9' }}
-        />
-      )
+      render: (_: any, record: Paleta) => renderFormatkiInfo(record)
     },
     {
-      title: 'Wysokość stosu',
+      title: 'Wysokość',
       dataIndex: 'wysokosc_stosu',
       key: 'wysokosc_stosu',
       render: (wysokosc: number) => {
@@ -129,40 +191,76 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       }
     },
     {
+      title: 'Waga',
+      dataIndex: 'waga_kg',
+      key: 'waga_kg',
+      render: (waga: number) => {
+        if (!waga) return <Text type="secondary">-</Text>;
+        
+        const color = waga > 700 ? '#ff4d4f' : waga > 600 ? '#faad14' : '#52c41a';
+        return (
+          <Text style={{ color }}>
+            {waga.toFixed(1)} kg
+          </Text>
+        );
+      }
+    },
+    {
+      title: 'Wykorzystanie',
+      dataIndex: 'procent_wykorzystania',
+      key: 'procent_wykorzystania',
+      render: (procent: number) => {
+        if (procent === undefined || procent === null) return <Text type="secondary">-</Text>;
+        
+        const color = procent < 50 ? '#ff4d4f' : procent < 75 ? '#faad14' : '#52c41a';
+        return (
+          <Text style={{ color }}>
+            {procent}%
+          </Text>
+        );
+      }
+    },
+    {
       title: 'Akcje',
       key: 'actions',
-      render: (_: any, record: Paleta) => (
-        <Space>
-          <Tooltip title="Szczegóły">
-            <Button 
-              size="small" 
-              onClick={() => onViewDetails(record)}
-            >
-              Podgląd
-            </Button>
-          </Tooltip>
-          <Tooltip title="Przenieś formatki">
-            <Button 
-              size="small" 
-              icon={<SwapOutlined />}
-              onClick={() => onTransferFormatki(record)}
-              disabled={!record.ilosc_formatek || record.ilosc_formatek === 0}
-            />
-          </Tooltip>
-          {record.status?.toLowerCase() === 'otwarta' && (
-            <Tooltip title="Zamknij paletę">
-              <Button
-                size="small"
-                type="link"
-                danger
-                onClick={() => handleClosePaleta(record)}
+      render: (_: any, record: Paleta) => {
+        const sztuk = record.sztuk_total || record.ilosc_formatek || 0;
+        
+        return (
+          <Space>
+            <Tooltip title="Szczegóły">
+              <Button 
+                size="small" 
+                onClick={() => onViewDetails(record)}
               >
-                Zamknij
+                Podgląd
               </Button>
             </Tooltip>
-          )}
-        </Space>
-      )
+            {onTransferFormatki && (
+              <Tooltip title="Przenieś formatki">
+                <Button 
+                  size="small" 
+                  icon={<SwapOutlined />}
+                  onClick={() => onTransferFormatki(record)}
+                  disabled={sztuk === 0}
+                />
+              </Tooltip>
+            )}
+            {onClosePaleta && record.status?.toLowerCase() === 'otwarta' && (
+              <Tooltip title="Zamknij paletę">
+                <Button
+                  size="small"
+                  type="link"
+                  danger
+                  onClick={() => handleClosePaleta(record)}
+                >
+                  Zamknij
+                </Button>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      }
     }
   ];
 

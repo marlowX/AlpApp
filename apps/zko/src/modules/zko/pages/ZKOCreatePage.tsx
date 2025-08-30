@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Form, 
-  Input, 
-  InputNumber, 
-  Button, 
-  Card, 
-  Space, 
+import {
+  Form,
+  Input,
+  InputNumber,
+  Button,
+  Card,
+  Space,
   message,
   Select,
   DatePicker,
@@ -36,7 +36,7 @@ export const ZKOCreatePage: React.FC = () => {
       };
 
       const result = await createMutation.mutateAsync(dto);
-      
+
       if (result.sukces) {
         message.success(`ZKO ${result.numer_zko} zostało utworzone`);
         navigate(`/zko/${result.zko_id}`);
@@ -53,17 +53,15 @@ export const ZKOCreatePage: React.FC = () => {
 
   const defaultKooperanci = [
     'Bomar',
-    'Alpma Niziny', 
+    'Alpma Niziny',
     'Alpma Szropy'
   ];
 
   const allKooperanci = [
     ...defaultKooperanci,
-    'TESTOWY_KLIENT',
-    'TEST_FIRMA',
-    'FIRMA_ABC',
-    'KOOPERANT_XYZ',
-    'PARTNER_123',
+    'Bomar',
+    'Alpma Niziny',
+    'Alpma Szropy'
   ];
 
   const handleKooperantChange = (value: string) => {
@@ -76,8 +74,8 @@ export const ZKOCreatePage: React.FC = () => {
     <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center' }}>
-        <Button 
-          icon={<ArrowLeftOutlined />} 
+        <Button
+          icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/zko')}
           style={{ marginRight: '16px' }}
         >
@@ -195,7 +193,7 @@ export const ZKOCreatePage: React.FC = () => {
             name="data_planowana"
             help="Planowana data realizacji zlecenia"
           >
-            <DatePicker 
+            <DatePicker
               style={{ width: '100%' }}
               placeholder="Wybierz datę planowaną"
               format="DD.MM.YYYY"
@@ -207,7 +205,7 @@ export const ZKOCreatePage: React.FC = () => {
             name="komentarz"
             help="Dodatkowe informacje o zleceniu"
           >
-            <TextArea 
+            <TextArea
               rows={4}
               placeholder="Wpisz komentarz lub dodatkowe informacje..."
               maxLength={500}
@@ -217,8 +215,8 @@ export const ZKOCreatePage: React.FC = () => {
 
           <Form.Item style={{ marginBottom: 0 }}>
             <Space>
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 htmlType="submit"
                 loading={loading || createMutation.isPending}
                 icon={<SaveOutlined />}
@@ -246,7 +244,7 @@ export const ZKOCreatePage: React.FC = () => {
             <li><strong>Alpma Niziny</strong> - Oddział w Nizinach</li>
             <li><strong>Alpma Szropy</strong> - Oddział w Szropach</li>
           </ul>
-          
+
           <p><strong>Kolejne kroki po utworzeniu ZKO:</strong></p>
           <ul>
             <li>Dodanie pozycji (rozkrojów i formatek)</li>

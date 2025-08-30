@@ -8,7 +8,10 @@ import {
   Alert,
   Spin,
   Typography,
-  Popconfirm
+  Popconfirm,
+  Table,
+  Tag,
+  Tooltip
 } from 'antd';
 import { 
   AppstoreOutlined, 
@@ -18,7 +21,8 @@ import {
   SettingOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import { PaletaPrzeniesFormatki } from './PaletaPrzeniesFormatki';
 import { PaletaDetails } from './PaletaDetails';
@@ -29,15 +33,26 @@ import { LIMITY_PALETY, MESSAGES } from './types';
 
 const { Text } = Typography;
 
+interface FormatkaDetail {
+  formatka_id: number;
+  ilosc: number;
+  nazwa: string;
+  dlugosc: number;
+  szerokosc: number;
+  kolor: string;
+}
+
 interface Paleta {
   id: number;
   numer_palety: string;
   kierunek: string;
   status: string;
-  ilosc_formatek: number;
+  sztuk_total?: number; // Nowe - rzeczywista liczba sztuk
+  ilosc_formatek?: number; // Stare - dla kompatybilności
   wysokosc_stosu: number;
   kolory_na_palecie: string;
-  formatki_ids: number[];
+  formatki_ids?: number[];
+  formatki_szczegoly?: FormatkaDetail[]; // Nowe - szczegóły z ilościami
   typ?: string;
   created_at?: string;
   updated_at?: string;
@@ -62,6 +77,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const [planowanieModalVisible, setPlanowanieModalVisible] = useState(false);
   const [sourcePaleta, setSourcePaleta] = useState<Paleta | null>(null);
   const [targetPaleta, setTargetPaleta] = useState<Paleta | null>(null);
+  const [podsumowanie, setPodsumowanie] = useState<any>(null);
 
   useEffect(() => {
     fetchPalety();
@@ -70,11 +86,31 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const fetchPalety = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/pallets/zko/${zkoId}`);
+      
+      // Próbuj pobrać szczegółowe dane z nowego endpointu
+      let response = await fetch(`/api/pallets/zko/${zkoId}/details`);
+      
+      if (!response.ok) {
+        // Fallback do starego endpointu
+        response = await fetch(`/api/pallets/zko/${zkoId}`);
+      }
       
       if (response.ok) {
         const data = await response.json();
-        setPalety(data.palety || []);
+        
+        // Mapuj dane do jednolitego formatu
+        const mappedPalety = (data.palety || []).map((p: any) => ({
+          ...p,
+          // Użyj sztuk_total jeśli dostępne, w przeciwnym razie ilosc_formatek
+          ilosc_formatek: p.sztuk_total || p.ilosc_formatek || 0,
+          // Oblicz procent wykorzystania
+          procent_wykorzystania: p.sztuk_total 
+            ? Math.round((p.sztuk_total / LIMITY_PALETY.DOMYSLNE_FORMATEK) * 100)
+            : p.procent_wykorzystania || 0
+        }));
+        
+        setPalety(mappedPalety);
+        setPodsumowanie(data.podsumowanie);
       } else {
         const error = await response.json();
         message.error(error.error || MESSAGES.PLAN_ERROR);
@@ -87,9 +123,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     }
   };
 
-  /**
-   * NOWA FUNKCJA - używa pal_planuj_inteligentnie_v5
-   */
   const handlePlanujPaletyV5 = async (params: PlanowaniePaletParams) => {
     try {
       setLoading(true);
@@ -100,7 +133,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         return;
       }
       
-      // Wywołaj nową funkcję PostgreSQL v5
       const response = await fetch(`/api/pallets/zko/${zkoId}/plan-v5`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -112,7 +144,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           grubosc_plyty: params.grubosc_plyty,
           typ_palety: params.typ_palety,
           uwzglednij_oklejanie: params.uwzglednij_oklejanie,
-          nadpisz_istniejace: false // Domyślnie nie nadpisuj
+          nadpisz_istniejace: false
         })
       });
       
@@ -130,8 +162,13 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
               content: (
                 <div>
                   <p><strong>Utworzono:</strong> {stats.palety_utworzone} palet</p>
-                  <p><strong>Rozplanowano:</strong> {stats.formatki_rozplanowane} formatek</p>
-                  <p><strong>Średnie wykorzystanie:</strong> {stats.srednie_wykorzystanie}%</p>
+                  {stats.sztuk_total && (
+                    <p><strong>Rozplanowano:</strong> {stats.sztuk_total} sztuk</p>
+                  )}
+                  {stats.formatki_typy && (
+                    <p><strong>Typy formatek:</strong> {stats.formatki_typy}</p>
+                  )}
+                  <p><strong>Średnie wykorzystanie:</strong> {stats.srednie_wykorzystanie || 0}%</p>
                   <p><strong>Strategia:</strong> {stats.strategia_uzyta}</p>
                 </div>
               ),
@@ -169,7 +206,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
       content: (
         <div>
           <p>Dla tego ZKO istnieją już palety ({palety.length} szt.).</p>
-          <p>Czy chcesz usunąć istniejące palety i utworzyć nowe używając strategii <strong>"{params.strategia}"</strong>?</p>
+          <p>Czy chcesz usunąć istniejące palety i utworzyć nowe?</p>
           <Alert
             message="Uwaga"
             description="Ta operacja usunie wszystkie istniejące palety i ich przypisania formatek."
@@ -177,15 +214,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
             showIcon
             style={{ marginTop: 12 }}
           />
-          {previousResult.statystyki && (
-            <Alert
-              message="Informacje o istniejących paletach"
-              description={`Obecnych palet: ${previousResult.statystyki.istniejace_palety}`}
-              type="info"
-              showIcon
-              style={{ marginTop: 8 }}
-            />
-          )}
         </div>
       ),
       okText: 'Tak, zastąp palety',
@@ -206,7 +234,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...params,
-          nadpisz_istniejace: true // Tym razem nadpisz
+          nadpisz_istniejace: true
         })
       });
       
@@ -232,9 +260,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     }
   };
 
-  /**
-   * NOWA FUNKCJA - Inteligentne usuwanie palet
-   */
   const handleUsunInteligentnie = async (tylkoPuste: boolean = false) => {
     try {
       setLoading(true);
@@ -255,7 +280,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         if (result.sukces) {
           message.success(result.komunikat);
           
-          // Pokaż szczegóły operacji
           if (result.przeniesione_formatki > 0 || result.ostrzezenia?.length > 0) {
             Modal.info({
               title: 'Szczegóły usuwania palet',
@@ -298,131 +322,41 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     }
   };
 
-  /**
-   * NOWA FUNKCJA - Reorganizacja palet
-   */
-  const handleReorganizuj = async () => {
-    Modal.confirm({
-      title: 'Reorganizacja palet',
-      icon: <ThunderboltOutlined />,
-      content: (
-        <div>
-          <p>Reorganizacja palet połączy formatki na paletach w bardziej optymalny sposób.</p>
-          <Alert
-            message="Co zostanie zrobione:"
-            description={
-              <ul>
-                <li>Usunięcie pustych palet</li>
-                <li>Optymalne przegrupowanie formatek</li>
-                <li>Minimalizacja liczby palet</li>
-                <li>Maksymalizacja wykorzystania przestrzeni</li>
-              </ul>
-            }
-            type="info"
-            showIcon
-          />
-        </div>
-      ),
-      okText: 'Tak, reorganizuj',
-      cancelText: 'Anuluj',
-      onOk: async () => {
-        try {
-          setLoading(true);
-          
-          const response = await fetch(`/api/pallets/zko/${zkoId}/reorganize`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              strategia: 'optymalizacja',
-              operator: 'user'
-            })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            
-            if (result.sukces) {
-              message.success(result.komunikat);
-              
-              // Pokaż porównanie przed/po
-              if (result.przed_reorganizacja && result.po_reorganizacji) {
-                Modal.success({
-                  title: 'Reorganizacja zakończona',
-                  content: (
-                    <div>
-                      <p><strong>Przed:</strong> {result.przed_reorganizacja.liczba_palet} palet</p>
-                      <p><strong>Po:</strong> {result.po_reorganizacji.liczba_palet} palet</p>
-                      <p><strong>Wykorzystanie:</strong> {Number(result.po_reorganizacji.srednie_wykorzystanie).toFixed(1)}%</p>
-                    </div>
-                  )
-                });
-              }
-              
-              fetchPalety();
-              onRefresh?.();
-            } else {
-              message.warning(result.komunikat);
-            }
-          } else {
-            const error = await response.json();
-            message.error(error.error || 'Błąd reorganizacji');
-          }
-        } catch (error) {
-          console.error('Error reorganizing pallets:', error);
-          message.error('Błąd reorganizacji palet');
-        } finally {
-          setLoading(false);
-        }
-      }
-    });
-  };
-
-  const handlePrzeniesFormatki = (source: Paleta) => {
-    const otherPalety = palety.filter(p => p.id !== source.id);
-    if (otherPalety.length === 0) {
-      message.warning(MESSAGES.NO_PALLETS);
-      return;
-    }
-    
-    setSourcePaleta(source);
-    setTargetPaleta(otherPalety[0]);
-    setPrzeniesModalVisible(true);
-  };
-
-  const handleZamknijPalete = async (paletaId: number) => {
-    try {
-      const response = await fetch(`/api/pallets/${paletaId}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          operator: 'user',
-          uwagi: 'Zamknięcie palety z poziomu aplikacji'
-        })
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (result.sukces) {
-          message.success(result.komunikat || MESSAGES.CLOSE_SUCCESS);
-          fetchPalety();
-        } else {
-          message.warning(result.komunikat || MESSAGES.CLOSE_ERROR);
-        }
-      }
-    } catch (error) {
-      console.error('Error closing pallet:', error);
-      message.error(MESSAGES.CLOSE_ERROR);
-    }
-  };
-
   const handleViewDetails = (paleta: Paleta) => {
     setSelectedPaleta(paleta);
     setDetailsModalVisible(true);
   };
 
-  // Statystyki do wyświetlenia
-  const pustePalety = palety.filter(p => (p.ilosc_formatek || 0) === 0);
+  // Renderuj szczegóły formatek
+  const renderFormatkiDetails = (paleta: Paleta) => {
+    if (!paleta.formatki_szczegoly || paleta.formatki_szczegoly.length === 0) {
+      return <Text type="secondary">Brak formatek</Text>;
+    }
+
+    return (
+      <Tooltip
+        title={
+          <div>
+            {paleta.formatki_szczegoly.map((f: FormatkaDetail) => (
+              <div key={f.formatka_id}>
+                {f.nazwa}: {f.ilosc} szt.
+              </div>
+            ))}
+          </div>
+        }
+      >
+        <Space direction="vertical" size={0}>
+          <Text strong>{paleta.sztuk_total || paleta.ilosc_formatek} szt.</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {paleta.formatki_szczegoly.length} typów
+          </Text>
+        </Space>
+      </Tooltip>
+    );
+  };
+
+  // Statystyki
+  const pustePalety = palety.filter(p => (p.sztuk_total || p.ilosc_formatek || 0) === 0);
   const avgWykorzystanie = palety.length > 0 
     ? Math.round(palety.reduce((sum, p) => sum + (p.procent_wykorzystania || 0), 0) / palety.length)
     : 0;
@@ -434,10 +368,10 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           <AppstoreOutlined />
           <Text strong>Zarządzanie paletami</Text>
           {loading && <Spin size="small" />}
-          {avgWykorzystanie > 0 && (
-            <Text type="secondary">
-              (wykorzystanie: {avgWykorzystanie}%)
-            </Text>
+          {podsumowanie && (
+            <Tooltip title={`${podsumowanie.typy_formatek} typów, ${podsumowanie.sztuk_total} sztuk`}>
+              <InfoCircleOutlined />
+            </Tooltip>
           )}
         </Space>
       }
@@ -454,14 +388,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           
           {palety.length > 0 && (
             <>
-              <Button 
-                onClick={handleReorganizuj}
-                icon={<ThunderboltOutlined />}
-                loading={loading}
-              >
-                Reorganizuj
-              </Button>
-              
               {pustePalety.length > 0 && (
                 <Button 
                   onClick={() => handleUsunInteligentnie(true)}
@@ -500,9 +426,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           </Button>
         </Space>
       }
-      styles={{
-        body: { padding: '12px' }
-      }}
     >
       {palety.length === 0 ? (
         <Alert
@@ -510,39 +433,48 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           description={
             <div>
               <p>Palety zostaną utworzone automatycznie po dodaniu pozycji do ZKO.</p>
-              <p>Nowy algorytm V5 oferuje inteligentne planowanie z uwzględnieniem:</p>
-              <ul>
-                <li>Kolory i oklejanie formatek</li>
-                <li>Optymalne wykorzystanie przestrzeni</li>
-                <li>Limity wagi i wysokości</li>
-                <li>Różne strategie paletyzacji</li>
-              </ul>
+              {podsumowanie && podsumowanie.sztuk_total > 0 && (
+                <Alert
+                  message="Formatki do rozplanowania"
+                  description={`${podsumowanie.typy_formatek} typów, ${podsumowanie.sztuk_total} sztuk`}
+                  type="info"
+                  showIcon
+                  style={{ marginTop: 12 }}
+                />
+              )}
             </div>
           }
           type="info"
           showIcon
           action={
-            <Space direction="vertical">
-              <Button 
-                onClick={() => setPlanowanieModalVisible(true)} 
-                type="primary"
-                loading={loading}
-                icon={<PlusOutlined />}
-              >
-                Utwórz palety V5
-              </Button>
-            </Space>
+            <Button 
+              onClick={() => setPlanowanieModalVisible(true)} 
+              type="primary"
+              loading={loading}
+              icon={<PlusOutlined />}
+            >
+              Utwórz palety
+            </Button>
           }
         />
       ) : (
         <>
+          {podsumowanie && (
+            <Alert
+              message="Podsumowanie ZKO"
+              description={`${podsumowanie.typy_formatek} typów formatek, ${podsumowanie.sztuk_total} sztuk do produkcji`}
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          
           <PaletyStats palety={palety} />
           <PaletyTable
             palety={palety}
             loading={loading}
             onViewDetails={handleViewDetails}
-            onTransferFormatki={handlePrzeniesFormatki}
-            onClosePaleta={handleZamknijPalete}
+            renderFormatkiColumn={renderFormatkiDetails}
           />
         </>
       )}
@@ -563,27 +495,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         onCancel={() => setPlanowanieModalVisible(false)}
         onOk={handlePlanujPaletyV5}
       />
-
-      {sourcePaleta && targetPaleta && (
-        <PaletaPrzeniesFormatki
-          visible={przeniesModalVisible}
-          sourcePaleta={sourcePaleta}
-          targetPaleta={targetPaleta}
-          palety={palety}
-          onClose={() => {
-            setPrzeniesModalVisible(false);
-            setSourcePaleta(null);
-            setTargetPaleta(null);
-          }}
-          onSuccess={() => {
-            setPrzeniesModalVisible(false);
-            setSourcePaleta(null);
-            setTargetPaleta(null);
-            fetchPalety();
-            onRefresh?.();
-          }}
-        />
-      )}
 
       {selectedPaleta && (
         <PaletaDetails
