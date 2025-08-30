@@ -4,7 +4,6 @@ import {
   Button, 
   Space, 
   Modal, 
-  InputNumber, 
   message, 
   Alert,
   Spin,
@@ -18,14 +17,15 @@ import {
   ReloadOutlined,
   SettingOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  ThunderboltOutlined
 } from '@ant-design/icons';
 import { PaletaPrzeniesFormatki } from './PaletaPrzeniesFormatki';
 import { PaletaDetails } from './PaletaDetails';
 import { PaletyStats } from './components/PaletyStats';
 import { PaletyTable } from './components/PaletyTable';
 import { PlanowanieModal, PlanowaniePaletParams } from './components/PlanowanieModal';
-import { LIMITY_PALETY } from './types';
+import { LIMITY_PALETY, MESSAGES } from './types';
 
 const { Text } = Typography;
 
@@ -42,6 +42,7 @@ interface Paleta {
   created_at?: string;
   updated_at?: string;
   waga_kg?: number;
+  procent_wykorzystania?: number;
 }
 
 interface PaletyManagerProps {
@@ -61,16 +62,6 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const [planowanieModalVisible, setPlanowanieModalVisible] = useState(false);
   const [sourcePaleta, setSourcePaleta] = useState<Paleta | null>(null);
   const [targetPaleta, setTargetPaleta] = useState<Paleta | null>(null);
-  
-  const [planParams] = useState<PlanowaniePaletParams>({
-    max_wysokosc_mm: LIMITY_PALETY.DOMYSLNA_WYSOKOSC_MM,
-    max_waga_kg: LIMITY_PALETY.DOMYSLNA_WAGA_KG,
-    max_formatek_na_palete: 200,
-    grubosc_plyty: LIMITY_PALETY.GRUBOSC_PLYTY_DEFAULT,
-    strategia: 'kolor',
-    typ_palety: 'EURO',
-    uwzglednij_oklejanie: false
-  });
 
   useEffect(() => {
     fetchPalety();
@@ -86,215 +77,299 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         setPalety(data.palety || []);
       } else {
         const error = await response.json();
-        message.error(error.error || 'Błąd pobierania palet');
+        message.error(error.error || MESSAGES.PLAN_ERROR);
       }
     } catch (error) {
       console.error('Error fetching palety:', error);
-      message.error('Błąd pobierania palet');
+      message.error(MESSAGES.PLAN_ERROR);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePlanujPalety = async (params: PlanowaniePaletParams) => {
+  /**
+   * NOWA FUNKCJA - używa pal_planuj_inteligentnie_v5
+   */
+  const handlePlanujPaletyV5 = async (params: PlanowaniePaletParams) => {
     try {
       setLoading(true);
       
-      // Walidacja wagi
+      // Walidacja
       if (!params.max_waga_kg || params.max_waga_kg < LIMITY_PALETY.MIN_WAGA_KG) {
-        message.error('Maksymalna waga musi być podana i większa niż ' + LIMITY_PALETY.MIN_WAGA_KG + ' kg');
+        message.error(MESSAGES.WEIGHT_REQUIRED + ` (min: ${LIMITY_PALETY.MIN_WAGA_KG} kg)`);
         return;
       }
       
-      const response = await fetch(`/api/pallets/zko/${zkoId}/plan`, {
+      // Wywołaj nową funkcję PostgreSQL v5
+      const response = await fetch(`/api/pallets/zko/${zkoId}/plan-v5`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
+        body: JSON.stringify({
+          strategia: params.strategia || 'inteligentna',
+          max_wysokosc_mm: params.max_wysokosc_mm,
+          max_formatek_na_palete: params.max_formatek_na_palete,
+          max_waga_kg: params.max_waga_kg,
+          grubosc_plyty: params.grubosc_plyty,
+          typ_palety: params.typ_palety,
+          uwzglednij_oklejanie: params.uwzglednij_oklejanie,
+          nadpisz_istniejace: false // Domyślnie nie nadpisuj
+        })
       });
       
       if (response.ok) {
         const result = await response.json();
         
         if (result.sukces) {
-          message.success(result.komunikat || 'Zaplanowano palety');
+          message.success(result.komunikat || MESSAGES.PLAN_SUCCESS);
+          
+          // Pokaż szczegóły planowania
+          if (result.statystyki) {
+            const stats = result.statystyki;
+            Modal.success({
+              title: 'Planowanie zakończone pomyślnie',
+              content: (
+                <div>
+                  <p><strong>Utworzono:</strong> {stats.palety_utworzone} palet</p>
+                  <p><strong>Rozplanowano:</strong> {stats.formatki_rozplanowane} formatek</p>
+                  <p><strong>Średnie wykorzystanie:</strong> {stats.srednie_wykorzystanie}%</p>
+                  <p><strong>Strategia:</strong> {stats.strategia_uzyta}</p>
+                </div>
+              ),
+              width: 500
+            });
+          }
+          
           setPlanowanieModalVisible(false);
           fetchPalety();
           onRefresh?.();
         } else {
-          // Sprawdź czy to komunikat o istniejących paletach
-          if (result.komunikat && result.komunikat.includes('Palety już istnieją')) {
-            // Zapytaj użytkownika czy chce nadpisać
-            Modal.confirm({
-              title: 'Palety już istnieją',
-              icon: <ExclamationCircleOutlined />,
-              content: (
-                <div>
-                  <p>Dla tego ZKO istnieją już palety ({palety.length} szt.).</p>
-                  <p>Czy chcesz usunąć istniejące palety i utworzyć nowe?</p>
-                  <Alert
-                    message="Uwaga"
-                    description="Ta operacja usunie wszystkie istniejące palety i ich przypisania formatek."
-                    type="warning"
-                    showIcon
-                    style={{ marginTop: 12 }}
-                  />
-                </div>
-              ),
-              okText: 'Tak, usuń i utwórz nowe',
-              cancelText: 'Anuluj',
-              okButtonProps: { danger: true },
-              onOk: async () => {
-                // Najpierw usuń istniejące palety
-                await handleUsunWszystkiePaletyIStworzNowe(params);
-              },
-            });
+          // Sprawdź czy to problem z istniejącymi paletami
+          if (result.komunikat && result.komunikat.includes('ma już')) {
+            handleConfirmOverwritePallets(params, result);
           } else {
             message.warning(result.komunikat || 'Nie udało się zaplanować palet');
           }
         }
       } else {
         const error = await response.json();
-        message.error(error.error || error.message || 'Błąd planowania palet');
+        message.error(error.error || error.message || MESSAGES.PLAN_ERROR);
       }
     } catch (error) {
-      console.error('Error planning palety:', error);
-      message.error('Błąd planowania palet');
+      console.error('Error planning pallets v5:', error);
+      message.error(MESSAGES.PLAN_ERROR);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUsunWszystkiePaletyIStworzNowe = async (params: PlanowaniePaletParams) => {
+  const handleConfirmOverwritePallets = (params: PlanowaniePaletParams, previousResult: any) => {
+    Modal.confirm({
+      title: 'Zastąpić istniejące palety?',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>Dla tego ZKO istnieją już palety ({palety.length} szt.).</p>
+          <p>Czy chcesz usunąć istniejące palety i utworzyć nowe używając strategii <strong>"{params.strategia}"</strong>?</p>
+          <Alert
+            message="Uwaga"
+            description="Ta operacja usunie wszystkie istniejące palety i ich przypisania formatek."
+            type="warning"
+            showIcon
+            style={{ marginTop: 12 }}
+          />
+          {previousResult.statystyki && (
+            <Alert
+              message="Informacje o istniejących paletach"
+              description={`Obecnych palet: ${previousResult.statystyki.istniejace_palety}`}
+              type="info"
+              showIcon
+              style={{ marginTop: 8 }}
+            />
+          )}
+        </div>
+      ),
+      okText: 'Tak, zastąp palety',
+      cancelText: 'Anuluj',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        await handlePlanujPaletyV5WithOverwrite(params);
+      },
+    });
+  };
+
+  const handlePlanujPaletyV5WithOverwrite = async (params: PlanowaniePaletParams) => {
     try {
       setLoading(true);
       
-      // Krok 1: Usuń istniejące palety
-      const deleteResponse = await fetch(`/api/pallets/zko/${zkoId}/all`, {
-        method: 'DELETE'
-      });
-      
-      if (!deleteResponse.ok) {
-        const error = await deleteResponse.json();
-        message.error(error.error || 'Błąd usuwania palet');
-        return;
-      }
-      
-      const deleteResult = await deleteResponse.json();
-      message.info(`Usunięto ${deleteResult.usuniete} istniejących palet`);
-      
-      // Krok 2: Utwórz nowe palety
-      const planResponse = await fetch(`/api/pallets/zko/${zkoId}/plan`, {
+      const response = await fetch(`/api/pallets/zko/${zkoId}/plan-v5`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-      });
-      
-      if (planResponse.ok) {
-        const planResult = await planResponse.json();
-        
-        if (planResult.sukces) {
-          message.success(planResult.komunikat || 'Utworzono nowe palety');
-          fetchPalety();
-          onRefresh?.();
-        } else {
-          message.error(planResult.komunikat || 'Nie udało się utworzyć nowych palet');
-        }
-      } else {
-        const error = await planResponse.json();
-        message.error(error.error || 'Błąd tworzenia palet');
-      }
-      
-    } catch (error) {
-      console.error('Error recreating pallets:', error);
-      message.error('Błąd podczas odtwarzania palet');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUsunWszystkiePalety = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/pallets/zko/${zkoId}/all`, {
-        method: 'DELETE'
+        body: JSON.stringify({
+          ...params,
+          nadpisz_istniejace: true // Tym razem nadpisz
+        })
       });
       
       if (response.ok) {
         const result = await response.json();
         
         if (result.sukces) {
-          message.success(result.komunikat || 'Usunięto wszystkie palety');
+          message.success(result.komunikat || MESSAGES.PLAN_SUCCESS);
           fetchPalety();
           onRefresh?.();
         } else {
-          message.warning(result.komunikat || 'Nie udało się usunąć palet');
+          message.error(result.komunikat || MESSAGES.PLAN_ERROR);
+        }
+      } else {
+        const error = await response.json();
+        message.error(error.error || MESSAGES.PLAN_ERROR);
+      }
+    } catch (error) {
+      console.error('Error overwriting pallets:', error);
+      message.error(MESSAGES.PLAN_ERROR);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * NOWA FUNKCJA - Inteligentne usuwanie palet
+   */
+  const handleUsunInteligentnie = async (tylkoPuste: boolean = false) => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`/api/pallets/zko/${zkoId}/delete-smart`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tylko_puste: tylkoPuste,
+          force_usun: false,
+          operator: 'user'
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        
+        if (result.sukces) {
+          message.success(result.komunikat);
+          
+          // Pokaż szczegóły operacji
+          if (result.przeniesione_formatki > 0 || result.ostrzezenia?.length > 0) {
+            Modal.info({
+              title: 'Szczegóły usuwania palet',
+              content: (
+                <div>
+                  <p><strong>Usunięto palet:</strong> {result.usuniete_palety?.length || 0}</p>
+                  {result.przeniesione_formatki > 0 && (
+                    <p><strong>Przeniesiono formatek:</strong> {result.przeniesione_formatki}</p>
+                  )}
+                  {result.ostrzezenia?.length > 0 && (
+                    <div>
+                      <p><strong>Ostrzeżenia:</strong></p>
+                      <ul>
+                        {result.ostrzezenia.map((warning: string, idx: number) => (
+                          <li key={idx}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ),
+              width: 600
+            });
+          }
+          
+          fetchPalety();
+          onRefresh?.();
+        } else {
+          message.warning(result.komunikat);
         }
       } else {
         const error = await response.json();
         message.error(error.error || 'Błąd usuwania palet');
       }
     } catch (error) {
-      console.error('Error deleting all pallets:', error);
+      console.error('Error smart deleting pallets:', error);
       message.error('Błąd usuwania palet');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleZmienIloscPalet = () => {
-    let newCount = palety.length || 1;
-    
+  /**
+   * NOWA FUNKCJA - Reorganizacja palet
+   */
+  const handleReorganizuj = async () => {
     Modal.confirm({
-      title: 'Zmień ilość palet',
+      title: 'Reorganizacja palet',
+      icon: <ThunderboltOutlined />,
       content: (
         <div>
-          <Text>Obecna ilość palet: <strong>{palety.length}</strong></Text>
-          <br /><br />
-          <Text>Nowa ilość:</Text>
-          <InputNumber 
-            min={1} 
-            max={50} 
-            defaultValue={palety.length || 1}
-            onChange={(value) => {
-              newCount = value || palety.length || 1;
-            }}
-            style={{ width: '100%', marginTop: 8 }}
-          />
-          <br /><br />
+          <p>Reorganizacja palet połączy formatki na paletach w bardziej optymalny sposób.</p>
           <Alert
-            message="Uwaga"
-            description="Zmiana ilości palet spowoduje reorganizację formatek."
-            type="warning"
+            message="Co zostanie zrobione:"
+            description={
+              <ul>
+                <li>Usunięcie pustych palet</li>
+                <li>Optymalne przegrupowanie formatek</li>
+                <li>Minimalizacja liczby palet</li>
+                <li>Maksymalizacja wykorzystania przestrzeni</li>
+              </ul>
+            }
+            type="info"
             showIcon
           />
         </div>
       ),
+      okText: 'Tak, reorganizuj',
+      cancelText: 'Anuluj',
       onOk: async () => {
         try {
           setLoading(true);
-          const response = await fetch(`/api/pallets/zko/${zkoId}/change-quantity`, {
+          
+          const response = await fetch(`/api/pallets/zko/${zkoId}/reorganize`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nowa_ilosc: newCount })
+            body: JSON.stringify({
+              strategia: 'optymalizacja',
+              operator: 'user'
+            })
           });
           
           if (response.ok) {
             const result = await response.json();
             
             if (result.sukces) {
-              message.success(result.komunikat || 'Zmieniono ilość palet');
+              message.success(result.komunikat);
+              
+              // Pokaż porównanie przed/po
+              if (result.przed_reorganizacja && result.po_reorganizacji) {
+                Modal.success({
+                  title: 'Reorganizacja zakończona',
+                  content: (
+                    <div>
+                      <p><strong>Przed:</strong> {result.przed_reorganizacja.liczba_palet} palet</p>
+                      <p><strong>Po:</strong> {result.po_reorganizacji.liczba_palet} palet</p>
+                      <p><strong>Wykorzystanie:</strong> {Number(result.po_reorganizacji.srednie_wykorzystanie).toFixed(1)}%</p>
+                    </div>
+                  )
+                });
+              }
+              
               fetchPalety();
               onRefresh?.();
             } else {
-              message.warning(result.komunikat || 'Nie udało się zmienić ilości palet');
+              message.warning(result.komunikat);
             }
           } else {
             const error = await response.json();
-            message.error(error.error || 'Błąd zmiany ilości palet');
+            message.error(error.error || 'Błąd reorganizacji');
           }
         } catch (error) {
-          console.error('Error changing pallet quantity:', error);
-          message.error('Błąd zmiany ilości palet');
+          console.error('Error reorganizing pallets:', error);
+          message.error('Błąd reorganizacji palet');
         } finally {
           setLoading(false);
         }
@@ -305,7 +380,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const handlePrzeniesFormatki = (source: Paleta) => {
     const otherPalety = palety.filter(p => p.id !== source.id);
     if (otherPalety.length === 0) {
-      message.warning('Brak innych palet do przeniesienia formatek');
+      message.warning(MESSAGES.NO_PALLETS);
       return;
     }
     
@@ -320,7 +395,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          operator: 'system',
+          operator: 'user',
           uwagi: 'Zamknięcie palety z poziomu aplikacji'
         })
       });
@@ -329,15 +404,15 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         const result = await response.json();
         
         if (result.sukces) {
-          message.success(result.komunikat || 'Zamknięto paletę');
+          message.success(result.komunikat || MESSAGES.CLOSE_SUCCESS);
           fetchPalety();
         } else {
-          message.warning(result.komunikat || 'Nie udało się zamknąć palety');
+          message.warning(result.komunikat || MESSAGES.CLOSE_ERROR);
         }
       }
     } catch (error) {
       console.error('Error closing pallet:', error);
-      message.error('Błąd zamykania palety');
+      message.error(MESSAGES.CLOSE_ERROR);
     }
   };
 
@@ -346,6 +421,12 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     setDetailsModalVisible(true);
   };
 
+  // Statystyki do wyświetlenia
+  const pustePalety = palety.filter(p => (p.ilosc_formatek || 0) === 0);
+  const avgWykorzystanie = palety.length > 0 
+    ? Math.round(palety.reduce((sum, p) => sum + (p.procent_wykorzystania || 0), 0) / palety.length)
+    : 0;
+
   return (
     <Card 
       title={
@@ -353,6 +434,11 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           <AppstoreOutlined />
           <Text strong>Zarządzanie paletami</Text>
           {loading && <Spin size="small" />}
+          {avgWykorzystanie > 0 && (
+            <Text type="secondary">
+              (wykorzystanie: {avgWykorzystanie}%)
+            </Text>
+          )}
         </Space>
       }
       extra={
@@ -363,33 +449,48 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
             type="primary"
             loading={loading}
           >
-            Planuj automatycznie
+            Planuj V5
           </Button>
-          <Button 
-            onClick={handleZmienIloscPalet}
-            icon={palety.length > 0 ? <MinusOutlined /> : <PlusOutlined />}
-            disabled={loading || palety.length === 0}
-          >
-            Zmień ilość
-          </Button>
+          
           {palety.length > 0 && (
-            <Popconfirm
-              title="Usuń wszystkie palety"
-              description="Czy na pewno chcesz usunąć wszystkie palety? Ta operacja jest nieodwracalna."
-              onConfirm={handleUsunWszystkiePalety}
-              okText="Tak, usuń"
-              cancelText="Anuluj"
-              okButtonProps={{ danger: true }}
-            >
+            <>
               <Button 
-                icon={<DeleteOutlined />}
-                danger
+                onClick={handleReorganizuj}
+                icon={<ThunderboltOutlined />}
                 loading={loading}
               >
-                Usuń wszystkie
+                Reorganizuj
               </Button>
-            </Popconfirm>
+              
+              {pustePalety.length > 0 && (
+                <Button 
+                  onClick={() => handleUsunInteligentnie(true)}
+                  icon={<MinusOutlined />}
+                  loading={loading}
+                >
+                  Usuń puste ({pustePalety.length})
+                </Button>
+              )}
+              
+              <Popconfirm
+                title="Usuń wszystkie palety"
+                description="Formatki zostaną przeniesione na pozostałe palety (jeśli to możliwe). Czy kontynuować?"
+                onConfirm={() => handleUsunInteligentnie(false)}
+                okText="Tak, usuń inteligentnie"
+                cancelText="Anuluj"
+                okButtonProps={{ danger: true }}
+              >
+                <Button 
+                  icon={<DeleteOutlined />}
+                  danger
+                  loading={loading}
+                >
+                  Usuń wszystkie
+                </Button>
+              </Popconfirm>
+            </>
           )}
+          
           <Button 
             onClick={fetchPalety}
             icon={<ReloadOutlined />}
@@ -409,7 +510,13 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           description={
             <div>
               <p>Palety zostaną utworzone automatycznie po dodaniu pozycji do ZKO.</p>
-              <p>Możesz też utworzyć je ręcznie klikając "Planuj automatycznie".</p>
+              <p>Nowy algorytm V5 oferuje inteligentne planowanie z uwzględnieniem:</p>
+              <ul>
+                <li>Kolory i oklejanie formatek</li>
+                <li>Optymalne wykorzystanie przestrzeni</li>
+                <li>Limity wagi i wysokości</li>
+                <li>Różne strategie paletyzacji</li>
+              </ul>
             </div>
           }
           type="info"
@@ -420,8 +527,9 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
                 onClick={() => setPlanowanieModalVisible(true)} 
                 type="primary"
                 loading={loading}
+                icon={<PlusOutlined />}
               >
-                Utwórz palety
+                Utwórz palety V5
               </Button>
             </Space>
           }
@@ -443,9 +551,17 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
       <PlanowanieModal
         visible={planowanieModalVisible}
         loading={loading}
-        initialValues={planParams}
+        initialValues={{
+          max_wysokosc_mm: LIMITY_PALETY.DOMYSLNA_WYSOKOSC_MM,
+          max_waga_kg: LIMITY_PALETY.DOMYSLNA_WAGA_KG,
+          max_formatek_na_palete: 200,
+          grubosc_plyty: LIMITY_PALETY.GRUBOSC_PLYTY_DEFAULT,
+          strategia: 'inteligentna',
+          typ_palety: 'EURO',
+          uwzglednij_oklejanie: true
+        }}
         onCancel={() => setPlanowanieModalVisible(false)}
-        onOk={handlePlanujPalety}
+        onOk={handlePlanujPaletyV5}
       />
 
       {sourcePaleta && targetPaleta && (

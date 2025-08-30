@@ -12,21 +12,33 @@ import {
   Alert,
   Typography,
   Switch,
-  Divider
+  Divider,
+  Card,
+  Button
 } from 'antd';
-import { SettingOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { SettingOutlined, InfoCircleOutlined, RocketOutlined } from '@ant-design/icons';
+import { 
+  StrategiaPlanowania, 
+  TypPalety, 
+  STRATEGIE_DESCRIPTIONS, 
+  LIMITY_PALETY,
+  PLANOWANIE_PRESETS,
+  PlanowaniePreset
+} from '../types';
 
 const { Option } = Select;
 const { Text } = Typography;
 
 export interface PlanowaniePaletParams {
+  strategia: StrategiaPlanowania;
   max_wysokosc_mm: number;
   max_waga_kg: number;
   max_formatek_na_palete: number;
   grubosc_plyty: number;
-  strategia: 'kolor' | 'rozmiar' | 'mieszane' | 'oklejanie';
-  typ_palety: 'EURO' | 'STANDARD' | 'MAXI';
+  typ_palety: TypPalety;
   uwzglednij_oklejanie: boolean;
+  nadpisz_istniejace?: boolean;
+  operator?: string;
 }
 
 interface PlanowanieModalProps {
@@ -53,25 +65,38 @@ export const PlanowanieModal: React.FC<PlanowanieModalProps> = ({
     });
   };
 
+  const handlePresetSelect = (preset: PlanowaniePreset) => {
+    const presetValues = PLANOWANIE_PRESETS[preset].params;
+    form.setFieldsValue(presetValues);
+    setCurrentValues(prev => ({ ...prev, ...presetValues }));
+  };
+
   React.useEffect(() => {
     if (visible) {
       form.setFieldsValue(initialValues);
+      setCurrentValues(initialValues);
     }
   }, [visible, initialValues, form]);
+
+  const selectedStrategy = currentValues.strategia || initialValues.strategia;
+  const strategyInfo = STRATEGIE_DESCRIPTIONS[selectedStrategy];
 
   return (
     <Modal
       title={
         <Space>
           <SettingOutlined />
-          <Text strong>Parametry planowania palet</Text>
+          <Text strong>Planowanie palet V5</Text>
+          <Tag color="blue">NOWA WERSJA</Tag>
         </Space>
       }
       open={visible}
       onCancel={onCancel}
       onOk={handleOk}
       confirmLoading={loading}
-      width={700}
+      width={800}
+      okText="Zaplanuj palety"
+      cancelText="Anuluj"
     >
       <Form
         form={form}
@@ -79,24 +104,91 @@ export const PlanowanieModal: React.FC<PlanowanieModalProps> = ({
         initialValues={initialValues}
         onValuesChange={(_, values) => setCurrentValues(values)}
       >
+        
+        {/* PRESETS */}
+        <Alert
+          message="⚡ Szybkie ustawienia"
+          description={
+            <Space wrap style={{ marginTop: 8 }}>
+              {Object.entries(PLANOWANIE_PRESETS).map(([key, preset]) => (
+                <Button
+                  key={key}
+                  size="small"
+                  onClick={() => handlePresetSelect(key as PlanowaniePreset)}
+                  icon={<RocketOutlined />}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </Space>
+          }
+          type="info"
+          style={{ marginBottom: 16 }}
+        />
+
+        {/* STRATEGIA */}
+        <Divider orientation="left">Strategia planowania</Divider>
+        
+        <Form.Item
+          name="strategia"
+          label="Sposób układania formatek"
+          tooltip="Określa algorytm grupowania formatek na paletach"
+        >
+          <Select size="large">
+            {Object.entries(STRATEGIE_DESCRIPTIONS).map(([key, info]) => (
+              <Option key={key} value={key}>
+                <Space>
+                  <span style={{ fontSize: '16px' }}>{info.icon}</span>
+                  <div>
+                    <Text strong style={{ color: info.color as any }}>{info.name}</Text>
+                    <br />
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {info.description}
+                    </Text>
+                  </div>
+                </Space>
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+
+        {strategyInfo && (
+          <Card size="small" style={{ marginBottom: 16, backgroundColor: '#f0f9ff' }}>
+            <Space>
+              <span style={{ fontSize: '20px' }}>{strategyInfo.icon}</span>
+              <div>
+                <Text strong>{strategyInfo.name}</Text>
+                <br />
+                <Text type="secondary">{strategyInfo.description}</Text>
+              </div>
+            </Space>
+          </Card>
+        )}
+
+        {/* LIMITY FIZYCZNE */}
         <Divider orientation="left">Limity fizyczne</Divider>
         
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
               name="max_wysokosc_mm"
-              label="Maksymalna wysokość (mm)"
+              label={
+                <Space>
+                  Maksymalna wysokość
+                  <Text type="secondary">({currentValues.max_wysokosc_mm || initialValues.max_wysokosc_mm}mm)</Text>
+                </Space>
+              }
               tooltip="Standardowa wysokość palety EURO to 1440mm"
             >
               <Slider
-                min={400}
-                max={1500}
+                min={LIMITY_PALETY.MIN_WYSOKOSC_MM}
+                max={LIMITY_PALETY.MAX_WYSOKOSC_MM}
                 marks={{
                   400: '400',
                   800: '800',
                   1200: '1200',
-                  1440: '1440',
-                  1500: '1500'
+                  1440: '1440 (EURO)',
+                  1600: '1600'
                 }}
                 tooltip={{ formatter: (value) => `${value}mm` }}
               />
@@ -110,8 +202,8 @@ export const PlanowanieModal: React.FC<PlanowanieModalProps> = ({
               rules={[{ required: true, message: 'Podaj maksymalną wagę' }]}
             >
               <InputNumber
-                min={100}
-                max={1000}
+                min={LIMITY_PALETY.MIN_WAGA_KG}
+                max={LIMITY_PALETY.MAX_WAGA_KG}
                 step={50}
                 style={{ width: '100%' }}
                 addonAfter="kg"
@@ -125,11 +217,11 @@ export const PlanowanieModal: React.FC<PlanowanieModalProps> = ({
             <Form.Item
               name="max_formatek_na_palete"
               label="Max formatek na paletę"
-              tooltip="Optymalna ilość to 150-250 sztuk"
+              tooltip={`Optymalna ilość to ${LIMITY_PALETY.OPTYMALNE_FORMATEK_MIN}-${LIMITY_PALETY.OPTYMALNE_FORMATEK_MAX} sztuk`}
             >
               <InputNumber
                 min={50}
-                max={500}
+                max={LIMITY_PALETY.MAX_FORMATEK}
                 style={{ width: '100%' }}
                 addonAfter="szt"
               />
@@ -139,33 +231,51 @@ export const PlanowanieModal: React.FC<PlanowanieModalProps> = ({
             <Form.Item
               name="grubosc_plyty"
               label="Grubość płyty (mm)"
+              tooltip="Wpływa na obliczenia wysokości stosu"
             >
               <Select>
-                <Option value={10}>10 mm</Option>
-                <Option value={12}>12 mm</Option>
-                <Option value={16}>16 mm</Option>
-                <Option value={18}>18 mm</Option>
-                <Option value={22}>22 mm</Option>
-                <Option value={25}>25 mm</Option>
-                <Option value={28}>28 mm</Option>
-                <Option value={36}>36 mm</Option>
+                <Option value={10}>10 mm (7.0 kg/m²)</Option>
+                <Option value={12}>12 mm (8.4 kg/m²)</Option>
+                <Option value={16}>16 mm (11.2 kg/m²)</Option>
+                <Option value={18}>18 mm (12.6 kg/m²)</Option>
+                <Option value={22}>22 mm (15.4 kg/m²)</Option>
+                <Option value={25}>25 mm (17.5 kg/m²)</Option>
+                <Option value={28}>28 mm (19.6 kg/m²)</Option>
+                <Option value={36}>36 mm (25.2 kg/m²)</Option>
               </Select>
             </Form.Item>
           </Col>
         </Row>
 
-        <Divider orientation="left">Parametry układania</Divider>
+        {/* USTAWIENIA PALETY */}
+        <Divider orientation="left">Ustawienia palety</Divider>
 
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
               name="typ_palety"
               label="Typ palety"
+              tooltip="Determinuje wymiary bazowe palety"
             >
               <Select>
-                <Option value="EURO">EURO (1200x800)</Option>
-                <Option value="STANDARD">Standard (1200x1000)</Option>
-                <Option value="MAXI">Maxi (1200x1200)</Option>
+                <Option value="EURO">
+                  <Space>
+                    <Text strong>EURO</Text>
+                    <Text type="secondary">(1200×800mm)</Text>
+                  </Space>
+                </Option>
+                <Option value="STANDARD">
+                  <Space>
+                    <Text strong>STANDARD</Text>
+                    <Text type="secondary">(1200×1000mm)</Text>
+                  </Space>
+                </Option>
+                <Option value="MAXI">
+                  <Space>
+                    <Text strong>MAXI</Text>
+                    <Text type="secondary">(1200×1200mm)</Text>
+                  </Space>
+                </Option>
               </Select>
             </Form.Item>
           </Col>
@@ -174,14 +284,14 @@ export const PlanowanieModal: React.FC<PlanowanieModalProps> = ({
               name="uwzglednij_oklejanie"
               label="Uwzględnij oklejanie"
               valuePropName="checked"
-              tooltip="Grupuj formatki wymagające oklejania osobno"
+              tooltip="Formatki wymagające oklejania będą grupowane osobno"
             >
               <Switch 
                 checkedChildren="TAK" 
                 unCheckedChildren="NIE"
                 onChange={(checked) => {
-                  if (checked) {
-                    form.setFieldValue('strategia', 'oklejanie');
+                  if (checked && currentValues.strategia !== 'oklejanie') {
+                    form.setFieldValue('strategia', 'inteligentna');
                   }
                 }}
               />
@@ -189,57 +299,50 @@ export const PlanowanieModal: React.FC<PlanowanieModalProps> = ({
           </Col>
         </Row>
 
-        <Form.Item
-          name="strategia"
-          label="Strategia układania"
-          tooltip="Określa sposób grupowania formatek na paletach"
-        >
-          <Select>
-            <Option value="kolor">
-              <Space>
-                <Tag color="blue">Według koloru</Tag>
-                <Text type="secondary">Grupuj formatki tego samego koloru</Text>
-              </Space>
-            </Option>
-            <Option value="rozmiar">
-              <Space>
-                <Tag color="green">Według rozmiaru</Tag>
-                <Text type="secondary">Grupuj formatki o podobnych wymiarach</Text>
-              </Space>
-            </Option>
-            <Option value="oklejanie">
-              <Space>
-                <Tag color="purple">Według oklejania</Tag>
-                <Text type="secondary">Oddziel formatki wymagające oklejania</Text>
-              </Space>
-            </Option>
-            <Option value="mieszane">
-              <Space>
-                <Tag color="orange">Mieszane</Tag>
-                <Text type="secondary">Optymalne wypełnienie palet</Text>
-              </Space>
-            </Option>
-          </Select>
-        </Form.Item>
-
+        {/* PODGLĄD USTAWIEŃ */}
         <Alert
-          message="Informacja"
+          message="🎯 Podgląd ustawień"
           description={
             <div>
-              <p>System automatycznie zaplanuje rozmieszczenie formatek na paletach według wybranych parametrów.</p>
-              <ul style={{ marginBottom: 0 }}>
-                <li>Maksymalna waga: <strong>{currentValues.max_waga_kg || initialValues.max_waga_kg} kg</strong></li>
-                <li>Maksymalna wysokość: <strong>{currentValues.max_wysokosc_mm || initialValues.max_wysokosc_mm} mm</strong></li>
-                <li>Strategia: <strong>{currentValues.strategia || initialValues.strategia}</strong></li>
-                {currentValues.uwzglednij_oklejanie && (
-                  <li>Formatki wymagające oklejania będą grupowane osobno</li>
-                )}
-              </ul>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Text strong>Parametry palety:</Text>
+                  <ul style={{ margin: '8px 0', paddingLeft: 16 }}>
+                    <li>Waga: <strong>{currentValues.max_waga_kg || initialValues.max_waga_kg} kg</strong></li>
+                    <li>Wysokość: <strong>{currentValues.max_wysokosc_mm || initialValues.max_wysokosc_mm} mm</strong></li>
+                    <li>Formatki: <strong>{currentValues.max_formatek_na_palete || initialValues.max_formatek_na_palete} szt</strong></li>
+                    <li>Typ: <strong>{currentValues.typ_palety || initialValues.typ_palety}</strong></li>
+                  </ul>
+                </Col>
+                <Col span={12}>
+                  <Text strong>Strategia:</Text>
+                  <div style={{ marginTop: 8 }}>
+                    <Tag color={strategyInfo.color as any} icon={strategyInfo.icon}>
+                      {strategyInfo.name}
+                    </Tag>
+                    <br />
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {strategyInfo.description}
+                    </Text>
+                  </div>
+                  {currentValues.uwzglednij_oklejanie && (
+                    <div style={{ marginTop: 8 }}>
+                      <Tag color="gold">+ Oklejanie</Tag>
+                    </div>
+                  )}
+                </Col>
+              </Row>
+              
+              <Divider style={{ margin: '12px 0' }} />
+              
+              <Text type="secondary">
+                System użyje funkcji <strong>pal_planuj_inteligentnie_v5</strong> do optymalnego 
+                rozplanowania formatek na paletach według wybranych kryteriów.
+              </Text>
             </div>
           }
-          type="info"
+          type="success"
           showIcon
-          icon={<InfoCircleOutlined />}
         />
       </Form>
     </Modal>
