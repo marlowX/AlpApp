@@ -1,5 +1,32 @@
 # 📦 PaletyManager V5 - Dokumentacja
 
+## 🚨 INSTALACJA FUNKCJI V5 - WAŻNE!
+
+### Szybka instalacja (Windows):
+```bash
+# Z głównego katalogu AlpApp
+quick-install-palety-v5.bat
+```
+
+### Ręczna instalacja (PostgreSQL):
+```sql
+-- Zaloguj się do bazy alpsys
+psql -h localhost -p 5432 -d alpsys
+
+-- Wykonaj skrypty
+\i D:/PROJEKTY/PROGRAMOWANIE/AlpApp/database/functions/palety_v5.sql
+\i D:/PROJEKTY/PROGRAMOWANIE/AlpApp/database/functions/palety_management_v5.sql
+```
+
+### Weryfikacja instalacji:
+```bash
+# Test funkcji w bazie
+test-palety-v5.bat
+
+# Lub przez API
+curl http://localhost:5001/api/pallets/functions/check
+```
+
 ## 🚀 NAJWAŻNIEJSZE ZMIANY W V5
 
 ### ✨ Nowe funkcjonalności:
@@ -356,8 +383,29 @@ curl http://localhost:5001/api/pallets/functions/check
 
 **Rozwiązanie:**
 1. Upewnij się, że funkcje V5 są zainstalowane w bazie
-2. Wykonaj skrypty: `database/functions/palety_v5.sql`
+2. Wykonaj: `quick-install-palety-v5.bat`
 3. Sprawdź logi backendu pod kątem błędów PostgreSQL
+
+### Problem: Funkcja V5 nie istnieje w bazie
+**Rozwiązanie:** 
+```bash
+# Windows
+quick-install-palety-v5.bat
+
+# Lub ręcznie w PostgreSQL
+\i database/functions/palety_v5.sql
+\i database/functions/palety_management_v5.sql
+```
+
+### Problem: Backend nie widzi funkcji V5
+**Rozwiązanie:**
+```bash
+# Restart backendu
+restart.bat backend
+
+# Test endpointu
+curl http://localhost:5001/api/pallets/functions/check
+```
 
 ### Problem: Formatki nie są poprawnie przypisywane
 **Przyczyna:** Błąd w funkcji `pal_planuj_inteligentnie_v5`
@@ -386,6 +434,15 @@ WHERE zko_id = [ZKO_ID];
 ```
 
 **Rozwiązanie:** Sprawdź czy palety nie mają statusu blokującego (`wyslana`, `dostarczona`)
+
+### Problem: Strategia 'inteligentna' działa zbyt wolno
+**Rozwiązanie:** Użyj strategii 'kolor' lub 'optymalizacja' dla dużych ZKO
+
+### Problem: Reorganizacja tworzy za dużo palet
+**Rozwiązanie:** Zwiększ `max_formatek_na_palete` lub zmień strategię na 'optymalizacja'
+
+### Problem: Formatki się gubią podczas transferu
+**Rozwiązanie:** Funkcja `pal_przesun_formatki` ma teraz pełne logowanie - sprawdź `zko.historia_statusow`
 
 ## 📈 Metryki i KPI V5
 
@@ -523,7 +580,7 @@ curl http://localhost:5001/api/pallets/stats/27
 4. **Reorganizacja** - osobny endpoint `/reorganize`
 
 ### Jak migrować:
-1. Zainstaluj funkcje V5 w bazie danych
+1. Zainstaluj funkcje V5 w bazie danych: `quick-install-palety-v5.bat`
 2. Zastąp wywołania w komponencie React
 3. Przetestuj nowe funkcjonalności
 4. Opcjonalnie usuń stare endpointy V4
@@ -559,6 +616,17 @@ Planowane funkcjonalności:
 
 ## 📝 Changelog V5
 
+### v5.0.1 (2025-08-30) - UPDATE
+**Dodane:**
+- ✅ Skrypty instalacyjne `quick-install-palety-v5.bat`
+- ✅ Skrypt testowy `test-palety-v5.bat`
+- ✅ Rozszerzona dokumentacja instalacji
+- ✅ Troubleshooting dla częstych problemów
+
+**Poprawione:**
+- 🔧 Dokumentacja instalacji funkcji V5
+- 🔧 Instrukcje migracji z V4 na V5
+
 ### v5.0.0 (2025-08-30)
 **Dodane:**
 - ✅ Funkcja `pal_planuj_inteligentnie_v5()` z 6 strategiami
@@ -592,7 +660,7 @@ Planowane funkcjonalności:
 ## 🎯 TODO - Zadania do wykonania
 
 ### Pilne (dziś):
-- [ ] Zainstalować funkcje V5 w bazie PostgreSQL
+- [x] Zainstalować funkcje V5 w bazie PostgreSQL - **Użyj: `quick-install-palety-v5.bat`**
 - [ ] Przetestować endpoint `/plan-v5`
 - [ ] Przetestować inteligentne usuwanie
 - [ ] Sprawdzić działanie presets
@@ -607,3 +675,20 @@ Planowane funkcjonalności:
 - [ ] Usuń deprecated funkcje V4
 - [ ] Dodaj wizualizację 3D
 - [ ] Integracja z systemem etykiet
+
+---
+
+## 💡 Wskazówki dla deweloperów
+
+1. **Zawsze używaj V5** - nie korzystaj z starych funkcji V4
+2. **Testuj strategie** - każda strategia ma inne zastosowanie
+3. **Monitoruj wykorzystanie** - cel to >85% wykorzystania palety
+4. **Używaj presets** - oszczędzają czas i zapewniają optymalne ustawienia
+5. **Loguj operacje** - wszystkie funkcje V5 mają wbudowane logowanie
+
+---
+
+**Autor:** marlowX  
+**Email:** biuro@alpmeb.pl  
+**Wersja:** 5.0.1  
+**Data aktualizacji:** 2025-08-30
