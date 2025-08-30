@@ -1,7 +1,9 @@
 import React from 'react';
-import { Table, Tag, Text, Space, Progress, Button, InputNumber, Tooltip } from 'antd';
+import { Table, Tag, Space, Progress, Button, InputNumber, Tooltip, Typography } from 'antd';
 import { PlusOutlined, CheckCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import { Formatka } from '../types';
+
+const { Text } = Typography;
 
 interface FormatkaTableProps {
   formatki: Formatka[];
@@ -42,9 +44,9 @@ export const FormatkaTable: React.FC<FormatkaTableProps> = ({
           dataIndex: 'nazwa',
           render: (text, record) => (
             <Space direction="vertical" size={0}>
-              <Text strong>{text}</Text>
+              <Text strong>{text || record.nazwa_formatki}</Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {record.dlugosc}×{record.szerokosc}×{record.grubosc}mm
+                {record.dlugosc}×{record.szerokosc}×{record.grubosc || 18}mm
               </Text>
             </Space>
           )
@@ -53,7 +55,7 @@ export const FormatkaTable: React.FC<FormatkaTableProps> = ({
           title: 'Kolor',
           dataIndex: 'kolor',
           width: 80,
-          render: (text) => <Tag>{text}</Tag>
+          render: (text, record) => <Tag>{text || record.kolor_plyty}</Tag>
         },
         {
           title: 'Pozostało',

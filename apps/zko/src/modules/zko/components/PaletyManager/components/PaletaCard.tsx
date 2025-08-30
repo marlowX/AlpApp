@@ -1,8 +1,9 @@
 import React from 'react';
-import { Card, Row, Col, Space, Tag, Text, Progress, Select, Button, Tooltip, Divider, Table, Alert, Popconfirm } from 'antd';
+import { Card, Row, Col, Space, Tag, Progress, Select, Button, Tooltip, Divider, Table, Alert, Popconfirm, Typography } from 'antd';
 import { CopyOutlined, DeleteOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Paleta, PaletaStats, Formatka, PALLET_DESTINATIONS } from '../types';
 
+const { Text } = Typography;
 const { Option } = Select;
 
 interface PaletaCardProps {
@@ -34,7 +35,7 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
   onRemoveFormatka,
   onAddAllRemaining
 }) => {
-  const destination = PALLET_DESTINATIONS[paleta.przeznaczenie];
+  const destination = PALLET_DESTINATIONS[paleta.przeznaczenie || 'MAGAZYN'];
   
   return (
     <Card
@@ -49,7 +50,7 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
       <Row gutter={16} align="middle">
         <Col span={4}>
           <Space direction="vertical" size={0}>
-            <Text strong>{paleta.numer}</Text>
+            <Text strong>{paleta.numer || paleta.numer_palety || `PAL-${paleta.id}`}</Text>
             <Tag color={destination.color}>
               {destination.icon} {destination.label}
             </Tag>
@@ -70,13 +71,13 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
               percent={Math.round(stats.wykorzystanieWagi)} 
               size="small"
               strokeColor={stats.wykorzystanieWagi > 90 ? '#ff4d4f' : '#52c41a'}
-              format={() => `${stats.waga.toFixed(0)}/${paleta.max_waga}kg`}
+              format={() => `${stats.waga.toFixed(0)}/${paleta.max_waga || 700}kg`}
             />
             <Progress 
               percent={Math.round(stats.wykorzystanieWysokosci)} 
               size="small"
               strokeColor={stats.wykorzystanieWysokosci > 90 ? '#ff4d4f' : '#1890ff'}
-              format={() => `${stats.wysokosc}/${paleta.max_wysokosc}mm`}
+              format={() => `${stats.wysokosc}/${paleta.max_wysokosc || 1440}mm`}
             />
           </Space>
         </Col>
@@ -85,7 +86,7 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
           <Space>
             <Select
               size="small"
-              value={paleta.przeznaczenie}
+              value={paleta.przeznaczenie || 'MAGAZYN'}
               onChange={onChangeDestination}
               onClick={(e) => e.stopPropagation()}
               style={{ width: 120 }}
@@ -150,7 +151,7 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
         </Row>
       )}
       
-      {isActive && paleta.formatki.length > 0 && (
+      {isActive && paleta.formatki && paleta.formatki.length > 0 && (
         <>
           <Divider style={{ margin: '12px 0' }} />
           <Table
@@ -165,8 +166,8 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
                   const formatka = formatki.find(f => f.id === record.formatka_id);
                   return formatka ? (
                     <Space size={4}>
-                      <Text>{formatka.nazwa}</Text>
-                      <Tag size="small">{formatka.kolor}</Tag>
+                      <Text>{formatka.nazwa || formatka.nazwa_formatki}</Text>
+                      <Tag size="small">{formatka.kolor || formatka.kolor_plyty}</Tag>
                     </Space>
                   ) : null;
                 }
@@ -182,9 +183,8 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
                 width: 80,
                 render: (_, record) => {
                   const formatka = formatki.find(f => f.id === record.formatka_id);
-                  return formatka ? (
-                    <Text>{(record.ilosc * formatka.waga_sztuka).toFixed(1)} kg</Text>
-                  ) : null;
+                  const waga = formatka ? (record.ilosc * (formatka.waga_sztuka || formatka.waga_kg || 12.6)) : 0;
+                  return <Text>{waga.toFixed(1)} kg</Text>;
                 }
               },
               {
@@ -207,7 +207,7 @@ export const PaletaCard: React.FC<PaletaCardProps> = ({
       {isActive && stats.wykorzystanieWagi > 90 && (
         <Alert
           message="Uwaga na wagę!"
-          description={`Paleta przekracza 90% maksymalnej wagi (${paleta.max_waga}kg)`}
+          description={`Paleta przekracza 90% maksymalnej wagi (${paleta.max_waga || 700}kg)`}
           type="warning"
           showIcon
           style={{ marginTop: 8 }}

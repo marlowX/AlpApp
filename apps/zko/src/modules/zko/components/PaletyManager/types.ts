@@ -1,14 +1,16 @@
 // Typy dla modułu zarządzania paletami V5
 
 export interface Paleta {
-  id: number;
-  numer_palety: string;
-  kierunek: string;
-  status: PaletaStatus;
-  ilosc_formatek: number;
-  wysokosc_stosu: number;
-  kolory_na_palecie: string;
-  formatki_ids: number[];
+  id: number | string;
+  numer_palety?: string;
+  numer?: string;
+  kierunek?: string;
+  status?: PaletaStatus;
+  ilosc_formatek?: number;
+  wysokosc_stosu?: number;
+  kolory_na_palecie?: string;
+  formatki_ids?: number[];
+  formatki?: PaletaFormatka[];
   typ?: TypPalety;
   created_at?: string;
   updated_at?: string;
@@ -25,7 +27,35 @@ export interface Paleta {
   data_pakowania?: string;
   data_wysylki?: string;
   etykieta_qr?: string;
+  przeznaczenie?: string;
+  uwagi?: string;
+  max_waga?: number;
+  max_wysokosc?: number;
+  operator?: string;
 }
+
+export interface PaletaFormatka {
+  formatka_id: number;
+  ilosc: number;
+}
+
+export interface PaletaStats {
+  waga: number;
+  sztuk: number;
+  wysokosc: number;
+  kolory: string[];
+  wykorzystanieWagi: number;
+  wykorzystanieWysokosci: number;
+}
+
+// Dodane eksporty dla komponentów
+export const PALLET_DESTINATIONS = {
+  MAGAZYN: { label: 'Magazyn', icon: '📦', color: 'blue' },
+  OKLEINIARKA: { label: 'Okleiniarka', icon: '🎨', color: 'orange' },
+  WIERCENIE: { label: 'Wiercenie', icon: '🔧', color: 'purple' },
+  CIECIE: { label: 'Cięcie', icon: '✂️', color: 'red' },
+  WYSYLKA: { label: 'Wysyłka', icon: '🚚', color: 'green' }
+};
 
 export type PaletaStatus = 
   | 'otwarta'
@@ -66,19 +96,24 @@ export interface PlanowaniePaletParams {
 
 export interface Formatka {
   id: number;
-  nazwa_formatki: string;
-  pozycja_id: number;
+  nazwa?: string;
+  nazwa_formatki?: string;
+  pozycja_id?: number;
   dlugosc: number;
   szerokosc: number;
+  grubosc?: number;
   ilosc_planowana: number;
   ilosc_wykonana?: number;
-  kolor_plyty: string;
+  ilosc_dostepna?: number;
+  kolor?: string;
+  kolor_plyty?: string;
   paleta_id?: number;
   status?: string;
   wymaga_oklejania?: boolean;
   krawedzie_oklejane?: string; // np. "L,P,G,D" - lewa, prawa, góra, dół
   powierzchnia_m2?: number;
   waga_kg?: number;
+  waga_sztuka?: number;
   wysokosc_mm?: number;
 }
 

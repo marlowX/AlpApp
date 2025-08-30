@@ -14,29 +14,33 @@ const { Text } = Typography;
 interface FormatkaDetail {
   formatka_id: number;
   ilosc: number;
-  nazwa: string;
-  dlugosc: number;
-  szerokosc: number;
-  kolor: string;
+  nazwa?: string;
+  dlugosc?: number;
+  szerokosc?: number;
+  kolor?: string;
+  pozycja_id?: number;
 }
 
 interface Paleta {
   id: number;
   numer_palety: string;
-  kierunek: string;
+  kierunek?: string;
   status: string;
   sztuk_total?: number;
   ilosc_formatek?: number;
-  wysokosc_stosu: number;
-  kolory_na_palecie: string;
+  wysokosc_stosu?: number;
+  kolory_na_palecie?: string;
   formatki_ids?: number[];
   formatki_szczegoly?: FormatkaDetail[];
+  formatki?: any[];
   typ?: string;
   created_at?: string;
   updated_at?: string;
   waga_kg?: number;
   procent_wykorzystania?: number;
   przeznaczenie?: string;
+  pozycja_id?: number;
+  pozycje_info?: string;
 }
 
 interface PaletyTableProps {
@@ -114,6 +118,50 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
     });
   };
 
+  // Funkcja obliczająca wagę na podstawie formatek - ZABEZPIECZONA
+  const calculateWeight = (paleta: Paleta): number => {
+    try {
+      // Jeśli mamy wagę z API, zwróć ją
+      const wagaZApi = parseFloat(String(paleta.waga_kg || 0));
+      if (!isNaN(wagaZApi) && wagaZApi > 0) {
+        return wagaZApi;
+      }
+      
+      // Jeśli mamy formatki, oblicz wagę
+      if (paleta.formatki && Array.isArray(paleta.formatki)) {
+        let totalWeight = 0;
+        paleta.formatki.forEach((f: any) => {
+          const sztuk = parseInt(String(f.ilosc || f.sztuk || 0));
+          const dlugosc = parseFloat(String(f.dlugosc || 0));
+          const szerokosc = parseFloat(String(f.szerokosc || 0));
+          
+          // Zakładamy wagę 12.6 kg/m² dla płyty 18mm
+          const powierzchnia = (dlugosc * szerokosc) / 1000000; // m²
+          const wagaSztuki = powierzchnia * 12.6; // kg
+          
+          if (!isNaN(wagaSztuki) && !isNaN(sztuk)) {
+            totalWeight += sztuk * wagaSztuki;
+          }
+        });
+        
+        if (totalWeight > 0) {
+          return totalWeight;
+        }
+      }
+      
+      // Domyślna waga na podstawie ilości formatek (przybliżenie)
+      const sztuk = parseInt(String(paleta.sztuk_total || paleta.ilosc_formatek || 0));
+      if (!isNaN(sztuk) && sztuk > 0) {
+        return sztuk * 0.5; // Zakładamy średnio 0.5 kg na formatkę
+      }
+      
+      return 0;
+    } catch (error) {
+      console.error('Error calculating weight:', error);
+      return 0;
+    }
+  };
+
   const renderFormatkiInfo = (paleta: Paleta) => {
     if (renderFormatkiColumn) {
       return renderFormatkiColumn(paleta);
@@ -121,38 +169,67 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
 
     const sztuk = paleta.sztuk_total || paleta.ilosc_formatek || 0;
     
-    if (paleta.formatki_szczegoly && paleta.formatki_szczegoly.length > 0) {
+    // Sprawdź różne warianty danych formatek
+    const formatki = paleta.formatki_szczegoly || paleta.formatki || [];
+    
+    // Informacja o pozycjach
+    let pozycjeInfo = '';
+    if (paleta.pozycje_info) {
+      pozycjeInfo = paleta.pozycje_info;
+    } else if (paleta.pozycja_id) {
+      pozycjeInfo = `Pozycja: ${paleta.pozycja_id}`;
+    } else if (formatki.length > 0) {
+      const pozycje = [...new Set(formatki.map((f: any) => f.pozycja_id).filter(Boolean))];
+      if (pozycje.length > 0) {
+        pozycjeInfo = `Pozycje: ${pozycje.join(', ')}`;
+      }
+    }
+    
+    if (formatki.length > 0) {
       return (
         <Tooltip
           title={
             <div>
+              {pozycjeInfo && <div style={{ marginBottom: 8 }}><strong>{pozycjeInfo}</strong></div>}
               <strong>Szczegóły formatek:</strong>
-              {paleta.formatki_szczegoly.map((f: FormatkaDetail) => (
-                <div key={f.formatka_id}>
-                  {f.nazwa}: <strong>{f.ilosc}</strong> szt.
+              {formatki.map((f: any, index: number) => (
+                <div key={f.formatka_id || index}>
+                  {f.nazwa || `Formatka ${f.formatka_id || index + 1}`}: <strong>{f.ilosc || f.sztuk || 0}</strong> szt.
+                  {f.pozycja_id && <Text type="secondary"> (poz. {f.pozycja_id})</Text>}
                 </div>
               ))}
             </div>
           }
         >
-          <Space>
+          <Space direction="vertical" size={0} style={{ textAlign: 'center' }}>
             <Badge 
               count={sztuk} 
               overflowCount={999}
               style={{ backgroundColor: sztuk > 0 ? '#1890ff' : '#d9d9d9' }}
             />
-            <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'pointer' }} />
+            {pozycjeInfo && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                {pozycjeInfo.length > 15 ? pozycjeInfo.substring(0, 15) + '...' : pozycjeInfo}
+              </Text>
+            )}
           </Space>
         </Tooltip>
       );
     }
 
     return (
-      <Badge 
-        count={sztuk} 
-        overflowCount={999}
-        style={{ backgroundColor: sztuk > 0 ? '#1890ff' : '#d9d9d9' }}
-      />
+      <Space direction="vertical" size={0} style={{ textAlign: 'center' }}>
+        <Badge 
+          count={sztuk} 
+          overflowCount={999}
+          style={{ backgroundColor: sztuk > 0 ? '#1890ff' : '#d9d9d9' }}
+        />
+        {pozycjeInfo && (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {pozycjeInfo}
+          </Text>
+        )}
+      </Space>
     );
   };
 
@@ -177,7 +254,7 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       key: 'status',
       render: (status: string) => (
         <Tag color={getStatusColor(status)}>
-          {(status || 'otwarta').toUpperCase()}
+          {(status || 'PRZYGOTOWANE').toUpperCase()}
         </Tag>
       )
     },
@@ -195,8 +272,14 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
         
         const uniqueKolory = [...new Set(kolorList)];
         
-        return uniqueKolory.map(k => 
-          <Tag key={k} color="blue">{k}</Tag>
+        return (
+          <Space size={4} wrap>
+            {uniqueKolory.map(k => 
+              <Tag key={k} color="blue" style={{ margin: 2 }}>
+                {k}
+              </Tag>
+            )}
+          </Space>
         );
       }
     },
@@ -210,8 +293,8 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Wysokość',
       dataIndex: 'wysokosc_stosu',
       key: 'wysokosc_stosu',
-      render: (wysokosc: number) => {
-        const value = Number(wysokosc) || 0;
+      render: (wysokosc: any) => {
+        const value = parseInt(String(wysokosc || 36)); // Domyślnie 36mm (2 warstwy po 18mm)
         return (
           <Tooltip title={`${value > 1440 ? 'Za wysoka!' : value > 1200 ? 'Blisko limitu' : 'OK'}`}>
             <Space>
@@ -226,17 +309,23 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
     },
     {
       title: 'Waga',
-      dataIndex: 'waga_kg',
-      key: 'waga_kg',
-      render: (waga: any) => {
-        const wagaNum = Number(waga);
-        if (!waga || isNaN(wagaNum)) return <Text type="secondary">-</Text>;
+      key: 'waga_calculated',
+      render: (_: any, record: Paleta) => {
+        const waga = calculateWeight(record);
+        const wagaNum = parseFloat(String(waga || 0));
+        
+        if (isNaN(wagaNum)) {
+          return <Text type="secondary">-</Text>;
+        }
         
         const color = wagaNum > 700 ? '#ff4d4f' : wagaNum > 600 ? '#faad14' : '#52c41a';
+        
         return (
-          <Text style={{ color }}>
-            {wagaNum.toFixed(1)} kg
-          </Text>
+          <Tooltip title={record.waga_kg ? 'Waga z systemu' : 'Waga obliczona'}>
+            <Text style={{ color }}>
+              {wagaNum.toFixed(1)} kg
+            </Text>
+          </Tooltip>
         );
       }
     },
@@ -244,9 +333,16 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Wykorzystanie',
       dataIndex: 'procent_wykorzystania',
       key: 'procent_wykorzystania',
-      render: (procent: any) => {
-        const procentNum = Number(procent);
-        if (procent === undefined || procent === null || isNaN(procentNum)) {
+      render: (procent: any, record: Paleta) => {
+        let procentNum = parseFloat(String(procent || 0));
+        
+        // Jeśli brak procentu, oblicz na podstawie wagi
+        if (!procent || isNaN(procentNum)) {
+          const waga = calculateWeight(record);
+          procentNum = Math.min(100, Math.round((waga / 700) * 100));
+        }
+        
+        if (isNaN(procentNum)) {
           return <Text type="secondary">-</Text>;
         }
         
