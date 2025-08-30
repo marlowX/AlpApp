@@ -447,7 +447,7 @@ router.post('/manual/create-all-remaining', async (req: Request, res: Response) 
     client = await db.connect();
     await client.query('BEGIN');
     
-    // Pobierz wszystkie dostępne formatki z pozycji
+    // Pobierz wszystkie dostępne formatki z pozycji - NAPRAWIONE zapytanie
     const formatkiResult = await client.query(`
       SELECT 
         pf.id as formatka_id,
