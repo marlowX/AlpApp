@@ -115,11 +115,27 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
   let client;
   
   try {
-    const { pozycja_id, palety } = req.body;
+    // Konwertuj pozycja_id na liczbę jeśli przyszło jako string
+    const pozycja_id = typeof req.body.pozycja_id === 'string' 
+      ? parseInt(req.body.pozycja_id, 10)
+      : req.body.pozycja_id;
+      
+    const { palety } = req.body;
     
-    if (!pozycja_id || !Array.isArray(palety)) {
+    if (!pozycja_id || isNaN(pozycja_id) || !Array.isArray(palety)) {
+      logger.error('Invalid input:', { pozycja_id, palety: Array.isArray(palety) });
       return res.status(400).json({
-        error: 'Wymagane: pozycja_id i tablica palet'
+        error: 'Wymagane: pozycja_id (jako liczba) i tablica palet'
+      });
+    }
+    
+    // Filtruj puste palety
+    const niepustePalety = palety.filter(p => p.formatki && p.formatki.length > 0);
+    
+    if (niepustePalety.length === 0) {
+      return res.status(400).json({
+        error: 'Brak palet z formatkami do zapisania',
+        sukces: false
       });
     }
     
@@ -128,36 +144,45 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
     
     const utworzonePalety = [];
     
-    for (const paleta of palety) {
-      const params = ManualPaletaSchema.parse({
-        pozycja_id,
-        ...paleta
-      });
-      
-      // Użyj POPRAWIONEJ funkcji
-      const result = await client.query(`
-        SELECT * FROM zko.pal_utworz_reczna_palete_v2($1, $2, $3, $4, $5, $6, $7)
-      `, [
-        params.pozycja_id,
-        JSON.stringify(params.formatki),
-        params.przeznaczenie,
-        params.max_waga,
-        params.max_wysokosc,
-        params.operator,
-        params.uwagi || null
-      ]);
-      
-      const response = result.rows[0];
-      
-      if (!response.sukces) {
+    for (const paleta of niepustePalety) {
+      try {
+        const params = ManualPaletaSchema.parse({
+          pozycja_id,
+          ...paleta
+        });
+        
+        // Użyj POPRAWIONEJ funkcji
+        const result = await client.query(`
+          SELECT * FROM zko.pal_utworz_reczna_palete_v2($1, $2, $3, $4, $5, $6, $7)
+        `, [
+          params.pozycja_id,
+          JSON.stringify(params.formatki),
+          params.przeznaczenie,
+          params.max_waga,
+          params.max_wysokosc,
+          params.operator,
+          params.uwagi || null
+        ]);
+        
+        const response = result.rows[0];
+        
+        if (!response.sukces) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: `Błąd tworzenia palety: ${response.komunikat}`,
+            sukces: false
+          });
+        }
+        
+        utworzonePalety.push(response);
+      } catch (parseError: any) {
+        logger.error('Error parsing pallet data:', parseError);
         await client.query('ROLLBACK');
         return res.status(400).json({
-          error: `Błąd tworzenia palety: ${response.komunikat}`,
-          sukces: false
+          error: 'Błąd walidacji danych palety',
+          details: parseError.message
         });
       }
-      
-      utworzonePalety.push(response);
     }
     
     await client.query('COMMIT');
@@ -194,6 +219,7 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
     }
     
     if (error instanceof z.ZodError) {
+      logger.error('Validation error:', error.errors);
       return res.status(400).json({
         error: 'Błąd walidacji danych',
         details: error.errors
@@ -328,7 +354,7 @@ router.put('/:paletaId/destination', async (req: Request, res: Response) => {
 });
 
 /**
- * 🔥 NOWY ENDPOINT - GET /api/pallets/position/:pozycjaId/available-formatki
+ * GET /api/pallets/position/:pozycjaId/available-formatki
  * Pobierz dostępne formatki z pozycji (jeszcze nie przypisane do palet)
  */
 router.get('/position/:pozycjaId/available-formatki', async (req: Request, res: Response) => {
@@ -398,18 +424,23 @@ router.get('/position/:pozycjaId/available-formatki', async (req: Request, res: 
 });
 
 /**
- * 🔥 NOWY ENDPOINT - POST /api/pallets/manual/create-all-remaining
+ * POST /api/pallets/manual/create-all-remaining
  * Utwórz paletę ze wszystkimi pozostałymi formatkami z pozycji
  */
 router.post('/manual/create-all-remaining', async (req: Request, res: Response) => {
   let client;
   
   try {
-    const { pozycja_id, przeznaczenie = 'MAGAZYN', operator = 'user' } = req.body;
+    // Konwertuj pozycja_id na liczbę jeśli przyszło jako string
+    const pozycja_id = typeof req.body.pozycja_id === 'string' 
+      ? parseInt(req.body.pozycja_id, 10)
+      : req.body.pozycja_id;
+      
+    const { przeznaczenie = 'MAGAZYN', operator = 'user' } = req.body;
     
-    if (!pozycja_id) {
+    if (!pozycja_id || isNaN(pozycja_id)) {
       return res.status(400).json({
-        error: 'Wymagane: pozycja_id'
+        error: 'Wymagane: pozycja_id (jako liczba)'
       });
     }
     
