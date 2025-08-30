@@ -6,14 +6,21 @@ import {
   Typography,
   Tabs,
   Space,
-  Tooltip
+  Tooltip,
+  Button,
+  Popconfirm,
+  Badge,
+  Empty
 } from 'antd';
 import { 
   AppstoreOutlined, 
   ThunderboltOutlined,
   EditOutlined,
   ToolOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  DeleteOutlined,
+  ClearOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import { PaletaDetails } from './PaletaDetails';
 import { 
@@ -22,12 +29,13 @@ import {
   PozycjaSelector,
   AutomaticPlanningTab,
   ManualCreationTab,
-  DestinationTab
+  DestinationTab,
+  PaletyTable
 } from './components';
 import { LIMITY_PALETY, MESSAGES } from './types';
 import { usePaletyModular } from '../../hooks';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 const { TabPane } = Tabs;
 
 interface FormatkaDetail {
@@ -85,12 +93,13 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const [pozycjaFormatki, setPozycjaFormatki] = useState<PozycjaFormatka[]>([]);
   const [selectedPozycjaId, setSelectedPozycjaId] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(false);
+  const [deletingPaletaId, setDeletingPaletaId] = useState<number | null>(null);
   const [selectedPaleta, setSelectedPaleta] = useState<Paleta | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [planowanieModalVisible, setPlanowanieModalVisible] = useState(false);
   const [planowanieModularneModalVisible, setPlanowanieModularneModalVisible] = useState(false);
   const [podsumowanie, setPodsumowanie] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('auto');
+  const [activeTab, setActiveTab] = useState('manual'); // Domyślnie ręczne tworzenie
 
   const { 
     loading: modularLoading,
@@ -180,6 +189,57 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     } catch (error) {
       console.error('Error fetching pozycja formatki:', error);
       message.error('Błąd pobierania formatek z pozycji');
+    }
+  };
+
+  const handleDeletePaleta = async (paletaId: number) => {
+    try {
+      setDeletingPaletaId(paletaId);
+      
+      const response = await fetch(`/api/pallets/${paletaId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        message.success('Paleta została usunięta');
+        await fetchPalety();
+        await fetchPozycjaFormatki();
+        onRefresh?.();
+      } else {
+        const error = await response.json();
+        message.error(error.error || 'Błąd usuwania palety');
+      }
+    } catch (error) {
+      console.error('Error deleting paleta:', error);
+      message.error('Błąd komunikacji z serwerem');
+    } finally {
+      setDeletingPaletaId(null);
+    }
+  };
+
+  const handleDeleteAllPalety = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await fetch(`/api/pallets/zko/${zkoId}/clear`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.sukces) {
+        message.success(`Usunięto ${data.usuniete} palet`);
+        await fetchPalety();
+        await fetchPozycjaFormatki();
+        onRefresh?.();
+      } else {
+        message.error(data.error || 'Błąd usuwania palet');
+      }
+    } catch (error) {
+      console.error('Error deleting all pallets:', error);
+      message.error('Błąd komunikacji z serwerem');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -330,11 +390,38 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         <Space>
           <AppstoreOutlined />
           <Text strong>Zarządzanie paletami</Text>
+          {palety.length > 0 && (
+            <Badge count={palety.length} style={{ backgroundColor: '#52c41a' }} />
+          )}
           {(loading || modularLoading) && <Spin size="small" />}
-          {podsumowanie && (
-            <Tooltip title={`${podsumowanie.typy_formatek} typów, ${podsumowanie.sztuk_total} sztuk`}>
-              <InfoCircleOutlined />
-            </Tooltip>
+        </Space>
+      }
+      extra={
+        <Space>
+          <Button 
+            icon={<ReloadOutlined />} 
+            onClick={fetchPalety}
+            loading={loading}
+          >
+            Odśwież
+          </Button>
+          {palety.length > 0 && (
+            <Popconfirm
+              title="Czy na pewno usunąć wszystkie palety?"
+              description={`Zostanie usuniętych ${palety.length} palet`}
+              onConfirm={handleDeleteAllPalety}
+              okText="Usuń wszystkie"
+              cancelText="Anuluj"
+              okButtonProps={{ danger: true }}
+            >
+              <Button 
+                danger
+                icon={<ClearOutlined />}
+                loading={loading}
+              >
+                Usuń wszystkie palety
+              </Button>
+            </Popconfirm>
           )}
         </Space>
       }
@@ -347,28 +434,47 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         loading={loading}
       />
 
-      <Tabs activeKey={activeTab} onChange={setActiveTab}>
-        {/* Zakładka automatycznego planowania */}
-        <TabPane 
-          tab={<span><ThunderboltOutlined /> Planowanie automatyczne</span>} 
-          key="auto"
+      {/* Lista istniejących palet - zawsze widoczna */}
+      {palety.length > 0 && (
+        <Card 
+          size="small" 
+          style={{ marginBottom: 16 }}
+          title={
+            <Space>
+              <Text strong>Istniejące palety ({palety.length})</Text>
+              {podsumowanie && (
+                <Text type="secondary">
+                  {podsumowanie.sztuk_total} szt. | {podsumowanie.waga_total?.toFixed(2)} kg
+                </Text>
+              )}
+            </Space>
+          }
         >
-          <AutomaticPlanningTab
+          <PaletyTable
             palety={palety}
             loading={loading}
-            modularLoading={modularLoading}
-            modularError={modularError}
-            podsumowanie={podsumowanie}
-            onRefresh={fetchPalety}
             onViewDetails={handleViewDetails}
-            onShowPlanningModal={() => setPlanowanieModalVisible(true)}
-            onShowModularModal={() => setPlanowanieModularneModalVisible(true)}
-            onQuickPlanning={handleQuickPlanning}
             renderFormatkiColumn={renderFormatkiDetails}
+            onDelete={handleDeletePaleta}
+            deletingId={deletingPaletaId}
           />
-        </TabPane>
+        </Card>
+      )}
 
-        {/* Zakładka ręcznego tworzenia */}
+      {/* Jeśli nie ma palet, pokaż informację */}
+      {palety.length === 0 && !loading && (
+        <Empty
+          description="Brak palet w tym ZKO"
+          style={{ marginBottom: 16 }}
+        >
+          <Text type="secondary">
+            Użyj zakładki "Ręczne tworzenie" aby dodać palety
+          </Text>
+        </Empty>
+      )}
+
+      <Tabs activeKey={activeTab} onChange={setActiveTab}>
+        {/* Zakładka ręcznego tworzenia - PIERWSZA */}
         <TabPane 
           tab={
             <span>
@@ -396,6 +502,26 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
             loading={loading}
             onSaveManualPallets={handleSaveManualPallets}
             onCreateAllRemaining={handleCreateAllRemainingPallet}
+          />
+        </TabPane>
+
+        {/* Zakładka automatycznego planowania - jako dodatek */}
+        <TabPane 
+          tab={<span><ThunderboltOutlined /> Planowanie automatyczne (testy)</span>} 
+          key="auto"
+        >
+          <AutomaticPlanningTab
+            palety={palety}
+            loading={loading}
+            modularLoading={modularLoading}
+            modularError={modularError}
+            podsumowanie={podsumowanie}
+            onRefresh={fetchPalety}
+            onViewDetails={handleViewDetails}
+            onShowPlanningModal={() => setPlanowanieModalVisible(true)}
+            onShowModularModal={() => setPlanowanieModularneModalVisible(true)}
+            onQuickPlanning={handleQuickPlanning}
+            renderFormatkiColumn={renderFormatkiDetails}
           />
         </TabPane>
 

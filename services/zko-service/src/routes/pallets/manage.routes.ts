@@ -76,6 +76,187 @@ router.get('/zko/:zkoId', async (req: Request, res: Response) => {
 });
 
 /**
+ * DELETE /api/pallets/:id - Usuwanie pojedynczej palety
+ */
+router.delete('/:id', async (req: Request, res: Response) => {
+  let client;
+  
+  try {
+    const paletaId = parseInt(req.params.id);
+    
+    if (isNaN(paletaId)) {
+      return res.status(400).json({
+        error: 'Nieprawidłowe ID palety'
+      });
+    }
+    
+    client = await db.connect();
+    await client.query('BEGIN');
+    
+    logger.info(`Deleting pallet ${paletaId}`);
+    
+    // Pobierz info o palecie przed usunięciem
+    const paletaResult = await client.query(
+      'SELECT * FROM zko.palety WHERE id = $1',
+      [paletaId]
+    );
+    
+    if (paletaResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        error: 'Paleta nie istnieje'
+      });
+    }
+    
+    const paleta = paletaResult.rows[0];
+    
+    // Najpierw usuń powiązania z tabeli palety_formatki_ilosc
+    await client.query(
+      'DELETE FROM zko.palety_formatki_ilosc WHERE paleta_id = $1',
+      [paletaId]
+    );
+    
+    // Usuń historię palety jeśli istnieje
+    await client.query(
+      'DELETE FROM zko.palety_historia WHERE paleta_id = $1',
+      [paletaId]
+    );
+    
+    // Usuń paletę
+    await client.query(
+      'DELETE FROM zko.palety WHERE id = $1',
+      [paletaId]
+    );
+    
+    await client.query('COMMIT');
+    
+    // Emit event
+    if (paleta.zko_id) {
+      emitZKOUpdate(paleta.zko_id, 'pallet:deleted', {
+        paleta_id: paletaId,
+        numer_palety: paleta.numer_palety
+      });
+    }
+    
+    logger.info(`Deleted pallet ${paletaId} (${paleta.numer_palety})`);
+    
+    res.json({
+      sukces: true,
+      komunikat: `Usunięto paletę ${paleta.numer_palety}`,
+      paleta: {
+        id: paletaId,
+        numer: paleta.numer_palety
+      }
+    });
+    
+  } catch (error: any) {
+    if (client) {
+      await client.query('ROLLBACK');
+    }
+    logger.error('Error deleting pallet:', error);
+    res.status(500).json({ 
+      error: 'Błąd usuwania palety',
+      message: error.message 
+    });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+});
+
+/**
+ * DELETE /api/pallets/zko/:zkoId/clear - Usuwanie wszystkich palet dla ZKO
+ */
+router.delete('/zko/:zkoId/clear', async (req: Request, res: Response) => {
+  let client;
+  
+  try {
+    const zkoId = parseInt(req.params.zkoId);
+    
+    if (isNaN(zkoId)) {
+      return res.status(400).json({
+        error: 'Nieprawidłowe ID ZKO'
+      });
+    }
+    
+    client = await db.connect();
+    await client.query('BEGIN');
+    
+    logger.info(`Clearing all pallets for ZKO ${zkoId}`);
+    
+    // Pobierz listę palet przed usunięciem
+    const paletyResult = await client.query(
+      'SELECT id, numer_palety FROM zko.palety WHERE zko_id = $1',
+      [zkoId]
+    );
+    
+    const paletyCount = paletyResult.rows.length;
+    
+    if (paletyCount === 0) {
+      await client.query('ROLLBACK');
+      return res.json({
+        sukces: true,
+        komunikat: 'Brak palet do usunięcia',
+        usuniete: 0
+      });
+    }
+    
+    // Usuń powiązania z palety_formatki_ilosc
+    await client.query(`
+      DELETE FROM zko.palety_formatki_ilosc 
+      WHERE paleta_id IN (
+        SELECT id FROM zko.palety WHERE zko_id = $1
+      )
+    `, [zkoId]);
+    
+    // Usuń historię palet
+    await client.query(`
+      DELETE FROM zko.palety_historia 
+      WHERE paleta_id IN (
+        SELECT id FROM zko.palety WHERE zko_id = $1
+      )
+    `, [zkoId]);
+    
+    // Usuń palety
+    await client.query(
+      'DELETE FROM zko.palety WHERE zko_id = $1',
+      [zkoId]
+    );
+    
+    await client.query('COMMIT');
+    
+    // Emit event
+    emitZKOUpdate(zkoId, 'pallets:cleared', {
+      zko_id: zkoId,
+      liczba_usunietych: paletyCount
+    });
+    
+    logger.info(`Cleared ${paletyCount} pallets for ZKO ${zkoId}`);
+    
+    res.json({
+      sukces: true,
+      komunikat: `Usunięto wszystkie palety (${paletyCount})`,
+      usuniete: paletyCount
+    });
+    
+  } catch (error: any) {
+    if (client) {
+      await client.query('ROLLBACK');
+    }
+    logger.error('Error clearing pallets:', error);
+    res.status(500).json({ 
+      error: 'Błąd usuwania palet',
+      message: error.message 
+    });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+});
+
+/**
  * POST /api/pallets/:id/close - Zamknięcie palety
  * Wywołuje: zko.pal_zamknij
  */
@@ -356,85 +537,6 @@ router.post('/zko/:zkoId/change-quantity', async (req: Request, res: Response) =
     logger.error('Error changing pallet quantity:', error);
     res.status(500).json({ 
       error: 'Błąd zmiany ilości palet',
-      message: error.message 
-    });
-  } finally {
-    if (client) {
-      client.release();
-    }
-  }
-});
-
-/**
- * DELETE /api/pallets/zko/:zkoId/all - Usuwanie wszystkich palet dla ZKO
- * Używane do testowania i reset'u
- */
-router.delete('/zko/:zkoId/all', async (req: Request, res: Response) => {
-  let client;
-  
-  try {
-    const zkoId = parseInt(req.params.zkoId);
-    
-    if (isNaN(zkoId)) {
-      return res.status(400).json({
-        error: 'Nieprawidłowe ID ZKO',
-        details: 'ID ZKO musi być liczbą'
-      });
-    }
-    
-    client = await db.connect();
-    await client.query('BEGIN');
-    
-    logger.info(`Deleting all pallets for ZKO ${zkoId}`);
-    
-    // Pobierz listę palet przed usunięciem
-    const paletyResult = await client.query(
-      'SELECT id, numer_palety FROM zko.palety WHERE zko_id = $1',
-      [zkoId]
-    );
-    
-    const paletyCount = paletyResult.rows.length;
-    
-    if (paletyCount === 0) {
-      await client.query('ROLLBACK');
-      return res.json({
-        sukces: true,
-        komunikat: 'Brak palet do usunięcia',
-        usuniete: 0
-      });
-    }
-    
-    // Usuń palety
-    await client.query(
-      'DELETE FROM zko.palety WHERE zko_id = $1',
-      [zkoId]
-    );
-    
-    await client.query('COMMIT');
-    
-    // Emit event
-    emitZKOUpdate(zkoId, 'pallets:deleted', {
-      zko_id: zkoId,
-      palety_usuniete: paletyResult.rows.map(p => p.id),
-      liczba_usunietych: paletyCount
-    });
-    
-    logger.info(`Deleted ${paletyCount} pallets for ZKO ${zkoId}`);
-    
-    res.json({
-      sukces: true,
-      komunikat: `Usunięto ${paletyCount} palet`,
-      usuniete: paletyCount,
-      palety: paletyResult.rows
-    });
-    
-  } catch (error: any) {
-    if (client) {
-      await client.query('ROLLBACK');
-    }
-    logger.error('Error deleting pallets:', error);
-    res.status(500).json({ 
-      error: 'Błąd usuwania palet',
       message: error.message 
     });
   } finally {

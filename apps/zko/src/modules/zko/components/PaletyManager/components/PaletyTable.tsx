@@ -1,6 +1,12 @@
 import React from 'react';
-import { Table, Space, Tag, Button, Badge, Tooltip, Modal, Typography } from 'antd';
-import { SwapOutlined, ColumnHeightOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Table, Space, Tag, Button, Badge, Tooltip, Modal, Typography, Popconfirm } from 'antd';
+import { 
+  SwapOutlined, 
+  ColumnHeightOutlined, 
+  InfoCircleOutlined,
+  DeleteOutlined,
+  EyeOutlined
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Text } = Typography;
@@ -30,6 +36,7 @@ interface Paleta {
   updated_at?: string;
   waga_kg?: number;
   procent_wykorzystania?: number;
+  przeznaczenie?: string;
 }
 
 interface PaletyTableProps {
@@ -38,6 +45,8 @@ interface PaletyTableProps {
   onViewDetails: (paleta: Paleta) => void;
   onTransferFormatki?: (paleta: Paleta) => void;
   onClosePaleta?: (paletaId: number) => void;
+  onDelete?: (paletaId: number) => void;
+  deletingId?: number | null;
   renderFormatkiColumn?: (paleta: Paleta) => React.ReactNode;
 }
 
@@ -47,6 +56,8 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
   onViewDetails,
   onTransferFormatki,
   onClosePaleta,
+  onDelete,
+  deletingId,
   renderFormatkiColumn
 }) => {
   const getStatusColor = (status: string) => {
@@ -59,6 +70,32 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       case 'zapakowana': return 'success';
       default: return 'default';
     }
+  };
+
+  const getPrzeznaczenieBadge = (przeznaczenie?: string) => {
+    if (!przeznaczenie) return null;
+    
+    const icons: Record<string, string> = {
+      'MAGAZYN': '📦',
+      'OKLEINIARKA': '🎨',
+      'WIERCENIE': '🔧',
+      'CIECIE': '✂️',
+      'WYSYLKA': '📤'
+    };
+    
+    const colors: Record<string, string> = {
+      'MAGAZYN': 'blue',
+      'OKLEINIARKA': 'purple',
+      'WIERCENIE': 'orange',
+      'CIECIE': 'cyan',
+      'WYSYLKA': 'green'
+    };
+    
+    return (
+      <Tag color={colors[przeznaczenie] || 'default'}>
+        {icons[przeznaczenie] || ''} {przeznaczenie}
+      </Tag>
+    );
   };
 
   const getWysokoscColor = (wysokosc: number) => {
@@ -129,7 +166,7 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
           <Text strong>{text || `PAL-${record.id}`}</Text>
           <Space>
             <Tag>{record.typ || 'EURO'}</Tag>
-            <Tag>{record.kierunek || 'wewnętrzny'}</Tag>
+            {getPrzeznaczenieBadge(record.przeznaczenie)}
           </Space>
         </Space>
       )
@@ -192,7 +229,6 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       dataIndex: 'waga_kg',
       key: 'waga_kg',
       render: (waga: any) => {
-        // Konwertuj do liczby i sprawdź czy jest poprawna
         const wagaNum = Number(waga);
         if (!waga || isNaN(wagaNum)) return <Text type="secondary">-</Text>;
         
@@ -225,19 +261,20 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
     {
       title: 'Akcje',
       key: 'actions',
+      width: 150,
       render: (_: any, record: Paleta) => {
         const sztuk = record.sztuk_total || record.ilosc_formatek || 0;
         
         return (
-          <Space>
+          <Space size="small">
             <Tooltip title="Szczegóły">
               <Button 
                 size="small" 
+                icon={<EyeOutlined />}
                 onClick={() => onViewDetails(record)}
-              >
-                Podgląd
-              </Button>
+              />
             </Tooltip>
+            
             {onTransferFormatki && (
               <Tooltip title="Przenieś formatki">
                 <Button 
@@ -248,17 +285,25 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
                 />
               </Tooltip>
             )}
-            {onClosePaleta && record.status?.toLowerCase() === 'otwarta' && (
-              <Tooltip title="Zamknij paletę">
-                <Button
-                  size="small"
-                  type="link"
-                  danger
-                  onClick={() => handleClosePaleta(record)}
-                >
-                  Zamknij
-                </Button>
-              </Tooltip>
+            
+            {onDelete && (
+              <Popconfirm
+                title="Czy na pewno usunąć paletę?"
+                description={`Paleta ${record.numer_palety || `PAL-${record.id}`} zostanie trwale usunięta`}
+                onConfirm={() => onDelete(record.id)}
+                okText="Usuń"
+                cancelText="Anuluj"
+                okButtonProps={{ danger: true }}
+              >
+                <Tooltip title="Usuń paletę">
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    loading={deletingId === record.id}
+                  />
+                </Tooltip>
+              </Popconfirm>
             )}
           </Space>
         );
@@ -272,7 +317,12 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       dataSource={palety}
       rowKey="id"
       loading={loading}
-      pagination={false}
+      pagination={{
+        pageSize: 10,
+        showSizeChanger: true,
+        showTotal: (total) => `Łącznie ${total} palet`,
+        pageSizeOptions: ['10', '20', '50', '100']
+      }}
       size="middle"
     />
   );
