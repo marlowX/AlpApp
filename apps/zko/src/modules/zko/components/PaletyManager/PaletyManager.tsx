@@ -22,7 +22,9 @@ import {
   DeleteOutlined,
   ExclamationCircleOutlined,
   ThunderboltOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  StarOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 import { PaletaPrzeniesFormatki } from './PaletaPrzeniesFormatki';
 import { PaletaDetails } from './PaletaDetails';
@@ -30,6 +32,9 @@ import { PaletyStats } from './components/PaletyStats';
 import { PaletyTable } from './components/PaletyTable';
 import { PlanowanieModal, PlanowaniePaletParams } from './components/PlanowanieModal';
 import { LIMITY_PALETY, MESSAGES } from './types';
+
+// 🆕 NOWY HOOK - Planowanie Modulariczne V2
+import { usePaletyModular } from '../../hooks';
 
 const { Text } = Typography;
 
@@ -79,6 +84,15 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const [targetPaleta, setTargetPaleta] = useState<Paleta | null>(null);
   const [podsumowanie, setPodsumowanie] = useState<any>(null);
 
+  // 🆕 NOWY HOOK - Planowanie Modularyczne V2
+  const { 
+    loading: modularLoading,
+    error: modularError,
+    planujModularnie,
+    sprawdzIlosci,
+    pelnyWorkflow
+  } = usePaletyModular();
+
   useEffect(() => {
     fetchPalety();
   }, [zkoId]);
@@ -120,6 +134,125 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
       message.error(MESSAGES.PLAN_ERROR);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🆕 NOWE PLANOWANIE MODULARYCZNE V2
+  const handlePlanujModularnie = async () => {
+    try {
+      const result = await pelnyWorkflow(zkoId, {
+        max_wysokosc_mm: LIMITY_PALETY.DOMYSLNA_WYSOKOSC_MM,
+        max_formatek_na_palete: 80,
+        nadpisz_istniejace: true,
+        operator: 'user'
+      });
+
+      if (result) {
+        message.success('🎉 Planowanie modulariczne zakończone pomyślnie!');
+        
+        // Pokaż szczegóły
+        if (result.szczegoly?.palety?.length > 0) {
+          Modal.success({
+            title: '✅ Planowanie V2 - Sukces!',
+            content: (
+              <div>
+                <p><strong>📦 Utworzono palet:</strong> {result.szczegoly.palety.length}</p>
+                <p><strong>🔢 Total sztuk:</strong> {result.weryfikacja?.podsumowanie?.zko?.total_sztuk}</p>
+                <p><strong>📊 Status weryfikacji:</strong> 
+                  {result.weryfikacja?.status === 'OK' ? 
+                    <Tag color="green">✅ OK</Tag> : 
+                    <Tag color="orange">⚠️ NEEDS_FIX</Tag>
+                  }
+                </p>
+                <p><strong>🧩 Formatek typów:</strong> {result.weryfikacja?.podsumowanie?.zko?.typy_formatek}</p>
+                <Alert
+                  message="💡 Planowanie V2"
+                  description="Używa poprawnych funkcji modularnych z obsługą rzeczywistych ilości formatek!"
+                  type="success"
+                  showIcon
+                  style={{ marginTop: 12 }}
+                />
+              </div>
+            ),
+            width: 500
+          });
+        }
+        
+        fetchPalety();
+        onRefresh?.();
+      }
+    } catch (error) {
+      console.error('Error in modular planning:', error);
+      message.error('Błąd planowania modularycznego V2');
+    }
+  };
+
+  // 🆕 SPRAWDZENIE STATUSU ILOŚCI
+  const handleSprawdzStatus = async () => {
+    try {
+      const result = await sprawdzIlosci(zkoId);
+      
+      if (result) {
+        Modal.info({
+          title: '📊 Status Ilości Formatek',
+          content: (
+            <div>
+              <div style={{ marginBottom: 16 }}>
+                <Tag color={result.status === 'OK' ? 'green' : 'orange'} style={{ fontSize: 14 }}>
+                  {result.status === 'OK' ? '✅ OK' : '⚠️ NEEDS_FIX'}
+                </Tag>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div>
+                  <Text strong>ZKO Formatki</Text>
+                  <div>{result.podsumowanie?.zko?.total_sztuk || 0} sztuk</div>
+                  <Text type="secondary">{result.podsumowanie?.zko?.typy_formatek || 0} typów</Text>
+                </div>
+                <div>
+                  <Text strong>Palety</Text>
+                  <div>{result.podsumowanie?.palety?.liczba_palet || 0} palet</div>
+                  <Text type="secondary">{result.podsumowanie?.palety?.total_sztuk || 0} sztuk</Text>
+                </div>
+                <div>
+                  <Text strong>Tabela Ilości</Text>
+                  <div>{result.podsumowanie?.tabela_ilosc?.wpisy || 0} wpisów</div>
+                  <Text type="secondary">{result.podsumowanie?.tabela_ilosc?.total_sztuk || 0} sztuk</Text>
+                </div>
+              </div>
+
+              <div>
+                <Text strong>Zgodność:</Text>
+                <div style={{ marginTop: 8 }}>
+                  <Tag color={result.zgodnosc?.zko_vs_palety ? 'green' : 'red'}>
+                    {result.zgodnosc?.zko_vs_palety ? '✅' : '❌'} ZKO ↔ Palety
+                  </Tag>
+                  <Tag color={result.zgodnosc?.palety_vs_ilosc ? 'green' : 'red'}>
+                    {result.zgodnosc?.palety_vs_ilosc ? '✅' : '❌'} Palety ↔ Ilości  
+                  </Tag>
+                  <Tag color={result.zgodnosc?.tabela_ilosc_wypelniona ? 'green' : 'red'}>
+                    {result.zgodnosc?.tabela_ilosc_wypelniona ? '✅' : '❌'} Tabela Wypełniona
+                  </Tag>
+                </div>
+              </div>
+
+              {result.status !== 'OK' && (
+                <Alert
+                  message="⚠️ Wykryto Niezgodności"
+                  description="Użyj planowania V2 aby naprawić problemy z ilościami"
+                  type="warning"
+                  showIcon
+                  style={{ marginTop: 12 }}
+                />
+              )}
+            </div>
+          ),
+          width: 600
+        });
+      }
+    } catch (error) {
+      console.error('Error checking quantities:', error);
+      message.error('Błąd sprawdzania ilości');
     }
   };
 
@@ -170,6 +303,13 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
                   )}
                   <p><strong>Średnie wykorzystanie:</strong> {stats.srednie_wykorzystanie || 0}%</p>
                   <p><strong>Strategia:</strong> {stats.strategia_uzyta}</p>
+                  <Alert
+                    message="⚠️ Uwaga - V5"
+                    description="Funkcja V5 ma błąd z liczeniem ilości. Zalecamy planowanie V2!"
+                    type="warning"
+                    showIcon
+                    style={{ marginTop: 12 }}
+                  />
                 </div>
               ),
               width: 500
@@ -355,6 +495,9 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     );
   };
 
+  // Sprawdź czy są błędy modularnego planowania
+  const hasModularError = modularError !== null;
+
   // Statystyki
   const pustePalety = palety.filter(p => (p.sztuk_total || p.ilosc_formatek || 0) === 0);
   const avgWykorzystanie = palety.length > 0 
@@ -367,7 +510,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         <Space>
           <AppstoreOutlined />
           <Text strong>Zarządzanie paletami</Text>
-          {loading && <Spin size="small" />}
+          {(loading || modularLoading) && <Spin size="small" />}
           {podsumowanie && (
             <Tooltip title={`${podsumowanie.typy_formatek} typów, ${podsumowanie.sztuk_total} sztuk`}>
               <InfoCircleOutlined />
@@ -377,13 +520,31 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
       }
       extra={
         <Space>
+          {/* 🆕 NOWE PRZYCISKI V2 MODULAR */}
+          <Button 
+            onClick={handlePlanujModularnie}
+            icon={<StarOutlined />}
+            type="primary"
+            loading={modularLoading}
+            style={{ background: '#722ed1', borderColor: '#722ed1' }}
+          >
+            Planuj V2 ⭐
+          </Button>
+          
+          <Button 
+            onClick={handleSprawdzStatus}
+            icon={<CheckCircleOutlined />}
+            loading={modularLoading}
+          >
+            Sprawdź Status
+          </Button>
+          
           <Button 
             onClick={() => setPlanowanieModalVisible(true)}
             icon={<SettingOutlined />}
-            type="primary"
             loading={loading}
           >
-            Planuj V5
+            Planuj V5 ⚠️
           </Button>
           
           {palety.length > 0 && (
@@ -427,6 +588,18 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         </Space>
       }
     >
+      {/* 🆕 BŁĄD MODULAR */}
+      {hasModularError && (
+        <Alert
+          message="⚠️ Błąd Planowania V2"
+          description={modularError}
+          type="error"
+          showIcon
+          closable
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      
       {palety.length === 0 ? (
         <Alert
           message="Brak palet"
@@ -447,14 +620,24 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           type="info"
           showIcon
           action={
-            <Button 
-              onClick={() => setPlanowanieModalVisible(true)} 
-              type="primary"
-              loading={loading}
-              icon={<PlusOutlined />}
-            >
-              Utwórz palety
-            </Button>
+            <Space>
+              <Button 
+                onClick={handlePlanujModularnie}
+                type="primary"
+                loading={modularLoading}
+                icon={<StarOutlined />}
+                style={{ background: '#722ed1', borderColor: '#722ed1' }}
+              >
+                Planuj V2 ⭐
+              </Button>
+              <Button 
+                onClick={() => setPlanowanieModalVisible(true)} 
+                loading={loading}
+                icon={<PlusOutlined />}
+              >
+                Planuj V5
+              </Button>
+            </Space>
           }
         />
       ) : (
