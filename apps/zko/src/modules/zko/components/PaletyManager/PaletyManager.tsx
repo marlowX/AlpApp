@@ -114,6 +114,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
 
   useEffect(() => {
     if (selectedPozycjaId) {
+      console.log('Selected pozycja ID:', selectedPozycjaId);
       fetchPozycjaFormatki();
     } else {
       setPozycjaFormatki([]);
@@ -159,31 +160,35 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     if (!selectedPozycjaId) return;
     
     try {
+      console.log('Fetching formatki for pozycja:', selectedPozycjaId);
       const response = await fetch(`/api/pallets/position/${selectedPozycjaId}/available-formatki`);
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Formatki response:', data);
         
         if (data.sukces) {
           const mappedFormatki = data.formatki.map((f: any) => ({
             id: f.id,
-            nazwa: f.nazwa,
+            nazwa: f.nazwa || f.nazwa_formatki || `${f.dlugosc}x${f.szerokosc}`,
             dlugosc: Number(f.dlugosc),
             szerokosc: Number(f.szerokosc),
-            grubosc: Number(f.grubosc),
+            grubosc: Number(f.grubosc || 18),
             kolor: f.kolor,
-            ilosc_planowana: f.ilosc_dostepna,
+            ilosc_planowana: f.ilosc_planowana,
             waga_sztuka: Number(f.waga_sztuka),
-            ilosc_w_paletach: f.ilosc_w_paletach,
-            ilosc_dostepna: f.ilosc_dostepna,
-            czy_w_pelni_przypisana: f.czy_w_pelni_przypisana
+            ilosc_w_paletach: f.ilosc_w_paletach || 0,
+            ilosc_dostepna: f.ilosc_dostepna || f.ilosc_planowana,
+            czy_w_pelni_przypisana: f.czy_w_pelni_przypisana || false
           }));
           
+          console.log('Mapped formatki:', mappedFormatki);
           setPozycjaFormatki(mappedFormatki);
         } else {
           message.error(data.error || 'Błąd pobierania formatek');
         }
       } else {
+        console.error('Response not ok:', response.status);
         message.error('Błąd komunikacji z serwerem');
       }
     } catch (error) {
@@ -339,7 +344,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     try {
       const result = await planujModularnie(zkoId, params);
       if (result) {
-        message.success('Planowanie modularyczne zakończone pomyślnie!');
+        message.success('Planowanie modulariczne zakończone pomyślnie!');
         setPlanowanieModularneModalVisible(false);
         fetchPalety();
         onRefresh?.();

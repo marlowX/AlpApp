@@ -64,6 +64,7 @@ interface Formatka {
   kolor: string;
   ilosc_planowana: number;
   waga_sztuka: number;
+  ilosc_dostepna?: number;
 }
 
 interface PaletaFormatka {
@@ -94,12 +95,20 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
   onSave,
   loading = false
 }) => {
-  const [formatki] = useState<Formatka[]>(formatkiProp);
   const [palety, setPalety] = useState<Paleta[]>([]);
   const [selectedPaleta, setSelectedPaleta] = useState<string | null>(null);
   const [editingFormatka, setEditingFormatka] = useState<number | null>(null);
   const [tempIlosci, setTempIlosci] = useState<Record<number, number>>({});
   const [saving, setSaving] = useState(false);
+
+  // Używaj formatek z props, nie lokalnej kopii
+  const formatki = formatkiProp || [];
+
+  // Debug log
+  useEffect(() => {
+    console.log('ManualPalletCreator - formatki prop:', formatkiProp);
+    console.log('ManualPalletCreator - pozycjaId:', pozycjaId);
+  }, [formatkiProp, pozycjaId]);
 
   // Oblicz pozostałe ilości formatek
   const pozostaleIlosci = useMemo(() => {
@@ -113,7 +122,9 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
           przypisane += formatkaWPalecie.ilosc;
         }
       });
-      result[f.id] = f.ilosc_planowana - przypisane;
+      // Użyj ilosc_dostepna jeśli istnieje, w przeciwnym razie ilosc_planowana
+      const dostepne = f.ilosc_dostepna !== undefined ? f.ilosc_dostepna : f.ilosc_planowana;
+      result[f.id] = Math.max(0, dostepne - przypisane);
     });
     
     return result;
@@ -272,7 +283,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     });
   };
 
-  // 🔥 NOWA FUNKCJA - Zapisz palety do bazy danych
+  // Zapisz palety do bazy danych
   const handleSaveAll = async () => {
     if (!pozycjaId) {
       message.error('Brak ID pozycji');
@@ -284,48 +295,28 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       return;
     }
 
+    // Sprawdź czy palety mają formatki
+    const paletySkladowe = palety.filter(p => p.formatki.length > 0);
+    if (paletySkladowe.length === 0) {
+      message.warning('Palety nie zawierają formatek');
+      return;
+    }
+
     try {
       setSaving(true);
       
-      const paletySaveData = palety.map(paleta => ({
-        formatki: paleta.formatki,
-        przeznaczenie: paleta.przeznaczenie,
-        max_waga: paleta.max_waga,
-        max_wysokosc: paleta.max_wysokosc,
-        operator: 'user',
-        uwagi: paleta.uwagi || null
-      }));
-
-      const response = await fetch('/api/pallets/manual/batch', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pozycja_id: pozycjaId,
-          palety: paletySaveData
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.sukces) {
-        message.success(`Zapisano ${data.palety_utworzone.length} palet do bazy danych`);
-        
-        // Wyczyść lokalne palety po zapisaniu
-        setPalety([]);
-        setSelectedPaleta(null);
-        
-        // Wywołaj callback
-        if (onSave) {
-          onSave(palety);
-        }
-      } else {
-        message.error(data.error || 'Błąd zapisywania palet');
+      // Wywołaj callback rodzica zamiast samemu wysyłać request
+      if (onSave) {
+        onSave(paletySkladowe);
       }
+      
+      // Wyczyść lokalne palety po zapisaniu
+      setPalety([]);
+      setSelectedPaleta(null);
+      
     } catch (error) {
       console.error('Error saving pallets:', error);
-      message.error('Błąd komunikacji z serwerem');
+      message.error('Błąd zapisywania palet');
     } finally {
       setSaving(false);
     }
@@ -362,17 +353,33 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
 
   // Sprawdź czy są jeszcze formatki do dodania
   const saPozostaleFormatki = Object.values(pozostaleIlosci).some(ilosc => ilosc > 0);
+  const totalPozostalo = Object.values(pozostaleIlosci).reduce((sum, ilosc) => sum + ilosc, 0);
+
+  // Jeśli nie ma formatek, pokaż komunikat
+  if (!pozycjaId) {
+    return (
+      <Alert
+        message="Wybierz pozycję"
+        description="Wybierz pozycję z listy powyżej, aby zobaczyć dostępne formatki"
+        type="warning"
+        showIcon
+      />
+    );
+  }
+
+  if (formatki.length === 0) {
+    return (
+      <Alert
+        message="Brak formatek"
+        description="Wybrana pozycja nie ma formatek lub wszystkie formatki zostały już przypisane do palet"
+        type="info"
+        showIcon
+      />
+    );
+  }
 
   return (
     <div>
-      <Alert
-        message="Tryb ręcznego zarządzania paletami"
-        description="Twórz palety i przypisuj formatki według własnych potrzeb. Kontroluj przeznaczenie każdej palety i monitoruj wagę oraz wysokość w czasie rzeczywistym."
-        type="info"
-        showIcon
-        style={{ marginBottom: 20 }}
-      />
-
       <Row gutter={16}>
         {/* Panel formatek do przypisania */}
         <Col span={10}>
@@ -382,7 +389,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
             extra={
               <Space>
                 <Tag color="blue">
-                  {formatki.reduce((sum, f) => sum + pozostaleIlosci[f.id], 0)} szt. pozostało
+                  {totalPozostalo} szt. pozostało
                 </Tag>
                 {activePaleta && saPozostaleFormatki && (
                   <Popconfirm
@@ -406,129 +413,138 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
               </Space>
             }
           >
-            <Table
-              dataSource={formatki}
-              size="small"
-              pagination={false}
-              rowKey="id"
-              columns={[
-                {
-                  title: 'Formatka',
-                  dataIndex: 'nazwa',
-                  render: (text, record) => (
-                    <Space direction="vertical" size={0}>
-                      <Text strong>{text}</Text>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {record.dlugosc}×{record.szerokosc}×{record.grubosc}mm
-                      </Text>
-                    </Space>
-                  )
-                },
-                {
-                  title: 'Kolor',
-                  dataIndex: 'kolor',
-                  width: 80,
-                  render: (text) => <Tag>{text}</Tag>
-                },
-                {
-                  title: 'Pozostało',
-                  width: 100,
-                  render: (_, record) => (
-                    <Space direction="vertical" size={0}>
-                      <Text strong>{pozostaleIlosci[record.id]} szt.</Text>
-                      <Progress 
-                        percent={100 - (pozostaleIlosci[record.id] / record.ilosc_planowana) * 100} 
-                        size="small"
-                        showInfo={false}
-                      />
-                    </Space>
-                  )
-                },
-                {
-                  title: 'Dodaj',
-                  width: 160,
-                  render: (_, record) => {
-                    if (!activePaleta) {
-                      return <Text type="secondary">Wybierz paletę</Text>;
-                    }
-                    
-                    const isEditing = editingFormatka === record.id;
-                    const currentIlosc = activePaleta.formatki.find(f => f.formatka_id === record.id)?.ilosc || 0;
-                    const dostepne = pozostaleIlosci[record.id];
-                    
-                    if (isEditing) {
+            {formatki.length === 0 ? (
+              <Empty description="Brak danych" />
+            ) : (
+              <Table
+                dataSource={formatki}
+                size="small"
+                pagination={false}
+                rowKey="id"
+                columns={[
+                  {
+                    title: 'Formatka',
+                    dataIndex: 'nazwa',
+                    render: (text, record) => (
+                      <Space direction="vertical" size={0}>
+                        <Text strong>{text}</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {record.dlugosc}×{record.szerokosc}×{record.grubosc}mm
+                        </Text>
+                      </Space>
+                    )
+                  },
+                  {
+                    title: 'Kolor',
+                    dataIndex: 'kolor',
+                    width: 80,
+                    render: (text) => <Tag>{text}</Tag>
+                  },
+                  {
+                    title: 'Pozostało',
+                    width: 100,
+                    render: (_, record) => {
+                      const pozostalo = pozostaleIlosci[record.id] || 0;
+                      const planowane = record.ilosc_dostepna !== undefined ? record.ilosc_dostepna : record.ilosc_planowana;
+                      
                       return (
-                        <Space size={4}>
-                          <InputNumber
+                        <Space direction="vertical" size={0}>
+                          <Text strong>{pozostalo} szt.</Text>
+                          <Progress 
+                            percent={planowane > 0 ? 100 - (pozostalo / planowane) * 100 : 100} 
                             size="small"
-                            min={1}
-                            max={dostepne + currentIlosc}
-                            value={tempIlosci[record.id] || currentIlosc || 1}
-                            onChange={(value) => setTempIlosci(prev => ({
-                              ...prev,
-                              [record.id]: value || 1
-                            }))}
-                            style={{ width: 60 }}
-                            onPressEnter={() => handleDodajFormatki(record.id)}
+                            showInfo={false}
                           />
-                          <Button 
-                            size="small" 
-                            type="primary"
-                            icon={<CheckCircleOutlined />}
-                            onClick={() => handleDodajFormatki(record.id)}
-                          />
-                          <Button 
-                            size="small" 
-                            onClick={() => {
-                              setEditingFormatka(null);
-                              setTempIlosci(prev => ({ ...prev, [record.id]: 1 }));
-                            }}
-                          >
-                            ✕
-                          </Button>
                         </Space>
                       );
                     }
-                    
-                    return (
-                      <Space size={4}>
-                        <Button
-                          size="small"
-                          type="primary"
-                          icon={<PlusOutlined />}
-                          onClick={() => {
-                            setEditingFormatka(record.id);
-                            setTempIlosci(prev => ({
-                              ...prev,
-                              [record.id]: currentIlosc || 1
-                            }));
-                          }}
-                          disabled={dostepne === 0 && currentIlosc === 0}
-                        >
-                          {currentIlosc > 0 ? `${currentIlosc} szt.` : 'Dodaj'}
-                        </Button>
-                        
-                        {dostepne > 0 && (
-                          <Tooltip title={`Dodaj wszystkie ${dostepne} szt.`}>
-                            <Button
+                  },
+                  {
+                    title: 'Dodaj',
+                    width: 160,
+                    render: (_, record) => {
+                      if (!activePaleta) {
+                        return <Text type="secondary">Wybierz paletę</Text>;
+                      }
+                      
+                      const isEditing = editingFormatka === record.id;
+                      const currentIlosc = activePaleta.formatki.find(f => f.formatka_id === record.id)?.ilosc || 0;
+                      const dostepne = pozostaleIlosci[record.id] || 0;
+                      
+                      if (isEditing) {
+                        return (
+                          <Space size={4}>
+                            <InputNumber
                               size="small"
-                              icon={<PlusCircleOutlined />}
-                              onClick={() => dodajWszystkieFormatki(activePaleta.id, record.id)}
-                              style={{ 
-                                borderColor: '#52c41a', 
-                                color: '#52c41a' 
+                              min={1}
+                              max={dostepne + currentIlosc}
+                              value={tempIlosci[record.id] || currentIlosc || 1}
+                              onChange={(value) => setTempIlosci(prev => ({
+                                ...prev,
+                                [record.id]: value || 1
+                              }))}
+                              style={{ width: 60 }}
+                              onPressEnter={() => handleDodajFormatki(record.id)}
+                            />
+                            <Button 
+                              size="small" 
+                              type="primary"
+                              icon={<CheckCircleOutlined />}
+                              onClick={() => handleDodajFormatki(record.id)}
+                            />
+                            <Button 
+                              size="small" 
+                              onClick={() => {
+                                setEditingFormatka(null);
+                                setTempIlosci(prev => ({ ...prev, [record.id]: 1 }));
                               }}
                             >
-                              Wszystkie
+                              ✕
                             </Button>
-                          </Tooltip>
-                        )}
-                      </Space>
-                    );
+                          </Space>
+                        );
+                      }
+                      
+                      return (
+                        <Space size={4}>
+                          <Button
+                            size="small"
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => {
+                              setEditingFormatka(record.id);
+                              setTempIlosci(prev => ({
+                                ...prev,
+                                [record.id]: currentIlosc || 1
+                              }));
+                            }}
+                            disabled={dostepne === 0 && currentIlosc === 0}
+                          >
+                            {currentIlosc > 0 ? `${currentIlosc} szt.` : 'Dodaj'}
+                          </Button>
+                          
+                          {dostepne > 0 && (
+                            <Tooltip title={`Dodaj wszystkie ${dostepne} szt.`}>
+                              <Button
+                                size="small"
+                                icon={<PlusCircleOutlined />}
+                                onClick={() => dodajWszystkieFormatki(activePaleta.id, record.id)}
+                                style={{ 
+                                  borderColor: '#52c41a', 
+                                  color: '#52c41a' 
+                                }}
+                              >
+                                Wszystkie
+                              </Button>
+                            </Tooltip>
+                          )}
+                        </Space>
+                      );
+                    }
                   }
-                }
-              ]}
-            />
+                ]}
+              />
+            )}
           </Card>
         </Col>
 
@@ -551,7 +567,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   type="primary"
                   onClick={handleSaveAll}
                   disabled={palety.length === 0}
-                  loading={saving}
+                  loading={saving || loading}
                   style={{ 
                     background: '#52c41a', 
                     borderColor: '#52c41a' 
@@ -664,7 +680,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                         <Col span={24}>
                           <Popconfirm
                             title="Dodać wszystkie pozostałe formatki do tej palety?"
-                            description={`Zostanie dodanych ${Object.values(pozostaleIlosci).reduce((sum, ilosc) => sum + Math.max(0, ilosc), 0)} formatek`}
+                            description={`Zostanie dodanych ${totalPozostalo} formatek`}
                             onConfirm={() => dodajWszystkieReszteFormatek(paleta.id)}
                             okText="Dodaj wszystkie"
                             cancelText="Anuluj"
@@ -678,7 +694,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                                 color: '#52c41a'
                               }}
                             >
-                              📦 Dodaj wszystkie pozostałe formatki ({Object.values(pozostaleIlosci).reduce((sum, ilosc) => sum + Math.max(0, ilosc), 0)} szt.)
+                              📦 Dodaj wszystkie pozostałe formatki ({totalPozostalo} szt.)
                             </Button>
                           </Popconfirm>
                         </Col>
@@ -780,8 +796,11 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
           <Col span={6}>
             <Statistic 
               title="Formatki przypisane" 
-              value={formatki.reduce((sum, f) => sum + f.ilosc_planowana - pozostaleIlosci[f.id], 0)}
-              suffix={`/ ${formatki.reduce((sum, f) => sum + f.ilosc_planowana, 0)}`}
+              value={formatki.reduce((sum, f) => {
+                const planowane = f.ilosc_dostepna !== undefined ? f.ilosc_dostepna : f.ilosc_planowana;
+                return sum + planowane - (pozostaleIlosci[f.id] || 0);
+              }, 0)}
+              suffix={`/ ${formatki.reduce((sum, f) => sum + (f.ilosc_dostepna !== undefined ? f.ilosc_dostepna : f.ilosc_planowana), 0)}`}
             />
           </Col>
           <Col span={6}>
@@ -806,53 +825,6 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
           </Col>
         </Row>
       </Card>
-
-      {/* Akcje masowe */}
-      {palety.length > 0 && (
-        <Card style={{ marginTop: 16 }} size="small">
-          <Row justify="center">
-            <Col>
-              <Space size="large">
-                <Button 
-                  type="primary"
-                  icon={<SaveOutlined />}
-                  size="large"
-                  onClick={handleSaveAll}
-                  loading={saving}
-                  style={{ 
-                    background: '#52c41a', 
-                    borderColor: '#52c41a',
-                    minWidth: 180
-                  }}
-                >
-                  💾 Zapisz wszystkie palety
-                </Button>
-                
-                <Popconfirm
-                  title="Czy na pewno wyczyścić wszystkie palety?"
-                  description="Ta operacja usunie wszystkie utworzone palety z pamięci."
-                  onConfirm={() => {
-                    setPalety([]);
-                    setSelectedPaleta(null);
-                    message.success('Wyczyszczono wszystkie palety');
-                  }}
-                  okText="Wyczyść"
-                  cancelText="Anuluj"
-                  okButtonProps={{ danger: true }}
-                >
-                  <Button 
-                    danger
-                    icon={<DeleteOutlined />}
-                    size="large"
-                  >
-                    🗑️ Wyczyść wszystkie
-                  </Button>
-                </Popconfirm>
-              </Space>
-            </Col>
-          </Row>
-        </Card>
-      )}
     </div>
   );
 };
