@@ -10,13 +10,16 @@ import {
   Tag,
   Popconfirm,
   Badge,
-  Statistic
+  Statistic,
+  Empty
 } from 'antd';
 import { 
   PlusCircleOutlined,
   EditOutlined,
   CheckCircleOutlined,
-  WarningOutlined
+  WarningOutlined,
+  StopOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import { ManualPalletCreator } from './ManualPalletCreator';
 
@@ -53,11 +56,16 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
   onCreateAllRemaining,
   onRefresh
 }) => {
-  // Oblicz statystyki
-  const totalPlanowane = pozycjaFormatki.reduce((sum, f) => sum + f.ilosc_planowana, 0);
-  const totalWPaletach = pozycjaFormatki.reduce((sum, f) => sum + (f.ilosc_w_paletach || 0), 0);
-  const totalDostepne = pozycjaFormatki.reduce((sum, f) => sum + (f.ilosc_dostepna || 0), 0);
-  const availableTypes = pozycjaFormatki.filter(f => (f.ilosc_dostepna || 0) > 0).length;
+  // Oblicz statystyki - NAPRAWIONE obsługa undefined/null
+  const formatNumber = (num: number | undefined | null): number => {
+    if (num === null || num === undefined || isNaN(num)) return 0;
+    return num;
+  };
+
+  const totalPlanowane = pozycjaFormatki.reduce((sum, f) => sum + formatNumber(f.ilosc_planowana), 0);
+  const totalWPaletach = pozycjaFormatki.reduce((sum, f) => sum + formatNumber(f.ilosc_w_paletach), 0);
+  const totalDostepne = pozycjaFormatki.reduce((sum, f) => sum + formatNumber(f.ilosc_dostepna), 0);
+  const availableTypes = pozycjaFormatki.filter(f => formatNumber(f.ilosc_dostepna) > 0).length;
   const totalTypes = pozycjaFormatki.length;
   
   // Procent zapaletyzowania
@@ -65,14 +73,104 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
     ? Math.round((totalWPaletach / totalPlanowane) * 100) 
     : 0;
 
-  if (!pozycjaId) {
+  // Stany pozycji
+  const hasPozycja = !!pozycjaId;
+  const hasFormatki = pozycjaFormatki.length > 0;
+  const hasPlannedFormatki = totalPlanowane > 0;
+  const hasAvailableFormatki = totalDostepne > 0;
+  const isFullyPalletized = hasPlannedFormatki && procentZapaletyzowania === 100;
+  const isLoadingFormatki = loading && hasPozycja;
+
+  // Funkcja która sprawdza czy można utworzyć paletę
+  const handleCreateAllRemaining = () => {
+    if (totalDostepne === 0) {
+      console.warn('Brak dostępnych formatek do utworzenia palety');
+      return;
+    }
+    onCreateAllRemaining('MAGAZYN');
+  };
+
+  // ========== PRZYPADEK: Brak wybranej pozycji ==========
+  if (!hasPozycja) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <Space direction="vertical" size="small">
+              <Text strong>Wybierz pozycję do zarządzania</Text>
+              <Text type="secondary">
+                Aby korzystać z ręcznego tworzenia palet, musisz najpierw wybrać konkretną pozycję ZKO.
+              </Text>
+            </Space>
+          }
+        />
+      </div>
+    );
+  }
+
+  // ========== PRZYPADEK: Ładowanie formatek ==========
+  if (isLoadingFormatki) {
     return (
       <Alert
-        message="Brak danych pozycji"
-        description="Aby korzystać z ręcznego tworzenia palet, musisz wybrać konkretną pozycję ZKO."
-        type="warning"
+        message="Pobieranie formatek..."
+        description="Ładowanie dostępnych formatek z pozycji."
+        type="info"
         showIcon
+        icon={<InfoCircleOutlined spin />}
+        style={{ marginBottom: 16 }}
       />
+    );
+  }
+
+  // ========== PRZYPADEK: Pozycja bez formatek ==========
+  if (!hasFormatki) {
+    return (
+      <>
+        <Alert
+          message="⚠️ Brak formatek w pozycji"
+          description={`Pozycja ${pozycjaId} nie ma zdefiniowanych formatek lub wystąpił błąd podczas ich pobierania.`}
+          type="warning"
+          showIcon
+          icon={<StopOutlined />}
+          style={{ marginBottom: 16 }}
+          action={
+            <Button size="small" onClick={onRefresh}>
+              Odśwież
+            </Button>
+          }
+        />
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <Empty
+            description="Ta pozycja nie ma formatek do zapaletyzowania"
+          />
+        </div>
+      </>
+    );
+  }
+
+  // ========== PRZYPADEK: Formatki bez planowanych ilości ==========
+  if (!hasPlannedFormatki) {
+    return (
+      <>
+        <Alert
+          message="ℹ️ Brak planowanych formatek"
+          description={`Pozycja ${pozycjaId} ma ${totalTypes} typów formatek, ale wszystkie mają planowaną ilość = 0.`}
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          action={
+            <Button size="small" onClick={onRefresh}>
+              Odśwież
+            </Button>
+          }
+        />
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <Empty
+            description="Brak formatek z planowaną ilością > 0"
+          />
+        </div>
+      </>
     );
   }
 
@@ -105,7 +203,10 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
               title="Pozostało" 
               value={totalDostepne} 
               suffix="szt."
-              valueStyle={{ color: totalDostepne > 0 ? '#1890ff' : '#52c41a' }}
+              valueStyle={{ 
+                color: totalDostepne > 0 ? '#1890ff' : 
+                       totalDostepne === 0 && totalPlanowane > 0 ? '#52c41a' : undefined 
+              }}
             />
           </Col>
           <Col span={6}>
@@ -126,14 +227,44 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
         <div style={{ marginTop: 16 }}>
           <Space>
             <Tag color="blue">Typy formatek: {totalTypes}</Tag>
-            <Tag color="green">Na paletach: {totalTypes - availableTypes}</Tag>
-            <Tag color="orange">Do przypisania: {availableTypes}</Tag>
+            <Tag color={totalWPaletach > 0 ? "green" : "default"}>
+              Na paletach: {totalTypes - availableTypes}
+            </Tag>
+            <Tag color={availableTypes > 0 ? "orange" : "default"}>
+              Do przypisania: {availableTypes}
+            </Tag>
           </Space>
         </div>
       </Card>
 
-      {/* Sekcja akcji szybkich */}
-      {totalDostepne > 0 && (
+      {/* ========== PRZYPADEK: W pełni zapaletyzowane ========== */}
+      {isFullyPalletized && (
+        <Alert
+          message="✅ Wszystkie formatki przypisane"
+          description={
+            <Space direction="vertical">
+              <Text>
+                Wszystkie {totalPlanowane} formatek z tej pozycji zostały już przypisane do palet.
+              </Text>
+              <Text type="secondary">
+                Zapaletyzowano: {procentZapaletyzowania}% ({totalWPaletach}/{totalPlanowane} szt.)
+              </Text>
+            </Space>
+          }
+          type="success"
+          showIcon
+          icon={<CheckCircleOutlined />}
+          style={{ marginBottom: 16 }}
+          action={
+            <Button size="small" onClick={onRefresh}>
+              Odśwież
+            </Button>
+          }
+        />
+      )}
+
+      {/* ========== PRZYPADEK: Dostępne formatki - sekcja akcji szybkich ========== */}
+      {hasAvailableFormatki && (
         <Card 
           size="small" 
           style={{ 
@@ -155,10 +286,11 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
               <Space>
                 <Popconfirm
                   title="Utworzyć paletę ze wszystkimi pozostałymi formatkami?"
-                  description={`Zostanie utworzona pojedyncza paleta z ${totalDostepne} formatkami`}
-                  onConfirm={() => onCreateAllRemaining('MAGAZYN')}
+                  description={`Zostanie utworzona pojedyncza paleta z ${totalDostepne} formatkami (${availableTypes} typów)`}
+                  onConfirm={handleCreateAllRemaining}
                   okText="Utwórz"
                   cancelText="Anuluj"
+                  disabled={totalDostepne === 0}
                 >
                   <Button 
                     type="primary"
@@ -167,6 +299,7 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
                       background: '#52c41a', 
                       borderColor: '#52c41a'
                     }}
+                    disabled={totalDostepne === 0}
                   >
                     📦 Utwórz paletę ze wszystkimi
                   </Button>
@@ -177,30 +310,8 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
         </Card>
       )}
 
-      {/* Status formatek */}
-      {pozycjaFormatki.length === 0 ? (
-        <Alert
-          message="Pobieranie formatek..."
-          description="Ładowanie dostępnych formatek z pozycji."
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-      ) : totalDostepne === 0 ? (
-        <Alert
-          message="✅ Wszystkie formatki przypisane"
-          description={`Wszystkie ${totalPlanowane} formatek z tej pozycji zostały już przypisane do palet.`}
-          type="success"
-          showIcon
-          icon={<CheckCircleOutlined />}
-          style={{ marginBottom: 16 }}
-          action={
-            <Button size="small" onClick={onRefresh}>
-              Odśwież
-            </Button>
-          }
-        />
-      ) : (
+      {/* Status formatek - informacyjny */}
+      {!isFullyPalletized && hasAvailableFormatki && (
         <Alert
           message={`📋 Dostępne formatki: ${totalDostepne} z ${totalPlanowane} szt.`}
           description={
@@ -219,13 +330,22 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
         />
       )}
       
-      <ManualPalletCreator
-        pozycjaId={pozycjaId}
-        formatki={pozycjaFormatki}
-        onSave={onSaveManualPallets}
-        onRefresh={onRefresh}
-        loading={loading}
-      />
+      {/* ========== KOMPONENT RĘCZNEGO TWORZENIA - tylko gdy są dostępne formatki ========== */}
+      {hasAvailableFormatki ? (
+        <ManualPalletCreator
+          pozycjaId={pozycjaId}
+          formatki={pozycjaFormatki}
+          onSave={onSaveManualPallets}
+          onRefresh={onRefresh}
+          loading={loading}
+        />
+      ) : (
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <Empty
+            description="Brak dostępnych formatek do ręcznego zarządzania paletami"
+          />
+        </div>
+      )}
     </>
   );
 };

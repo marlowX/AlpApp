@@ -5,23 +5,17 @@ import {
   Col, 
   Typography, 
   Tag, 
-  Badge, 
   Space,
   Spin,
-  Alert,
-  Progress,
-  Tooltip,
-  Button
+  Alert
 } from 'antd';
 import { 
-  CheckCircleOutlined, 
-  WarningOutlined,
-  AppstoreOutlined,
-  BoxPlotOutlined,
-  FileTextOutlined
+  CheckCircleOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons';
+import { PozycjaCard } from './PozycjaCard';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface Pozycja {
   id: number;
@@ -30,11 +24,14 @@ interface Pozycja {
   kolor_plyty: string;
   symbol_plyty: string;
   ilosc_plyt: number;
-  formatki_count?: number;
-  formatki_total_sztuk?: number;
-  formatki_na_paletach?: number;
-  formatki_dostepne?: number;
-  palety_count?: number;
+}
+
+interface PozycjaStats {
+  formatki_total: number;
+  sztuk_planowanych: number;
+  sztuk_w_paletach: number;
+  sztuk_dostepnych: number;
+  procent_zapaletyzowania: number;
 }
 
 interface PozycjaSelectorProps {
@@ -52,7 +49,7 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
 }) => {
   const [pozycje, setPozycje] = useState<Pozycja[]>([]);
   const [loadingPozycje, setLoadingPozycje] = useState(false);
-  const [pozycjeStats, setPozycjeStats] = useState<Record<number, any>>({});
+  const [pozycjeStats, setPozycjeStats] = useState<Record<number, PozycjaStats>>({});
 
   useEffect(() => {
     fetchPozycje();
@@ -62,19 +59,28 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
     try {
       setLoadingPozycje(true);
       
-      // Pobierz pozycje
+      // Pobierz pozycje z ZKO
       const response = await fetch(`/api/zko/${zkoId}/pozycje`);
       if (response.ok) {
         const data = await response.json();
-        setPozycje(data.pozycje || []);
+        const pozycjeData = data.pozycje || [];
+        setPozycje(pozycjeData);
         
-        // Pobierz statystyki palet dla każdej pozycji
-        await fetchPozycjeStats(data.pozycje || []);
+        // Pobierz statystyki formatek dla każdej pozycji
+        await fetchPozycjeStats(pozycjeData);
         
-        // Auto-select jeśli tylko jedna pozycja
-        if (data.pozycje && data.pozycje.length === 1 && !selectedPozycjaId) {
-          onSelect(data.pozycje[0].id);
+        // Auto-select pozycji z dostępnymi formatkami
+        if (pozycjeData.length === 1 && !selectedPozycjaId) {
+          // Sprawdź czy ma dostępne formatki przed auto-select
+          setTimeout(() => {
+            const stats = pozycjeStats[pozycjeData[0].id];
+            if (stats && stats.sztuk_dostepnych > 0) {
+              onSelect(pozycjeData[0].id);
+            }
+          }, 500); // Poczekaj na pobranie statystyk
         }
+      } else {
+        console.error('Failed to fetch pozycje:', response.statusText);
       }
     } catch (error) {
       console.error('Error fetching pozycje:', error);
@@ -84,7 +90,7 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
   };
 
   const fetchPozycjeStats = async (pozycjeList: Pozycja[]) => {
-    const stats: Record<number, any> = {};
+    const stats: Record<number, PozycjaStats> = {};
     
     for (const pozycja of pozycjeList) {
       try {
@@ -92,54 +98,71 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
         const response = await fetch(`/api/pallets/position/${pozycja.id}/available-formatki`);
         if (response.ok) {
           const data = await response.json();
+          const podsumowanie = data.podsumowanie || {};
+          
+          // Oblicz statystyki
           stats[pozycja.id] = {
-            formatki_total: data.podsumowanie?.formatki_total || 0,
-            sztuk_planowanych: data.podsumowanie?.sztuk_planowanych || 0,
-            sztuk_w_paletach: data.podsumowanie?.sztuk_w_paletach || 0,
-            sztuk_dostepnych: data.podsumowanie?.sztuk_dostepnych || 0,
-            procent_zapaletyzowania: data.podsumowanie?.sztuk_planowanych > 0 
-              ? Math.round((data.podsumowanie.sztuk_w_paletach / data.podsumowanie.sztuk_planowanych) * 100)
+            formatki_total: podsumowanie.formatki_total || 0,
+            sztuk_planowanych: podsumowanie.sztuk_planowanych || 0,
+            sztuk_w_paletach: podsumowanie.sztuk_w_paletach || 0,
+            sztuk_dostepnych: podsumowanie.sztuk_dostepnych || 0,
+            procent_zapaletyzowania: podsumowanie.sztuk_planowanych > 0 
+              ? Math.round((podsumowanie.sztuk_w_paletach / podsumowanie.sztuk_planowanych) * 100)
               : 0
+          };
+          
+          console.log(`Pozycja ${pozycja.id} (#${pozycja.numer_pozycji}) stats:`, {
+            api_response: podsumowanie,
+            calculated_stats: stats[pozycja.id]
+          });
+        } else {
+          console.warn(`Failed to fetch stats for pozycja ${pozycja.id}`);
+          // Ustaw domyślne wartości
+          stats[pozycja.id] = {
+            formatki_total: 0,
+            sztuk_planowanych: 0,
+            sztuk_w_paletach: 0,
+            sztuk_dostepnych: 0,
+            procent_zapaletyzowania: 0
           };
         }
       } catch (error) {
         console.error(`Error fetching stats for pozycja ${pozycja.id}:`, error);
+        // Ustaw domyślne wartości w przypadku błędu
+        stats[pozycja.id] = {
+          formatki_total: 0,
+          sztuk_planowanych: 0,
+          sztuk_w_paletach: 0,
+          sztuk_dostepnych: 0,
+          procent_zapaletyzowania: 0
+        };
       }
     }
     
     setPozycjeStats(stats);
+    
+    // Auto-select dla jedynej pozycji z dostępnymi formatkami
+    if (pozycjeList.length === 1 && !selectedPozycjaId) {
+      const pozycja = pozycjeList[0];
+      const pozycjaStats = stats[pozycja.id];
+      
+      if (pozycjaStats && pozycjaStats.sztuk_dostepnych > 0) {
+        onSelect(pozycja.id);
+      }
+    }
   };
 
-  const getKolorBadge = (kolor: string) => {
-    const colors: Record<string, string> = {
-      'LANCELOT': '#8B4513',
-      'ARTISAN': '#D2691E',
-      'SONOMA': '#F4A460',
-      'SUROWA': '#A0522D',
-      'BIAŁY': '#F0F0F0',
-      'CZARNY': '#000000'
-    };
-    
-    const bgColor = colors[kolor?.toUpperCase()] || '#E0E0E0';
-    const textColor = ['BIAŁY', 'SUROWA', 'SONOMA'].includes(kolor?.toUpperCase()) ? '#000' : '#FFF';
-    
-    return (
-      <Tag 
-        style={{ 
-          backgroundColor: bgColor, 
-          color: textColor,
-          border: `1px solid ${bgColor === '#F0F0F0' ? '#ccc' : bgColor}`
-        }}
-      >
-        {kolor}
-      </Tag>
-    );
+  const formatNumber = (num: number): string => {
+    if (num === null || num === undefined || isNaN(num)) return '0';
+    return num.toString();
   };
 
   if (loadingPozycje) {
     return (
       <Card style={{ marginBottom: 16 }}>
-        <Spin tip="Ładowanie pozycji..." />
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <Spin tip="Ładowanie pozycji ZKO..." />
+        </div>
       </Card>
     );
   }
@@ -147,8 +170,8 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
   if (pozycje.length === 0) {
     return (
       <Alert
-        message="Brak pozycji"
-        description="To ZKO nie ma jeszcze zdefiniowanych pozycji."
+        message="Brak pozycji w ZKO"
+        description="To ZKO nie ma jeszcze zdefiniowanych pozycji do zarządzania paletami."
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
@@ -156,144 +179,51 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
     );
   }
 
+  const availablePozycje = pozycje.filter(p => {
+    const stats = pozycjeStats[p.id];
+    return stats && stats.sztuk_dostepnych > 0;
+  });
+
   return (
     <Card 
       title={
         <Space>
           <AppstoreOutlined />
           <Text strong>Wybierz pozycję do zarządzania paletami</Text>
+          <Tag color="blue">Pozycji: {pozycje.length}</Tag>
+          {availablePozycje.length > 0 && (
+            <Tag color="green">Dostępnych: {availablePozycje.length}</Tag>
+          )}
           {selectedPozycjaId && (
-            <Tag color="blue">Wybrana pozycja: {selectedPozycjaId}</Tag>
+            <Tag color="purple">Wybrana: #{pozycje.find(p => p.id === selectedPozycjaId)?.numer_pozycji}</Tag>
           )}
         </Space>
       }
       style={{ marginBottom: 16 }}
     >
+      {/* Grid pozycji */}
       <Row gutter={[16, 16]}>
         {pozycje.map(pozycja => {
-          const stats = pozycjeStats[pozycja.id] || {};
+          const stats = pozycjeStats[pozycja.id] || {
+            formatki_total: 0,
+            sztuk_planowanych: 0,
+            sztuk_w_paletach: 0,
+            sztuk_dostepnych: 0,
+            procent_zapaletyzowania: 0
+          };
+          
           const isSelected = selectedPozycjaId === pozycja.id;
-          const isFullyPalletized = stats.procent_zapaletyzowania === 100;
+          const canBeSelected = stats.sztuk_dostepnych > 0;
           
           return (
             <Col xs={24} sm={12} md={8} lg={6} key={pozycja.id}>
-              <Card
-                hoverable={!isFullyPalletized}
-                onClick={() => !isFullyPalletized && onSelect(pozycja.id)}
-                style={{
-                  borderColor: isSelected ? '#1890ff' : undefined,
-                  borderWidth: isSelected ? 2 : 1,
-                  backgroundColor: isFullyPalletized ? '#f0f0f0' : undefined,
-                  cursor: isFullyPalletized ? 'not-allowed' : 'pointer',
-                  opacity: isFullyPalletized ? 0.7 : 1,
-                  height: '100%'
-                }}
-                bodyStyle={{ padding: 12 }}
-              >
-                {/* Nagłówek */}
-                <div style={{ marginBottom: 8 }}>
-                  <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-                    <Badge 
-                      count={pozycja.numer_pozycji} 
-                      style={{ backgroundColor: isSelected ? '#1890ff' : '#52c41a' }}
-                    />
-                    {isFullyPalletized && (
-                      <Tooltip title="Wszystkie formatki są już na paletach">
-                        <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
-                      </Tooltip>
-                    )}
-                  </Space>
-                </div>
-
-                {/* Nazwa płyty */}
-                <div style={{ marginBottom: 8 }}>
-                  <Text strong style={{ fontSize: 12 }}>
-                    {pozycja.nazwa_plyty || pozycja.symbol_plyty}
-                  </Text>
-                </div>
-
-                {/* Kolor */}
-                <div style={{ marginBottom: 8 }}>
-                  {getKolorBadge(pozycja.kolor_plyty)}
-                </div>
-
-                {/* Statystyki */}
-                <div style={{ marginBottom: 8 }}>
-                  <Space direction="vertical" size={0} style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        <FileTextOutlined /> Formatki:
-                      </Text>
-                      <Text style={{ fontSize: 11 }}>
-                        {stats.formatki_total || 0} typów
-                      </Text>
-                    </div>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Text type="secondary" style={{ fontSize: 11 }}>
-                        <BoxPlotOutlined /> Sztuki:
-                      </Text>
-                      <Text style={{ fontSize: 11 }}>
-                        {stats.sztuk_planowanych || 0} szt.
-                      </Text>
-                    </div>
-
-                    {stats.sztuk_w_paletach > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          📦 Na paletach:
-                        </Text>
-                        <Text strong style={{ fontSize: 11, color: '#52c41a' }}>
-                          {stats.sztuk_w_paletach} szt.
-                        </Text>
-                      </div>
-                    )}
-                    
-                    {stats.sztuk_dostepnych > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          ⏳ Pozostało:
-                        </Text>
-                        <Text style={{ fontSize: 11, color: '#1890ff' }}>
-                          {stats.sztuk_dostepnych} szt.
-                        </Text>
-                      </div>
-                    )}
-                  </Space>
-                </div>
-
-                {/* Progress bar */}
-                {stats.sztuk_planowanych > 0 && (
-                  <Tooltip title={`Zapaletyzowano ${stats.procent_zapaletyzowania}%`}>
-                    <Progress 
-                      percent={stats.procent_zapaletyzowania || 0}
-                      size="small"
-                      showInfo={false}
-                      strokeColor={
-                        stats.procent_zapaletyzowania === 100 ? '#52c41a' :
-                        stats.procent_zapaletyzowania > 50 ? '#faad14' : '#1890ff'
-                      }
-                    />
-                  </Tooltip>
-                )}
-
-                {/* Status */}
-                {isFullyPalletized && (
-                  <div style={{ marginTop: 8, textAlign: 'center' }}>
-                    <Tag color="success" style={{ margin: 0 }}>
-                      ✅ W pełni zapaletyzowane
-                    </Tag>
-                  </div>
-                )}
-
-                {isSelected && !isFullyPalletized && (
-                  <div style={{ marginTop: 8, textAlign: 'center' }}>
-                    <Tag color="blue" style={{ margin: 0 }}>
-                      Wybrana pozycja
-                    </Tag>
-                  </div>
-                )}
-              </Card>
+              <PozycjaCard
+                pozycja={pozycja}
+                stats={stats}
+                isSelected={isSelected}
+                canBeSelected={canBeSelected}
+                onSelect={onSelect}
+              />
             </Col>
           );
         })}
@@ -305,14 +235,42 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
           message="Wybrana pozycja"
           description={
             <Space>
-              <Text>Pozycja {pozycje.find(p => p.id === selectedPozycjaId)?.numer_pozycji}:</Text>
+              <Text>Pozycja #{pozycje.find(p => p.id === selectedPozycjaId)?.numer_pozycji}:</Text>
               <Text strong>{pozycje.find(p => p.id === selectedPozycjaId)?.nazwa_plyty}</Text>
-              <Text>({pozycjeStats[selectedPozycjaId].sztuk_dostepnych} szt. do zapaletyzowania)</Text>
+              <Text>
+                ({formatNumber(pozycjeStats[selectedPozycjaId].sztuk_dostepnych)} szt. do zapaletyzowania
+                z {formatNumber(pozycjeStats[selectedPozycjaId].sztuk_planowanych)} planowanych)
+              </Text>
             </Space>
           }
           type="info"
           showIcon
           style={{ marginTop: 16 }}
+        />
+      )}
+
+      {/* Ostrzeżenie gdy wszystkie pozycje są w pełni zapaletyzowane */}
+      {pozycje.length > 0 && 
+       Object.values(pozycjeStats).length > 0 &&
+       Object.values(pozycjeStats).every(stats => stats.sztuk_dostepnych === 0) && (
+        <Alert
+          message="Brak pozycji do zarządzania"
+          description="Wszystkie pozycje w tym ZKO mają już w pełni przypisane formatki do palet."
+          type="warning"
+          showIcon
+          icon={<CheckCircleOutlined />}
+          style={{ marginTop: 16 }}
+        />
+      )}
+
+      {/* Informacje pomocnicze */}
+      {pozycje.length > availablePozycje.length && availablePozycje.length > 0 && (
+        <Alert
+          message={`Uwaga: ${pozycje.length - availablePozycje.length} pozycji jest w pełni zapaletyzowanych`}
+          description="Niektóre pozycje nie są dostępne do wyboru, ponieważ wszystkie ich formatki zostały już przypisane do palet."
+          type="info"
+          style={{ marginTop: 16 }}
+          showIcon
         />
       )}
     </Card>
