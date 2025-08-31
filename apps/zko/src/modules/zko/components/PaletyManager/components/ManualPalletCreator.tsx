@@ -117,7 +117,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     });
   };
 
-  // NAPRAWIONA funkcja zapisywania - NIE czyści palet przed wysłaniem
+  // NAPRAWIONA funkcja zapisywania - używa tylko przekazanej funkcji onSave
   const handleSaveAll = async () => {
     if (!pozycjaId) {
       message.error('Brak ID pozycji - nie można zapisać palet');
@@ -134,98 +134,25 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       return;
     }
 
-    try {
+    // Użyj funkcji przekazanej z góry zamiast wysyłać własny request
+    if (onSave) {
       setSaving(true);
-      message.info(`Zapisywanie ${paletySkladowe.length} palet...`);
-      
-      // Przygotuj dane do wysłania
-      const payload = {
-        pozycja_id: Number(pozycjaId),
-        palety: paletySkladowe.map((p, index) => ({
-          formatki: p.formatki.map(f => ({
-            formatka_id: Number(f.formatka_id),
-            ilosc: Number(f.ilosc)
-          })),
-          przeznaczenie: p.przeznaczenie || 'MAGAZYN',
-          max_waga: Number(p.max_waga || 700),
-          max_wysokosc: Number(p.max_wysokosc || 1440),
-          operator: 'user',
-          uwagi: p.uwagi || `Paleta ${index + 1} z pozycji ${pozycjaId}`
-        }))
-      };
-      
-      console.log('📤 Wysyłam dane do API:', JSON.stringify(payload, null, 2));
-      
-      const response = await fetch('/api/pallets/manual/batch', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      console.log('📥 Odpowiedź z API:', {
-        status: response.status,
-        ok: response.ok,
-        data
-      });
-      
-      if (response.ok && data.sukces) {
-        const utworzonePalety = data.palety_utworzone || [];
+      try {
+        // Przekaż palety do funkcji rodzica
+        await onSave(paletySkladowe);
         
-        // Wyczyść lokalne palety TYLKO po pomyślnym zapisie
+        // Wyczyść lokalne palety po pomyślnym zapisie
+        // Funkcja rodzica powinna pokazać komunikat sukcesu
         wyczyscPalety();
         
-        message.success({
-          content: `✅ Pomyślnie zapisano ${utworzonePalety.length} palet do bazy danych!`,
-          duration: 3
-        });
-        
-        // Callback do rodzica
-        if (onSave) {
-          onSave(utworzonePalety);
-        }
-        
-        // Odśwież dane po krótkim opóźnieniu
-        if (onRefresh) {
-          setTimeout(() => {
-            onRefresh();
-          }, 500);
-        }
-        
-      } else {
-        // Obsługa błędów API - NIE czyść palet przy błędzie!
-        console.error('❌ Błąd API:', {
-          status: response.status,
-          error: data.error,
-          details: data.details
-        });
-        
-        if (data.details) {
-          message.error({
-            content: `Błąd: ${data.error}\nSzczegóły: ${data.details}`,
-            duration: 5
-          });
-        } else if (data.error) {
-          message.error({
-            content: `Błąd zapisywania: ${data.error}`,
-            duration: 5
-          });
-        } else {
-          message.error('Nieznany błąd zapisywania palet');
-        }
+      } catch (error) {
+        console.error('Błąd podczas zapisywania:', error);
+        // Nie czyść palet przy błędzie
+      } finally {
+        setSaving(false);
       }
-      
-    } catch (error) {
-      console.error('❌ Błąd połączenia:', error);
-      message.error({
-        content: 'Błąd połączenia z serwerem. Sprawdź czy backend działa.',
-        duration: 5
-      });
-    } finally {
-      setSaving(false);
+    } else {
+      message.error('Brak funkcji zapisywania');
     }
   };
 
@@ -348,14 +275,14 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   icon={<SaveOutlined />}
                   type="primary"
                   onClick={handleSaveAll}
-                  disabled={palety.length === 0 || saving}
+                  disabled={palety.length === 0 || saving || loading}
                   loading={saving || loading}
                   style={{ 
                     background: '#52c41a', 
                     borderColor: '#52c41a' 
                   }}
                 >
-                  {saving ? 'Zapisywanie...' : `Zapisz wszystkie (${palety.length})`}
+                  {saving || loading ? 'Zapisywanie...' : `Zapisz wszystkie (${palety.length})`}
                 </Button>
               </Space>
             }
