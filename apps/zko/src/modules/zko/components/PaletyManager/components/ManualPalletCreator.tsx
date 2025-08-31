@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Button, Space, Alert, Empty, Row, Col, Tag, Popconfirm, Modal, message } from 'antd';
-import { PlusOutlined, SaveOutlined, ThunderboltOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, SaveOutlined, ThunderboltOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { FormatkaTable } from './FormatkaTable';
 import { PaletaCard } from './PaletaCard';
-import { PaletyStatistics } from './PaletyStatistics';
+import { PaletyStats } from './PaletyStats'; // NAPRAWIONE: Zmieniono z PaletyStatistics na PaletyStats
 import { usePaletaLogic } from '../hooks/usePaletaLogic';
 import { Formatka } from '../types';
 
@@ -25,6 +25,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
   const [editingFormatka, setEditingFormatka] = useState<number | null>(null);
   const [tempIlosci, setTempIlosci] = useState<Record<number, number>>({});
   const [saving, setSaving] = useState(false);
+  const [globalPalletCounter, setGlobalPalletCounter] = useState(0);
 
   const {
     palety,
@@ -41,6 +42,29 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     wyczyscPalety
   } = usePaletaLogic(formatki);
 
+  // Oblicz ile formatek zostało przypisanych na paletach
+  const totalAssigned = useMemo(() => {
+    return formatki.reduce((sum, f) => {
+      const currentAvailable = pozostaleIlosci[f.id] || 0;
+      const originalAvailable = f.ilosc_dostepna || f.ilosc_planowana || 0;
+      return sum + (originalAvailable - currentAvailable);
+    }, 0);
+  }, [formatki, pozostaleIlosci]);
+
+  // Force refresh po zmianie statusu formatek
+  useEffect(() => {
+    if (totalAssigned > globalPalletCounter) {
+      setGlobalPalletCounter(totalAssigned);
+      // Auto-refresh dostępnych formatek po sekundzie
+      if (onRefresh) {
+        setTimeout(() => {
+          console.log('🔄 Auto-refreshing formatki after pallet assignment...');
+          onRefresh();
+        }, 1000);
+      }
+    }
+  }, [totalAssigned, globalPalletCounter, onRefresh]);
+
   const activePaleta = palety.find(p => p.id === selectedPaleta);
   const saPozostaleFormatki = Object.values(pozostaleIlosci).some(ilosc => ilosc > 0);
   const totalPozostalo = Object.values(pozostaleIlosci).reduce((sum, ilosc) => sum + ilosc, 0);
@@ -56,31 +80,94 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     return result;
   }, [activePaleta]);
 
-  // Dodaj wszystkie formatki
+  // NAPRAWIONE: Zabezpieczenie przed duplikacją - sprawdza rzeczywistą dostępność
+  const checkFormatkaAvailability = (formatkaId: number, requestedAmount: number): { available: boolean; maxAmount: number; reason?: string } => {
+    const originalFormatka = formatki.find(f => f.id === formatkaId);
+    if (!originalFormatka) {
+      return { available: false, maxAmount: 0, reason: 'Formatka nie istnieje' };
+    }
+
+    const remainingInPallets = pozostaleIlosci[formatkaId] || 0;
+    const currentInActivePallet = currentIlosci[formatkaId] || 0;
+    
+    // Maksymalna dostępna ilość = to co pozostało + to co już jest w aktywnej palecie
+    const maxAvailable = remainingInPallets + currentInActivePallet;
+    
+    if (requestedAmount > maxAvailable) {
+      return { 
+        available: false, 
+        maxAmount: maxAvailable,
+        reason: `Dostępne tylko ${maxAvailable} szt. (${remainingInPallets} pozostało + ${currentInActivePallet} w tej palecie)`
+      };
+    }
+
+    // Sprawdź czy formatka nie została już przypisana w innych paletach (oprócz aktywnej)
+    let totalUsedInOtherPallets = 0;
+    palety.forEach(paleta => {
+      if (paleta.id !== selectedPaleta) {
+        const formatkaNaPalecie = paleta.formatki.find(f => f.formatka_id === formatkaId);
+        if (formatkaNaPalecie) {
+          totalUsedInOtherPallets += formatkaNaPalecie.ilosc;
+        }
+      }
+    });
+
+    const originalAvailable = originalFormatka.ilosc_dostepna || originalFormatka.ilosc_planowana || 0;
+    const totalCanUse = originalAvailable - totalUsedInOtherPallets;
+    
+    if (requestedAmount > totalCanUse) {
+      return {
+        available: false,
+        maxAmount: totalCanUse,
+        reason: `Formatka już użyta w innych paletach. Dostępne: ${totalCanUse} szt.`
+      };
+    }
+
+    return { available: true, maxAmount: maxAvailable };
+  };
+
+  // Dodaj wszystkie formatki z walidacją
   const dodajWszystkieFormatki = (paletaId: string, formatkaId: number) => {
     const dostepneIlosc = pozostaleIlosci[formatkaId];
     if (dostepneIlosc > 0) {
-      dodajFormatkiDoPalety(paletaId, formatkaId, dostepneIlosc);
+      const validation = checkFormatkaAvailability(formatkaId, dostepneIlosc);
+      if (validation.available) {
+        dodajFormatkiDoPalety(paletaId, formatkaId, dostepneIlosc);
+        message.success(`Dodano wszystkie ${dostepneIlosc} szt. formatek`);
+      } else {
+        message.error(validation.reason || 'Nie można dodać formatek');
+      }
     }
   };
 
-  // Dodaj wszystkie pozostałe
+  // Dodaj wszystkie pozostałe z walidacją
   const dodajWszystkieReszteFormatek = (paletaId: string) => {
     let dodanoTotal = 0;
+    let errors = 0;
+    
     formatki.forEach(formatka => {
       const dostepne = pozostaleIlosci[formatka.id];
       if (dostepne > 0) {
-        dodajFormatkiDoPalety(paletaId, formatka.id, dostepne);
-        dodanoTotal += dostepne;
+        const validation = checkFormatkaAvailability(formatka.id, dostepne);
+        if (validation.available) {
+          dodajFormatkiDoPalety(paletaId, formatka.id, dostepne);
+          dodanoTotal += dostepne;
+        } else {
+          errors++;
+          console.warn(`Nie można dodać formatki ${formatka.nazwa}: ${validation.reason}`);
+        }
       }
     });
     
     if (dodanoTotal > 0) {
       message.success(`Dodano wszystkie pozostałe formatki (${dodanoTotal} szt.)`);
     }
+    if (errors > 0) {
+      message.warning(`${errors} formatek pominięto z powodu ograniczeń dostępności`);
+    }
   };
 
-  // Obsługa dodawania formatek
+  // NAPRAWIONA obsługa dodawania formatek z zabezpieczeniem
   const handleDodajFormatki = (formatkaId: number) => {
     if (!activePaleta) {
       message.warning('Najpierw wybierz paletę');
@@ -88,21 +175,27 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     }
 
     const iloscDoDodania = tempIlosci[formatkaId] || 1;
-    const dostepne = pozostaleIlosci[formatkaId];
-    const aktualne = currentIlosci[formatkaId] || 0;
+    const validation = checkFormatkaAvailability(formatkaId, iloscDoDodania);
     
-    if (iloscDoDodania > dostepne + aktualne) {
-      message.error(`Dostępne tylko ${dostepne} szt.`);
+    if (!validation.available) {
+      message.error(validation.reason || 'Nie można dodać formatek');
+      // Skoryguj wartość w temp input
+      setTempIlosci(prev => ({ ...prev, [formatkaId]: validation.maxAmount }));
       return;
     }
 
+    // Usuń obecne przypisanie jeśli istnieje
+    const aktualne = currentIlosci[formatkaId] || 0;
     if (aktualne > 0) {
       usunFormatkiZPalety(activePaleta.id, formatkaId);
     }
     
+    // Dodaj nową ilość
     dodajFormatkiDoPalety(activePaleta.id, formatkaId, iloscDoDodania);
     setEditingFormatka(null);
     setTempIlosci(prev => ({ ...prev, [formatkaId]: 1 }));
+    
+    message.success(`Dodano ${iloscDoDodania} szt. formatek do palety`);
   };
 
   // Usuń paletę z potwierdzeniem
@@ -113,18 +206,21 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       okText: 'Usuń',
       cancelText: 'Anuluj',
       okButtonProps: { danger: true },
-      onOk: () => usunPalete(paletaId)
+      onOk: () => {
+        usunPalete(paletaId);
+        message.success('Usunięto paletę');
+      }
     });
   };
 
-  // NAPRAWIONA funkcja zapisywania - używa tylko przekazanej funkcji onSave
+  // NAPRAWIONA funkcja zapisywania z lepszym error handling
   const handleSaveAll = async () => {
     if (!pozycjaId) {
       message.error('Brak ID pozycji - nie można zapisać palet');
       return;
     }
 
-    // Skopiuj palety PRZED czyszczeniem, filtruj puste
+    // Filtruj tylko palety z formatkami
     const paletySkladowe = palety.filter(p => p.formatki && p.formatki.length > 0);
     
     console.log('📋 Palety do zapisania:', paletySkladowe);
@@ -134,7 +230,6 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       return;
     }
 
-    // Użyj funkcji przekazanej z góry zamiast wysyłać własny request
     if (onSave) {
       setSaving(true);
       try {
@@ -142,12 +237,19 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         await onSave(paletySkladowe);
         
         // Wyczyść lokalne palety po pomyślnym zapisie
-        // Funkcja rodzica powinna pokazać komunikat sukcesu
         wyczyscPalety();
+        setGlobalPalletCounter(0);
+        
+        // Force refresh po 500ms
+        setTimeout(() => {
+          if (onRefresh) {
+            onRefresh();
+          }
+        }, 500);
         
       } catch (error) {
         console.error('Błąd podczas zapisywania:', error);
-        // Nie czyść palet przy błędzie
+        message.error('Błąd podczas zapisywania palet');
       } finally {
         setSaving(false);
       }
@@ -179,6 +281,11 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         description="Wybrana pozycja nie ma formatek do zapaletyzowania"
         type="info"
         showIcon
+        action={
+          <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh}>
+            Odśwież
+          </Button>
+        }
       />
     );
   }
@@ -192,7 +299,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         showIcon
         icon={<CheckCircleOutlined />}
         action={
-          <Button size="small" onClick={onRefresh}>
+          <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh}>
             Odśwież listę
           </Button>
         }
@@ -211,9 +318,20 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
             extra={
               <Space>
                 <Tag color="blue">{totalPozostalo} szt. pozostało</Tag>
+                {totalAssigned > 0 && (
+                  <Tag color="green">{totalAssigned} szt. przypisano</Tag>
+                )}
+                <Button 
+                  size="small" 
+                  icon={<ReloadOutlined />}
+                  onClick={onRefresh}
+                  loading={loading}
+                  title="Odśwież dostępne formatki"
+                />
                 {activePaleta && saPozostaleFormatki && (
                   <Popconfirm
                     title="Dodać wszystkie pozostałe formatki?"
+                    description="Sprawdzi dostępność i doda tylko te formatki, które nie są jeszcze przypisane"
                     onConfirm={() => dodajWszystkieReszteFormatek(activePaleta.id)}
                     okText="Dodaj"
                     cancelText="Anuluj"
@@ -321,13 +439,15 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         </Col>
       </Row>
 
-      {/* Statystyki */}
-      <PaletyStatistics
-        palety={palety}
-        formatki={formatki}
-        pozostaleIlosci={pozostaleIlosci}
-        obliczStatystykiPalety={obliczStatystykiPalety}
-      />
+      {/* Statystyki - używamy PaletyStats zamiast PaletyStatistics */}
+      {palety.length > 0 && (
+        <PaletyStats
+          palety={palety}
+          formatki={formatki}
+          pozostaleIlosci={pozostaleIlosci}
+          obliczStatystykiPalety={obliczStatystykiPalety}
+        />
+      )}
     </div>
   );
 };

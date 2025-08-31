@@ -11,13 +11,16 @@ import {
   Popconfirm,
   Badge,
   Statistic,
-  Empty
+  Empty,
+  Divider
 } from 'antd';
 import { 
   PlusCircleOutlined,
   CheckCircleOutlined,
   StopOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  WarningOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
 import { ManualPalletCreator } from './ManualPalletCreator';
 
@@ -79,7 +82,7 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
   const isFullyPalletized = hasPlannedFormatki && procentZapaletyzowania === 100;
   const isLoadingFormatki = loading && hasPozycja;
 
-  // Funkcja która sprawdza czy można utworzyć paletę
+  // NAPRAWIONE: Funkcja która sprawdza czy można utworzyć paletę
   const handleCreateAllRemaining = () => {
     if (totalDostepne === 0) {
       console.warn('Brak dostępnych formatek do utworzenia palety');
@@ -91,10 +94,12 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
   // NAPRAWIONE: Dodaj callback do odświeżania po zapisie palet
   const handleSaveWithRefresh = async (palety: any[]) => {
     await onSaveManualPallets(palety);
-    // Force refresh formatek po zapisie
-    setTimeout(() => {
-      onRefresh?.();
-    }, 500);
+    // Wymuś odświeżenie po zapisie
+    if (onRefresh) {
+      setTimeout(() => {
+        onRefresh();
+      }, 500);
+    }
   };
 
   // ========== PRZYPADEK: Brak wybranej pozycji ==========
@@ -124,7 +129,7 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
         description="Ładowanie dostępnych formatek z pozycji."
         type="info"
         showIcon
-        icon={<InfoCircleOutlined spin />}
+        icon={<SyncOutlined spin />}
         style={{ marginBottom: 16 }}
       />
     );
@@ -139,10 +144,10 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
           description={`Pozycja ${pozycjaId} nie ma zdefiniowanych formatek lub wystąpił błąd podczas ich pobierania.`}
           type="warning"
           showIcon
-          icon={<StopOutlined />}
+          icon={<WarningOutlined />}
           style={{ marginBottom: 16 }}
           action={
-            <Button size="small" onClick={onRefresh}>
+            <Button size="small" onClick={onRefresh} icon={<SyncOutlined />}>
               Odśwież
             </Button>
           }
@@ -167,7 +172,7 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
           showIcon
           style={{ marginBottom: 16 }}
           action={
-            <Button size="small" onClick={onRefresh}>
+            <Button size="small" onClick={onRefresh} icon={<SyncOutlined />}>
               Odśwież
             </Button>
           }
@@ -181,6 +186,60 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
     );
   }
 
+  // NAPRAWIONE: Renderowanie kafelków formatek
+  const renderFormatkiTiles = () => {
+    if (!hasAvailableFormatki) return null;
+
+    return (
+      <Card 
+        size="small" 
+        style={{ marginBottom: 16 }}
+        title="📋 Dostępne formatki do przypisania"
+      >
+        <Row gutter={[8, 8]}>
+          {pozycjaFormatki
+            .filter(f => f.ilosc_dostepna > 0)
+            .map(formatka => (
+              <Col key={formatka.id} xs={24} sm={12} md={8} lg={6}>
+                <Card 
+                  size="small"
+                  hoverable
+                  style={{ 
+                    backgroundColor: formatka.czy_w_pelni_przypisana ? '#fff7e6' : '#f6ffed',
+                    borderColor: formatka.czy_w_pelni_przypisana ? '#ffa940' : '#b7eb8f'
+                  }}
+                >
+                  <div style={{ fontSize: 12 }}>
+                    <Text strong>{formatka.nazwa}</Text>
+                    <br />
+                    <Text type="secondary">
+                      {formatka.dlugosc} x {formatka.szerokosc} mm
+                    </Text>
+                    <br />
+                    <Tag color="blue" style={{ marginTop: 4 }}>
+                      {formatka.kolor}
+                    </Tag>
+                    <Divider style={{ margin: '8px 0' }} />
+                    <Space size="small">
+                      <Badge 
+                        count={formatka.ilosc_dostepna}
+                        style={{ backgroundColor: '#52c41a' }}
+                      />
+                      <Text type="secondary">dostępnych</Text>
+                    </Space>
+                    <br />
+                    <Text type="secondary" style={{ fontSize: 10 }}>
+                      z {formatka.ilosc_planowana} planowanych
+                    </Text>
+                  </div>
+                </Card>
+              </Col>
+            ))}
+        </Row>
+      </Card>
+    );
+  };
+
   return (
     <>
       {/* Statystyki pozycji */}
@@ -193,8 +252,9 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
             size="small" 
             onClick={onRefresh}
             loading={loading}
+            icon={<SyncOutlined />}
           >
-            🔄 Odśwież
+            Odśwież
           </Button>
         }
       >
@@ -272,7 +332,7 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
           icon={<CheckCircleOutlined />}
           style={{ marginBottom: 16 }}
           action={
-            <Button size="small" onClick={onRefresh}>
+            <Button size="small" onClick={onRefresh} icon={<SyncOutlined />}>
               Odśwież
             </Button>
           }
@@ -281,68 +341,76 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
 
       {/* ========== PRZYPADEK: Dostępne formatki - sekcja akcji szybkich ========== */}
       {hasAvailableFormatki && (
-        <Card 
-          size="small" 
-          style={{ 
-            marginBottom: 16, 
-            backgroundColor: '#f6ffed', 
-            border: '1px solid #b7eb8f' 
-          }}
-        >
-          <Row gutter={16} align="middle">
-            <Col span={16}>
-              <Space direction="vertical" size={0}>
-                <Text strong>🚀 Akcje szybkie</Text>
-                <Text type="secondary">
-                  Dostępnych {totalDostepne} formatek w {availableTypes} typach
-                </Text>
-              </Space>
-            </Col>
-            <Col span={8}>
-              <Space>
-                <Popconfirm
-                  title="Utworzyć paletę ze wszystkimi pozostałymi formatkami?"
-                  description={`Zostanie utworzona pojedyncza paleta z ${totalDostepne} formatkami (${availableTypes} typów)`}
-                  onConfirm={handleCreateAllRemaining}
-                  okText="Utwórz"
-                  cancelText="Anuluj"
-                  disabled={totalDostepne === 0}
-                >
-                  <Button 
-                    type="primary"
-                    icon={<PlusCircleOutlined />}
-                    style={{ 
-                      background: '#52c41a', 
-                      borderColor: '#52c41a'
-                    }}
+        <>
+          <Card 
+            size="small" 
+            style={{ 
+              marginBottom: 16, 
+              backgroundColor: '#f6ffed', 
+              border: '1px solid #b7eb8f' 
+            }}
+          >
+            <Row gutter={16} align="middle">
+              <Col span={16}>
+                <Space direction="vertical" size={0}>
+                  <Text strong>🚀 Akcje szybkie</Text>
+                  <Text type="secondary">
+                    Dostępnych {totalDostepne} formatek w {availableTypes} typach
+                  </Text>
+                </Space>
+              </Col>
+              <Col span={8}>
+                <Space>
+                  <Popconfirm
+                    title="Utworzyć paletę ze wszystkimi pozostałymi formatkami?"
+                    description={`Zostanie utworzona pojedyncza paleta z ${totalDostepne} formatkami (${availableTypes} typów)`}
+                    onConfirm={handleCreateAllRemaining}
+                    okText="Utwórz"
+                    cancelText="Anuluj"
                     disabled={totalDostepne === 0}
                   >
-                    📦 Utwórz paletę ze wszystkimi
-                  </Button>
-                </Popconfirm>
-              </Space>
-            </Col>
-          </Row>
-        </Card>
+                    <Button 
+                      type="primary"
+                      icon={<PlusCircleOutlined />}
+                      style={{ 
+                        background: totalDostepne > 0 ? '#52c41a' : undefined, 
+                        borderColor: totalDostepne > 0 ? '#52c41a' : undefined
+                      }}
+                      disabled={totalDostepne === 0}
+                    >
+                      📦 Utwórz paletę ze wszystkimi
+                    </Button>
+                  </Popconfirm>
+                </Space>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* NAPRAWIONE: Wyświetlanie kafelków z formatkami */}
+          {renderFormatkiTiles()}
+        </>
       )}
 
       {/* Status formatek - informacyjny */}
-      {!isFullyPalletized && hasAvailableFormatki && (
+      {!isFullyPalletized && !hasAvailableFormatki && (
         <Alert
-          message={`📋 Dostępne formatki: ${totalDostepne} z ${totalPlanowane} szt.`}
+          message="⚠️ Brak dostępnych formatek"
           description={
             <Space direction="vertical">
-              <Text>{availableTypes} typów formatek gotowych do przypisania do palet.</Text>
-              {totalWPaletach > 0 && (
-                <Text type="secondary">
-                  Już na paletach: {totalWPaletach} szt. ({procentZapaletyzowania}%)
-                </Text>
-              )}
+              <Text>Wszystkie formatki z tej pozycji zostały już przypisane do palet.</Text>
+              <Text type="secondary">
+                Zapaletyzowano: {procentZapaletyzowania}% ({totalWPaletach}/{totalPlanowane} szt.)
+              </Text>
             </Space>
           }
-          type="info"
+          type="warning"
           showIcon
           style={{ marginBottom: 16 }}
+          action={
+            <Button size="small" onClick={onRefresh} icon={<SyncOutlined />}>
+              Odśwież
+            </Button>
+          }
         />
       )}
       
@@ -356,11 +424,13 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
           loading={loading}
         />
       ) : (
-        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-          <Empty
-            description="Brak dostępnych formatek do ręcznego zarządzania paletami"
-          />
-        </div>
+        !isFullyPalletized && (
+          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <Empty
+              description="Brak dostępnych formatek do ręcznego zarządzania paletami"
+            />
+          </div>
+        )
       )}
     </>
   );

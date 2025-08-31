@@ -1,15 +1,35 @@
+/**
+ * @fileoverview Eksport wszystkich komponentów PaletyManager
+ * @module components
+ * 
+ * UWAGA: Maksymalnie 300 linii kodu na plik!
+ * Usunięto duplikaty komponentów.
+ */
+
+// Główne komponenty
 export { PozycjaSelector } from './PozycjaSelector';
 export { PozycjaCard } from './PozycjaCard';
+export { PaletyTable } from './PaletyTable';
+export { PaletaCard } from './PaletaCard';
+export { FormatkaTable } from './FormatkaTable';
+
+// Zakładki
 export { AutomaticPlanningTab } from './AutomaticPlanningTab';
 export { ManualCreationTab } from './ManualCreationTab';
 export { DestinationTab } from './DestinationTab';
+
+// Kreatory i wizualizacje
 export { ManualPalletCreator } from './ManualPalletCreator';
+export { PaletaVisualizer } from './PaletaVisualizer';
+
+// Statystyki (używamy PaletyStats, usuwamy duplikat PaletyStatistics)
 export { PaletyStats } from './PaletyStats';
-export { PaletyTable } from './PaletyTable';
+
+// Modale
 export { PlanowanieModal } from './PlanowanieModal';
 export { PlanowanieModularneModal } from './PlanowanieModularneModal';
-export { PaletaCard } from './PaletaCard';
-export { PaletaVisualization } from './PaletaVisualization';
-export { PaletaVisualizer } from './PaletaVisualizer';
-export { PaletyStatistics } from './PaletyStatistics';
-export { FormatkaTable } from './FormatkaTable';
+
+// Nowe komponenty
+export { PaletyHeader } from './PaletyHeader';
+export { ExistingPalettes } from './ExistingPalettes';
+export { PaletyTabs } from './PaletyTabs';

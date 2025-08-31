@@ -32,11 +32,12 @@ router.get('/:id', async (req: Request, res: Response) => {
       SELECT 
         p.*,
         r.kod_rozkroju,
-        r.opis as rozkroj_opis
+        r.opis as rozkroj_opis,
+        ROW_NUMBER() OVER (ORDER BY p.kolejnosc, p.id) as numer_pozycji
       FROM zko.pozycje p
       LEFT JOIN zko.rozkroje r ON p.rozkroj_id = r.id
       WHERE p.zko_id = $1 
-      ORDER BY p.kolejnosc
+      ORDER BY p.kolejnosc, p.id
     `, [id]);
     
     // Pobierz palety
@@ -61,6 +62,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 /**
  * GET /api/zko/:id/pozycje - Pozycje ZKO z pełnymi danymi
+ * NAPRAWIONE: Dodano numer_pozycji obliczany dynamicznie
  */
 router.get('/:id/pozycje', async (req: Request, res: Response) => {
   try {
@@ -68,25 +70,29 @@ router.get('/:id/pozycje', async (req: Request, res: Response) => {
     
     logger.info(`Fetching positions for ZKO ID: ${id}`);
     
-    // Pobierz pozycje z pełnymi danymi o formatkach
+    // NAPRAWIONE: Dodano ROW_NUMBER() jako numer_pozycji
     const result = await db.query(`
       SELECT 
         p.id as pozycja_id,
         p.id,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(p.kolejnosc, 0), p.id) as numer_pozycji,
         p.rozkroj_id,
         r.kod_rozkroju,
         r.opis as rozkroj_opis,
         p.kolor_plyty,
         p.nazwa_plyty,
         p.ilosc_plyt,
+        pl.nazwa as nazwa_plyty_full,
+        pl.symbol as symbol_plyty,
         COUNT(DISTINCT pf.id) as typy_formatek,
         SUM(pf.ilosc_planowana) as sztuk_formatek
       FROM zko.pozycje p
       LEFT JOIN zko.rozkroje r ON r.id = p.rozkroj_id
       LEFT JOIN zko.pozycje_formatki pf ON pf.pozycja_id = p.id
+      LEFT JOIN zko.plyty pl ON pl.id = p.plyty_id
       WHERE p.zko_id = $1
-      GROUP BY p.id, p.rozkroj_id, r.kod_rozkroju, r.opis, p.kolor_plyty, p.nazwa_plyty, p.ilosc_plyt
-      ORDER BY p.id
+      GROUP BY p.id, p.rozkroj_id, r.kod_rozkroju, r.opis, p.kolor_plyty, p.nazwa_plyty, p.ilosc_plyt, pl.nazwa, pl.symbol, p.kolejnosc
+      ORDER BY COALESCE(p.kolejnosc, 0), p.id
     `, [id]);
     
     logger.info(`Found ${result.rows.length} positions for ZKO ${id}`);

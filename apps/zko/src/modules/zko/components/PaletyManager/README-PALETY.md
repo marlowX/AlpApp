@@ -4,6 +4,7 @@
 
 ### ✅ **ROZWIĄZANE PROBLEMY:**
 ## ⚠️ KRYTYCZNE: Sprawdzanie powiązań między tabelami (Foreign Keys)
+Komponenty do palet sa w katalogu D:\PROJEKTY\PROGRAMOWANIE\AlpApp\apps\zko\src\modules\zko\components\PaletyManager\components
 
 ## ⚠️ KRYTYCZNE: Zasady tworzenia komponentów
 
