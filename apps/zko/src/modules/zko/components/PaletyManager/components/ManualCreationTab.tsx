@@ -15,9 +15,7 @@ import {
 } from 'antd';
 import { 
   PlusCircleOutlined,
-  EditOutlined,
   CheckCircleOutlined,
-  WarningOutlined,
   StopOutlined,
   InfoCircleOutlined
 } from '@ant-design/icons';
@@ -88,6 +86,15 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
       return;
     }
     onCreateAllRemaining('MAGAZYN');
+  };
+
+  // NAPRAWIONE: Dodaj callback do odświeżania po zapisie palet
+  const handleSaveWithRefresh = async (palety: any[]) => {
+    await onSaveManualPallets(palety);
+    // Force refresh formatek po zapisie
+    setTimeout(() => {
+      onRefresh?.();
+    }, 500);
   };
 
   // ========== PRZYPADEK: Brak wybranej pozycji ==========
@@ -181,6 +188,15 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
         size="small" 
         style={{ marginBottom: 16 }}
         title="📊 Status paletyzacji pozycji"
+        extra={
+          <Button 
+            size="small" 
+            onClick={onRefresh}
+            loading={loading}
+          >
+            🔄 Odśwież
+          </Button>
+        }
       >
         <Row gutter={16}>
           <Col span={6}>
@@ -335,7 +351,7 @@ export const ManualCreationTab: React.FC<ManualCreationTabProps> = ({
         <ManualPalletCreator
           pozycjaId={pozycjaId}
           formatki={pozycjaFormatki}
-          onSave={onSaveManualPallets}
+          onSave={handleSaveWithRefresh}
           onRefresh={onRefresh}
           loading={loading}
         />
