@@ -65,6 +65,8 @@ export const EditPaletaModal: React.FC<EditPaletaModalProps> = ({
         setPrzeznaczenie(data.przeznaczenie || 'MAGAZYN');
         console.log('Loaded pallet data:', data);
       } else {
+        const errorData = await response.text();
+        console.error('Error response:', errorData);
         message.error('Błąd pobierania danych palety');
       }
     } catch (error) {
@@ -95,65 +97,81 @@ export const EditPaletaModal: React.FC<EditPaletaModalProps> = ({
     ));
   };
 
-  // Zapisz zmiany
+  // Zapisz zmiany - DODAJEMY LEPSZE LOGOWANIE BŁĘDÓW
   const handleSave = async () => {
     if (!paletaId || !paletaData) return;
     
     try {
       setSaving(true);
       
-      // Najpierw wyczyść paletę
-      const clearResponse = await fetch(`/api/pallets/${paletaId}/clear-formatki`, {
-        method: 'DELETE'
+      // Przygotuj dane do wysłania
+      const requestData = {
+        formatki: editedFormatki.map(f => ({
+          formatka_id: f.formatka_id,
+          ilosc: f.ilosc
+        })),
+        przeznaczenie: przeznaczenie,
+        uwagi: paletaData.uwagi || null
+      };
+      
+      console.log('Sending update request for pallet ID:', paletaId);
+      console.log('Request data:', requestData);
+      
+      // Wywołaj endpoint update-formatki
+      const updateResponse = await fetch(`/api/pallets/${paletaId}/update-formatki`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
       });
+
+      console.log('Response status:', updateResponse.status);
       
-      if (!clearResponse.ok) {
-        throw new Error('Błąd czyszczenia palety');
+      // Pobierz odpowiedź
+      const responseText = await updateResponse.text();
+      console.log('Raw response text:', responseText);
+      
+      // Jeśli odpowiedź nie jest OK, wyświetl szczegóły błędu
+      if (!updateResponse.ok) {
+        console.error('Server error response:', {
+          status: updateResponse.status,
+          statusText: updateResponse.statusText,
+          body: responseText
+        });
+        
+        // Spróbuj sparsować jako JSON jeśli to możliwe
+        try {
+          const errorJson = JSON.parse(responseText);
+          throw new Error(errorJson.error || errorJson.message || 'Błąd serwera');
+        } catch {
+          throw new Error(`Błąd serwera (${updateResponse.status}): ${responseText}`);
+        }
       }
       
-      // Jeśli są formatki do dodania, dodaj je
-      if (editedFormatki.length > 0) {
-        const updateResponse = await fetch(`/api/pallets/${paletaId}/update-formatki`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            formatki: editedFormatki.map(f => ({
-              formatka_id: f.formatka_id,
-              ilosc: f.ilosc
-            })),
-            przeznaczenie: przeznaczenie,
-            uwagi: paletaData.uwagi
-          })
-        });
-
-        if (!updateResponse.ok) {
-          const error = await updateResponse.json();
-          throw new Error(error.error || 'Błąd aktualizacji palety');
-        }
+      // Spróbuj sparsować odpowiedź jako JSON
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error('Nieprawidłowa odpowiedź serwera');
+      }
+      
+      console.log('Parsed response:', result);
+      
+      // Sprawdź czy operacja się powiodła
+      if (result.sukces === true) {
+        message.success(result.komunikat || 'Paleta została zaktualizowana');
+        onSave();
+        onClose();
       } else {
-        // Jeśli paleta jest pusta, zaktualizuj tylko przeznaczenie
-        const updateResponse = await fetch(`/api/pallets/${paletaId}/update-formatki`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            formatki: [],
-            przeznaczenie: przeznaczenie,
-            uwagi: paletaData.uwagi
-          })
-        });
-
-        if (!updateResponse.ok) {
-          const error = await updateResponse.json();
-          throw new Error(error.error || 'Błąd aktualizacji palety');
-        }
+        // Jeśli sukces: false, wyświetl komunikat błędu
+        throw new Error(result.komunikat || result.error || 'Błąd aktualizacji palety');
       }
-      
-      message.success('Paleta została zaktualizowana');
-      onSave();
-      onClose();
       
     } catch (error: any) {
       console.error('Error updating paleta:', error);
+      console.error('Error stack:', error.stack);
+      // Wyświetl bardziej szczegółowy komunikat błędu
       message.error(error.message || 'Błąd aktualizacji palety');
     } finally {
       setSaving(false);

@@ -9,13 +9,13 @@ import { Formatka } from '../types';
 
 interface ManualPalletCreatorProps {
   pozycjaId?: number;
-  pozycjaFormatki?: Formatka[];  // Obsługa obu nazw props
-  formatki?: Formatka[];          // Dla kompatybilności wstecznej
+  pozycjaFormatki?: Formatka[];  
+  formatki?: Formatka[];          
   onSave?: (palety: any[]) => void;
   onCancel?: () => void;
   onRefresh?: () => void;
   loading?: boolean;
-  initialPaleta?: any;  // Dla trybu edycji
+  initialPaleta?: any;  
   editMode?: boolean;
 }
 
@@ -36,7 +36,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
   const [editingFormatka, setEditingFormatka] = useState<number | null>(null);
   const [tempIlosci, setTempIlosci] = useState<Record<number, number>>({});
   const [saving, setSaving] = useState(false);
-  const [globalPalletCounter, setGlobalPalletCounter] = useState(0);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // NAPRAWIONE: Śledzenie niezapisanych zmian
 
   const {
     palety,
@@ -56,7 +56,6 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
   // Jeśli tryb edycji, załaduj dane początkowe
   useEffect(() => {
     if (editMode && initialPaleta && palety.length === 0) {
-      // Utwórz paletę z danymi początkowym
       const editPaleta = {
         id: `PAL-EDIT-${Date.now()}`,
         numer: initialPaleta.numer_palety || 'EDIT',
@@ -69,11 +68,16 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         max_wysokosc: initialPaleta.max_wysokosc || 1440
       };
       
-      // Ustaw paletę do edycji
       utworzPalete();
-      // TODO: Wypełnij danymi z initialPaleta
     }
   }, [editMode, initialPaleta]);
+
+  // NAPRAWIONE: Śledź zmiany w paletach
+  useEffect(() => {
+    if (palety.length > 0 && palety.some(p => p.formatki.length > 0)) {
+      setHasUnsavedChanges(true);
+    }
+  }, [palety]);
 
   // Oblicz ile formatek zostało przypisanych na paletach
   const totalAssigned = useMemo(() => {
@@ -83,20 +87,6 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       return sum + (originalAvailable - currentAvailable);
     }, 0);
   }, [formatki, pozostaleIlosci]);
-
-  // Force refresh po zmianie statusu formatek
-  useEffect(() => {
-    if (totalAssigned > globalPalletCounter) {
-      setGlobalPalletCounter(totalAssigned);
-      // Auto-refresh dostępnych formatek po sekundzie
-      if (onRefresh && !editMode) {
-        setTimeout(() => {
-          console.log('🔄 Auto-refreshing formatki after pallet assignment...');
-          onRefresh();
-        }, 1000);
-      }
-    }
-  }, [totalAssigned, globalPalletCounter, onRefresh, editMode]);
 
   const activePaleta = palety.find(p => p.id === selectedPaleta);
   const saPozostaleFormatki = Object.values(pozostaleIlosci).some(ilosc => ilosc > 0);
@@ -113,7 +103,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     return result;
   }, [activePaleta]);
 
-  // NAPRAWIONE: Zabezpieczenie przed duplikacją - sprawdza rzeczywistą dostępność
+  // Zabezpieczenie przed duplikacją - sprawdza rzeczywistą dostępność
   const checkFormatkaAvailability = (formatkaId: number, requestedAmount: number): { available: boolean; maxAmount: number; reason?: string } => {
     const originalFormatka = formatki.find(f => f.id === formatkaId);
     if (!originalFormatka) {
@@ -123,7 +113,6 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     const remainingInPallets = pozostaleIlosci[formatkaId] || 0;
     const currentInActivePallet = currentIlosci[formatkaId] || 0;
     
-    // Maksymalna dostępna ilość = to co pozostało + to co już jest w aktywnej palecie
     const maxAvailable = remainingInPallets + currentInActivePallet;
     
     if (requestedAmount > maxAvailable) {
@@ -134,7 +123,6 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       };
     }
 
-    // Sprawdź czy formatka nie została już przypisana w innych paletach (oprócz aktywnej)
     let totalUsedInOtherPallets = 0;
     palety.forEach(paleta => {
       if (paleta.id !== selectedPaleta) {
@@ -166,6 +154,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       const validation = checkFormatkaAvailability(formatkaId, dostepneIlosc);
       if (validation.available) {
         dodajFormatkiDoPalety(paletaId, formatkaId, dostepneIlosc);
+        setHasUnsavedChanges(true); // NAPRAWIONE: Oznacz jako niezapisane
         message.success(`Dodano wszystkie ${dostepneIlosc} szt. formatek`);
       } else {
         message.error(validation.reason || 'Nie można dodać formatek');
@@ -193,6 +182,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     });
     
     if (dodanoTotal > 0) {
+      setHasUnsavedChanges(true); // NAPRAWIONE: Oznacz jako niezapisane
       message.success(`Dodano wszystkie pozostałe formatki (${dodanoTotal} szt.)`);
     }
     if (errors > 0) {
@@ -212,7 +202,6 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     
     if (!validation.available) {
       message.error(validation.reason || 'Nie można dodać formatek');
-      // Skoryguj wartość w temp input
       setTempIlosci(prev => ({ ...prev, [formatkaId]: validation.maxAmount }));
       return;
     }
@@ -227,6 +216,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     dodajFormatkiDoPalety(activePaleta.id, formatkaId, iloscDoDodania);
     setEditingFormatka(null);
     setTempIlosci(prev => ({ ...prev, [formatkaId]: 1 }));
+    setHasUnsavedChanges(true); // NAPRAWIONE: Oznacz jako niezapisane
     
     message.success(`Dodano ${iloscDoDodania} szt. formatek do palety`);
   };
@@ -246,7 +236,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     });
   };
 
-  // NAPRAWIONA funkcja zapisywania z lepszym error handling
+  // NAPRAWIONA funkcja zapisywania - NIE odświeża przed zapisem
   const handleSaveAll = async () => {
     if (!editMode && !pozycjaId) {
       message.error('Brak ID pozycji - nie można zapisać palet');
@@ -271,9 +261,9 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         
         // Wyczyść lokalne palety po pomyślnym zapisie
         wyczyscPalety();
-        setGlobalPalletCounter(0);
+        setHasUnsavedChanges(false); // NAPRAWIONE: Resetuj flagę
         
-        // Force refresh po 500ms
+        // Odśwież DOPIERO PO zapisie
         setTimeout(() => {
           if (onRefresh && !editMode) {
             onRefresh();
@@ -288,6 +278,30 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
       }
     } else {
       message.error('Brak funkcji zapisywania');
+    }
+  };
+
+  // NAPRAWIONE: Funkcja odświeżania z ostrzeżeniem
+  const handleRefreshWithWarning = () => {
+    if (hasUnsavedChanges) {
+      Modal.confirm({
+        title: 'Niezapisane zmiany',
+        content: 'Masz niezapisane palety. Odświeżenie spowoduje utratę zmian. Czy na pewno chcesz kontynuować?',
+        okText: 'Tak, odśwież',
+        cancelText: 'Anuluj',
+        okButtonProps: { danger: true },
+        onOk: () => {
+          wyczyscPalety();
+          setHasUnsavedChanges(false);
+          if (onRefresh) {
+            onRefresh();
+          }
+        }
+      });
+    } else {
+      if (onRefresh) {
+        onRefresh();
+      }
     }
   };
 
@@ -316,7 +330,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         type="info"
         showIcon
         action={
-          <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh}>
+          <Button size="small" icon={<ReloadOutlined />} onClick={handleRefreshWithWarning}>
             Odśwież
           </Button>
         }
@@ -333,7 +347,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         showIcon
         icon={<CheckCircleOutlined />}
         action={
-          <Button size="small" icon={<ReloadOutlined />} onClick={onRefresh}>
+          <Button size="small" icon={<ReloadOutlined />} onClick={handleRefreshWithWarning}>
             Odśwież listę
           </Button>
         }
@@ -355,11 +369,14 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                 {totalAssigned > 0 && (
                   <Tag color="green">{totalAssigned} szt. przypisano</Tag>
                 )}
+                {hasUnsavedChanges && (
+                  <Tag color="orange">Niezapisane zmiany!</Tag>
+                )}
                 {!editMode && (
                   <Button 
                     size="small" 
                     icon={<ReloadOutlined />}
-                    onClick={onRefresh}
+                    onClick={handleRefreshWithWarning}
                     loading={loading}
                     title="Odśwież dostępne formatki"
                   />
@@ -422,7 +439,10 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   <Button 
                     type="primary" 
                     icon={<PlusOutlined />}
-                    onClick={utworzPalete}
+                    onClick={() => {
+                      utworzPalete();
+                      setHasUnsavedChanges(true);
+                    }}
                   >
                     Nowa paleta
                   </Button>
@@ -434,11 +454,13 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   disabled={palety.length === 0 || saving || loading}
                   loading={saving || loading}
                   style={{ 
-                    background: '#52c41a', 
-                    borderColor: '#52c41a' 
+                    background: hasUnsavedChanges ? '#faad14' : '#52c41a', 
+                    borderColor: hasUnsavedChanges ? '#faad14' : '#52c41a'
                   }}
                 >
-                  {editMode ? 'Zapisz zmiany' : `Zapisz wszystkie (${palety.length})`}
+                  {saving || loading ? 'Zapisywanie...' : 
+                   hasUnsavedChanges ? `⚠️ Zapisz zmiany (${palety.length})` : 
+                   editMode ? 'Zapisz zmiany' : `Zapisz wszystkie (${palety.length})`}
                 </Button>
                 {onCancel && (
                   <Button onClick={onCancel}>
@@ -459,10 +481,21 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   saPozostaleFormatki={saPozostaleFormatki}
                   totalPozostalo={totalPozostalo}
                   onSelect={() => setSelectedPaleta(paleta.id)}
-                  onChangeDestination={(dest) => zmienPrzeznaczenie(paleta.id, dest)}
-                  onCopy={() => !editMode && kopiujPalete(paleta.id)}
+                  onChangeDestination={(dest) => {
+                    zmienPrzeznaczenie(paleta.id, dest);
+                    setHasUnsavedChanges(true);
+                  }}
+                  onCopy={() => {
+                    if (!editMode) {
+                      kopiujPalete(paleta.id);
+                      setHasUnsavedChanges(true);
+                    }
+                  }}
                   onDelete={() => !editMode && handleUsunPalete(paleta.id)}
-                  onRemoveFormatka={(fId) => usunFormatkiZPalety(paleta.id, fId)}
+                  onRemoveFormatka={(fId) => {
+                    usunFormatkiZPalety(paleta.id, fId);
+                    setHasUnsavedChanges(true);
+                  }}
                   onAddAllRemaining={() => dodajWszystkieReszteFormatek(paleta.id)}
                 />
               ))}
@@ -473,7 +506,10 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   style={{ padding: 40 }}
                 >
                   {!editMode && (
-                    <Button type="primary" onClick={utworzPalete}>
+                    <Button type="primary" onClick={() => {
+                      utworzPalete();
+                      setHasUnsavedChanges(true);
+                    }}>
                       Utwórz pierwszą paletę
                     </Button>
                   )}
@@ -491,6 +527,35 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
           formatki={formatki}
           pozostaleIlosci={pozostaleIlosci}
           obliczStatystykiPalety={obliczStatystykiPalety}
+        />
+      )}
+
+      {/* NAPRAWIONE: Ostrzeżenie o niezapisanych zmianach */}
+      {hasUnsavedChanges && (
+        <Alert
+          message="Masz niezapisane zmiany!"
+          description="Pamiętaj o zapisaniu palet przed opuszczeniem strony lub odświeżeniem."
+          type="warning"
+          showIcon
+          style={{ 
+            position: 'fixed', 
+            bottom: 20, 
+            right: 20, 
+            zIndex: 1000,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}
+          action={
+            <Space direction="vertical">
+              <Button 
+                type="primary" 
+                size="small"
+                onClick={handleSaveAll}
+                loading={saving}
+              >
+                Zapisz teraz
+              </Button>
+            </Space>
+          }
         />
       )}
     </div>
