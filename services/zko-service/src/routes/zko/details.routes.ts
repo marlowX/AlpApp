@@ -62,7 +62,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 /**
  * GET /api/zko/:id/pozycje - Pozycje ZKO z pełnymi danymi
- * NAPRAWIONE: Dodano numer_pozycji obliczany dynamicznie
+ * NAPRAWIONE: Usunięto nieistniejącą tabelę zko.plyty
  */
 router.get('/:id/pozycje', async (req: Request, res: Response) => {
   try {
@@ -70,7 +70,7 @@ router.get('/:id/pozycje', async (req: Request, res: Response) => {
     
     logger.info(`Fetching positions for ZKO ID: ${id}`);
     
-    // NAPRAWIONE: Dodano ROW_NUMBER() jako numer_pozycji
+    // NAPRAWIONE: Usunięto JOIN z nieistniejącą tabelą zko.plyty
     const result = await db.query(`
       SELECT 
         p.id as pozycja_id,
@@ -82,16 +82,15 @@ router.get('/:id/pozycje', async (req: Request, res: Response) => {
         p.kolor_plyty,
         p.nazwa_plyty,
         p.ilosc_plyt,
-        pl.nazwa as nazwa_plyty_full,
-        pl.symbol as symbol_plyty,
+        p.nazwa_plyty as nazwa_plyty_full,
+        p.nazwa_plyty as symbol_plyty,
         COUNT(DISTINCT pf.id) as typy_formatek,
         SUM(pf.ilosc_planowana) as sztuk_formatek
       FROM zko.pozycje p
       LEFT JOIN zko.rozkroje r ON r.id = p.rozkroj_id
       LEFT JOIN zko.pozycje_formatki pf ON pf.pozycja_id = p.id
-      LEFT JOIN zko.plyty pl ON pl.id = p.plyty_id
       WHERE p.zko_id = $1
-      GROUP BY p.id, p.rozkroj_id, r.kod_rozkroju, r.opis, p.kolor_plyty, p.nazwa_plyty, p.ilosc_plyt, pl.nazwa, pl.symbol, p.kolejnosc
+      GROUP BY p.id, p.rozkroj_id, r.kod_rozkroju, r.opis, p.kolor_plyty, p.nazwa_plyty, p.ilosc_plyt, p.kolejnosc
       ORDER BY COALESCE(p.kolejnosc, 0), p.id
     `, [id]);
     

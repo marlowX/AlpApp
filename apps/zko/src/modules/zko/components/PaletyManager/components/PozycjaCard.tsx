@@ -4,17 +4,19 @@ import {
   CheckCircleOutlined, 
   StopOutlined, 
   FileTextOutlined, 
-  BoxPlotOutlined 
+  BoxPlotOutlined,
+  DatabaseOutlined 
 } from '@ant-design/icons';
 
 const { Text } = Typography;
 
 interface Pozycja {
   id: number;
-  numer_pozycji: number;
+  pozycja_id?: number; // ID z bazy danych
+  numer_pozycji: number; // Numer kolejny (1, 2, 3...)
   nazwa_plyty: string;
   kolor_plyty: string;
-  symbol_plyty: string;
+  symbol_plyty?: string;
   ilosc_plyt: number;
 }
 
@@ -44,6 +46,9 @@ export const PozycjaCard: React.FC<PozycjaCardProps> = ({
   const isFullyPalletized = stats.procent_zapaletyzowania === 100;
   const hasNoFormatki = stats.sztuk_dostepnych === 0 && stats.sztuk_planowanych === 0;
 
+  // Używaj pozycja_id jeśli istnieje, w przeciwnym razie id
+  const dbId = pozycja.pozycja_id || pozycja.id;
+
   const getKolorBadge = (kolor: string) => {
     const colors: Record<string, string> = {
       'LANCELOT': '#8B4513',
@@ -51,11 +56,14 @@ export const PozycjaCard: React.FC<PozycjaCardProps> = ({
       'SONOMA': '#F4A460',
       'SUROWA': '#A0522D',
       'BIAŁY': '#F0F0F0',
-      'CZARNY': '#000000'
+      'CZARNY': '#000000',
+      'WOTAN': '#654321'
     };
     
-    const bgColor = colors[kolor?.toUpperCase()] || '#E0E0E0';
-    const textColor = ['BIAŁY', 'SUROWA', 'SONOMA'].includes(kolor?.toUpperCase()) ? '#000' : '#FFF';
+    // Obsłuż kolory z liczbą (np. "WOTAN x4")
+    const baseKolor = kolor?.split(' ')[0]?.toUpperCase() || kolor?.toUpperCase();
+    const bgColor = colors[baseKolor] || '#E0E0E0';
+    const textColor = ['BIAŁY', 'SUROWA', 'SONOMA'].includes(baseKolor) ? '#000' : '#FFF';
     
     return (
       <Tag 
@@ -79,7 +87,7 @@ export const PozycjaCard: React.FC<PozycjaCardProps> = ({
   return (
     <Card
       hoverable={canBeSelected}
-      onClick={() => canBeSelected && onSelect(pozycja.id)}
+      onClick={() => canBeSelected && onSelect(dbId)}
       style={{
         borderColor: isSelected ? '#1890ff' : 
                     !canBeSelected ? '#ff4d4f' : undefined,
@@ -91,35 +99,49 @@ export const PozycjaCard: React.FC<PozycjaCardProps> = ({
       }}
       bodyStyle={{ padding: 12 }}
     >
-      {/* Nagłówek z numerem pozycji */}
+      {/* Nagłówek z ID pozycji z bazy danych */}
       <div style={{ marginBottom: 8 }}>
         <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-          {/* NAPRAWIONE: Wyraźny numer pozycji */}
+          {/* WYŚWIETLANIE ID Z BAZY DANYCH */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Badge 
-              count={pozycja.numer_pozycji} 
-              style={{ 
-                backgroundColor: isSelected ? '#1890ff' : '#52c41a',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              }}
-            />
-            <Text strong style={{ fontSize: '13px', color: '#1890ff' }}>
-              #{pozycja.numer_pozycji}
-            </Text>
+            <Tooltip title={`ID w bazie danych: ${dbId}`}>
+              <Badge 
+                count={dbId} 
+                style={{ 
+                  backgroundColor: isSelected ? '#1890ff' : '#52c41a',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  minWidth: '28px',
+                  height: '22px',
+                  lineHeight: '22px'
+                }}
+                overflowCount={999}
+              />
+            </Tooltip>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Text strong style={{ fontSize: '14px', color: '#1890ff', lineHeight: 1 }}>
+                Poz. {dbId}
+              </Text>
+              <Text type="secondary" style={{ fontSize: '10px', lineHeight: 1 }}>
+                <DatabaseOutlined style={{ fontSize: 9, marginRight: 2 }} />
+                Kolejność: {pozycja.numer_pozycji}
+              </Text>
+            </div>
           </div>
           
           {/* Ikony stanu */}
-          {isFullyPalletized && (
-            <Tooltip title="Wszystkie formatki są już na paletach">
-              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
-            </Tooltip>
-          )}
-          {hasNoFormatki && (
-            <Tooltip title="Brak formatek do zapaletyzowania">
-              <StopOutlined style={{ color: '#ff4d4f', fontSize: 16 }} />
-            </Tooltip>
-          )}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {isFullyPalletized && (
+              <Tooltip title="Wszystkie formatki są już na paletach">
+                <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 16 }} />
+              </Tooltip>
+            )}
+            {hasNoFormatki && (
+              <Tooltip title="Brak formatek do zapaletyzowania">
+                <StopOutlined style={{ color: '#ff4d4f', fontSize: 16 }} />
+              </Tooltip>
+            )}
+          </div>
         </Space>
       </div>
 

@@ -8,6 +8,66 @@ const router = Router();
 const logger = pino();
 
 /**
+ * GET /api/pallets/:id - Pobieranie szczegółów pojedynczej palety
+ * NOWY ENDPOINT dla edycji palety
+ */
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const paletaId = parseInt(req.params.id);
+    
+    if (isNaN(paletaId)) {
+      return res.status(400).json({
+        error: 'Nieprawidłowe ID palety'
+      });
+    }
+    
+    logger.info(`Fetching pallet details for ID ${paletaId}`);
+    
+    // Pobierz szczegóły palety z formatkami
+    const result = await db.query(`
+      SELECT 
+        p.*,
+        COALESCE(
+          jsonb_agg(
+            jsonb_build_object(
+              'formatka_id', pfi.formatka_id,
+              'pozycja_id', pf.pozycja_id,
+              'ilosc', pfi.ilosc,
+              'nazwa', pf.nazwa_formatki,
+              'dlugosc', pf.dlugosc,
+              'szerokosc', pf.szerokosc,
+              'kolor', poz.kolor_plyty,
+              'nazwa_plyty', poz.nazwa_plyty
+            ) ORDER BY pf.pozycja_id, pf.id
+          ) FILTER (WHERE pfi.formatka_id IS NOT NULL),
+          '[]'::jsonb
+        ) as formatki_szczegoly
+      FROM zko.palety p
+      LEFT JOIN zko.palety_formatki_ilosc pfi ON pfi.paleta_id = p.id
+      LEFT JOIN zko.pozycje_formatki pf ON pf.id = pfi.formatka_id
+      LEFT JOIN zko.pozycje poz ON poz.id = pf.pozycja_id
+      WHERE p.id = $1
+      GROUP BY p.id
+    `, [paletaId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Paleta nie znaleziona'
+      });
+    }
+    
+    res.json(result.rows[0]);
+    
+  } catch (error: any) {
+    logger.error('Error fetching pallet details:', error);
+    res.status(500).json({ 
+      error: 'Błąd pobierania szczegółów palety',
+      message: error.message 
+    });
+  }
+});
+
+/**
  * GET /api/pallets/zko/:zkoId - Pobieranie palet dla ZKO
  * Zwraca listę palet z formatkami
  */
@@ -84,7 +144,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const paletaId = parseInt(req.params.id);
     
-    if (isNaN(paletaId)) {
+    if (isNaN(paletaId)) {  // POPRAWIONE: isNaN zamiast isNan
       return res.status(400).json({
         error: 'Nieprawidłowe ID palety'
       });

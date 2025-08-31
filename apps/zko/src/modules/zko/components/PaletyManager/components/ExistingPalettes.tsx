@@ -42,6 +42,7 @@ interface Paleta {
   waga_kg?: number;
   procent_wykorzystania?: number;
   przeznaczenie?: string;
+  pozycje_lista?: string;
 }
 
 interface ExistingPalettesProps {
@@ -51,6 +52,7 @@ interface ExistingPalettesProps {
   deletingId: number | null;
   onViewDetails: (paleta: Paleta) => void;
   onDelete: (paletaId: number) => void;
+  onEdit?: (paleta: Paleta) => void;
 }
 
 export const ExistingPalettes: React.FC<ExistingPalettesProps> = ({
@@ -59,7 +61,8 @@ export const ExistingPalettes: React.FC<ExistingPalettesProps> = ({
   podsumowanie,
   deletingId,
   onViewDetails,
-  onDelete
+  onDelete,
+  onEdit
 }) => {
   if (palety.length === 0) return null;
 
@@ -106,6 +109,15 @@ export const ExistingPalettes: React.FC<ExistingPalettesProps> = ({
     );
   };
 
+  // Helper do formatowania wagi
+  const formatWaga = (waga: any) => {
+    const wagaNum = Number(waga);
+    if (Number.isFinite(wagaNum)) {
+      return wagaNum.toFixed(2);
+    }
+    return '0.00';
+  };
+
   return (
     <Card 
       size="small" 
@@ -117,19 +129,22 @@ export const ExistingPalettes: React.FC<ExistingPalettesProps> = ({
       title={
         <Space>
           <Badge count={palety.length} style={{ backgroundColor: '#52c41a' }} />
-          <Text strong style={{ color: '#52c41a' }}>Istniejące palety (wykonane)</Text>
+          <Text strong style={{ color: '#52c41a' }}>Istniejące palety</Text>
           {podsumowanie && (
             <Text type="secondary">
-              {podsumowanie.sztuk_total} szt. | {podsumowanie.waga_total?.toFixed(2)} kg
+              {podsumowanie.sztuk_total || 0} szt. | {formatWaga(podsumowanie.waga_total)} kg
             </Text>
           )}
         </Space>
       }
+      // Usuń padding z body, aby tabela miała full width
+      bodyStyle={{ padding: 0 }}
     >
       <PaletyTable
         palety={palety}
         loading={loading}
         onViewDetails={onViewDetails}
+        onEdit={onEdit}
         renderFormatkiColumn={renderFormatkiDetails}
         onDelete={onDelete}
         deletingId={deletingId}

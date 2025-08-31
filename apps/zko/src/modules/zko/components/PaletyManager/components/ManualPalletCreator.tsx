@@ -3,25 +3,36 @@ import { Card, Button, Space, Alert, Empty, Row, Col, Tag, Popconfirm, Modal, me
 import { PlusOutlined, SaveOutlined, ThunderboltOutlined, CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { FormatkaTable } from './FormatkaTable';
 import { PaletaCard } from './PaletaCard';
-import { PaletyStats } from './PaletyStats'; // NAPRAWIONE: Zmieniono z PaletyStatistics na PaletyStats
+import { PaletyStats } from './PaletyStats';
 import { usePaletaLogic } from '../hooks/usePaletaLogic';
 import { Formatka } from '../types';
 
 interface ManualPalletCreatorProps {
   pozycjaId?: number;
-  formatki: Formatka[];
+  pozycjaFormatki?: Formatka[];  // Obsługa obu nazw props
+  formatki?: Formatka[];          // Dla kompatybilności wstecznej
   onSave?: (palety: any[]) => void;
+  onCancel?: () => void;
   onRefresh?: () => void;
   loading?: boolean;
+  initialPaleta?: any;  // Dla trybu edycji
+  editMode?: boolean;
 }
 
 export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({ 
   pozycjaId,
-  formatki,
+  pozycjaFormatki,
+  formatki: formatkiProp,
   onSave,
+  onCancel,
   onRefresh,
-  loading = false
+  loading = false,
+  initialPaleta,
+  editMode = false
 }) => {
+  // Użyj pozycjaFormatki jeśli jest, w przeciwnym razie formatki
+  const formatki = pozycjaFormatki || formatkiProp || [];
+  
   const [editingFormatka, setEditingFormatka] = useState<number | null>(null);
   const [tempIlosci, setTempIlosci] = useState<Record<number, number>>({});
   const [saving, setSaving] = useState(false);
@@ -42,6 +53,28 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     wyczyscPalety
   } = usePaletaLogic(formatki);
 
+  // Jeśli tryb edycji, załaduj dane początkowe
+  useEffect(() => {
+    if (editMode && initialPaleta && palety.length === 0) {
+      // Utwórz paletę z danymi początkowym
+      const editPaleta = {
+        id: `PAL-EDIT-${Date.now()}`,
+        numer: initialPaleta.numer_palety || 'EDIT',
+        formatki: (initialPaleta.formatki || initialPaleta.formatki_szczegoly || []).map((f: any) => ({
+          formatka_id: f.formatka_id || f.id,
+          ilosc: f.ilosc || 0
+        })),
+        przeznaczenie: initialPaleta.przeznaczenie || 'MAGAZYN',
+        max_waga: initialPaleta.max_waga || 700,
+        max_wysokosc: initialPaleta.max_wysokosc || 1440
+      };
+      
+      // Ustaw paletę do edycji
+      utworzPalete();
+      // TODO: Wypełnij danymi z initialPaleta
+    }
+  }, [editMode, initialPaleta]);
+
   // Oblicz ile formatek zostało przypisanych na paletach
   const totalAssigned = useMemo(() => {
     return formatki.reduce((sum, f) => {
@@ -56,14 +89,14 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     if (totalAssigned > globalPalletCounter) {
       setGlobalPalletCounter(totalAssigned);
       // Auto-refresh dostępnych formatek po sekundzie
-      if (onRefresh) {
+      if (onRefresh && !editMode) {
         setTimeout(() => {
           console.log('🔄 Auto-refreshing formatki after pallet assignment...');
           onRefresh();
         }, 1000);
       }
     }
-  }, [totalAssigned, globalPalletCounter, onRefresh]);
+  }, [totalAssigned, globalPalletCounter, onRefresh, editMode]);
 
   const activePaleta = palety.find(p => p.id === selectedPaleta);
   const saPozostaleFormatki = Object.values(pozostaleIlosci).some(ilosc => ilosc > 0);
@@ -215,7 +248,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
 
   // NAPRAWIONA funkcja zapisywania z lepszym error handling
   const handleSaveAll = async () => {
-    if (!pozycjaId) {
+    if (!editMode && !pozycjaId) {
       message.error('Brak ID pozycji - nie można zapisać palet');
       return;
     }
@@ -242,7 +275,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         
         // Force refresh po 500ms
         setTimeout(() => {
-          if (onRefresh) {
+          if (onRefresh && !editMode) {
             onRefresh();
           }
         }, 500);
@@ -263,7 +296,8 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     return formatki.length > 0 && totalPozostalo === 0;
   }, [formatki.length, totalPozostalo]);
 
-  if (!pozycjaId) {
+  // W trybie edycji nie wymagamy pozycjaId
+  if (!editMode && !pozycjaId) {
     return (
       <Alert
         message="Wybierz pozycję"
@@ -274,7 +308,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     );
   }
 
-  if (formatki.length === 0) {
+  if (formatki.length === 0 && !editMode) {
     return (
       <Alert
         message="Brak formatek"
@@ -290,7 +324,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     );
   }
 
-  if (czyPozycjaZapaletyzowana) {
+  if (czyPozycjaZapaletyzowana && !editMode) {
     return (
       <Alert
         message="Pozycja w pełni zapaletyzowana"
@@ -313,7 +347,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         {/* Panel formatek */}
         <Col span={10}>
           <Card 
-            title="Dostępne formatki z pozycji"
+            title={editMode ? "Formatki palety" : "Dostępne formatki z pozycji"}
             size="small"
             extra={
               <Space>
@@ -321,13 +355,15 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                 {totalAssigned > 0 && (
                   <Tag color="green">{totalAssigned} szt. przypisano</Tag>
                 )}
-                <Button 
-                  size="small" 
-                  icon={<ReloadOutlined />}
-                  onClick={onRefresh}
-                  loading={loading}
-                  title="Odśwież dostępne formatki"
-                />
+                {!editMode && (
+                  <Button 
+                    size="small" 
+                    icon={<ReloadOutlined />}
+                    onClick={onRefresh}
+                    loading={loading}
+                    title="Odśwież dostępne formatki"
+                  />
+                )}
                 {activePaleta && saPozostaleFormatki && (
                   <Popconfirm
                     title="Dodać wszystkie pozostałe formatki?"
@@ -378,17 +414,19 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         {/* Panel palet */}
         <Col span={14}>
           <Card 
-            title="Palety"
+            title={editMode ? "Edycja palety" : "Palety"}
             size="small"
             extra={
               <Space>
-                <Button 
-                  type="primary" 
-                  icon={<PlusOutlined />}
-                  onClick={utworzPalete}
-                >
-                  Nowa paleta
-                </Button>
+                {!editMode && (
+                  <Button 
+                    type="primary" 
+                    icon={<PlusOutlined />}
+                    onClick={utworzPalete}
+                  >
+                    Nowa paleta
+                  </Button>
+                )}
                 <Button 
                   icon={<SaveOutlined />}
                   type="primary"
@@ -400,8 +438,13 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                     borderColor: '#52c41a' 
                   }}
                 >
-                  {saving || loading ? 'Zapisywanie...' : `Zapisz wszystkie (${palety.length})`}
+                  {editMode ? 'Zapisz zmiany' : `Zapisz wszystkie (${palety.length})`}
                 </Button>
+                {onCancel && (
+                  <Button onClick={onCancel}>
+                    Anuluj
+                  </Button>
+                )}
               </Space>
             }
           >
@@ -417,8 +460,8 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   totalPozostalo={totalPozostalo}
                   onSelect={() => setSelectedPaleta(paleta.id)}
                   onChangeDestination={(dest) => zmienPrzeznaczenie(paleta.id, dest)}
-                  onCopy={() => kopiujPalete(paleta.id)}
-                  onDelete={() => handleUsunPalete(paleta.id)}
+                  onCopy={() => !editMode && kopiujPalete(paleta.id)}
+                  onDelete={() => !editMode && handleUsunPalete(paleta.id)}
                   onRemoveFormatka={(fId) => usunFormatkiZPalety(paleta.id, fId)}
                   onAddAllRemaining={() => dodajWszystkieReszteFormatek(paleta.id)}
                 />
@@ -426,12 +469,14 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
               
               {palety.length === 0 && (
                 <Empty 
-                  description="Brak utworzonych palet"
+                  description={editMode ? "Brak formatek na palecie" : "Brak utworzonych palet"}
                   style={{ padding: 40 }}
                 >
-                  <Button type="primary" onClick={utworzPalete}>
-                    Utwórz pierwszą paletę
-                  </Button>
+                  {!editMode && (
+                    <Button type="primary" onClick={utworzPalete}>
+                      Utwórz pierwszą paletę
+                    </Button>
+                  )}
                 </Empty>
               )}
             </Space>
@@ -439,7 +484,7 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
         </Col>
       </Row>
 
-      {/* Statystyki - używamy PaletyStats zamiast PaletyStatistics */}
+      {/* Statystyki */}
       {palety.length > 0 && (
         <PaletyStats
           palety={palety}

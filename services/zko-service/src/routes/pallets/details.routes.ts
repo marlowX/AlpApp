@@ -21,7 +21,7 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
     
     logger.info(`Fetching detailed pallets for ZKO ${zkoId}`);
     
-    // Pobierz palety z ilościami
+    // Pobierz palety z ilościami i informacjami o pozycjach
     const result = await db.query(`
       SELECT 
         p.id,
@@ -29,6 +29,7 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
         p.status,
         p.kierunek,
         p.typ_palety,
+        p.przeznaczenie,
         p.ilosc_formatek as sztuk_total,
         p.wysokosc_stosu,
         p.waga_kg,
@@ -38,15 +39,24 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
           jsonb_agg(
             jsonb_build_object(
               'formatka_id', pfi.formatka_id,
+              'pozycja_id', pf.pozycja_id,
               'ilosc', pfi.ilosc,
               'nazwa', pf.nazwa_formatki,
               'dlugosc', pf.dlugosc,
               'szerokosc', pf.szerokosc,
-              'kolor', poz.kolor_plyty
-            ) ORDER BY pf.id
+              'kolor', poz.kolor_plyty,
+              'nazwa_plyty', poz.nazwa_plyty
+            ) ORDER BY pf.pozycja_id, pf.id
           ) FILTER (WHERE pfi.formatka_id IS NOT NULL),
           '[]'::jsonb
         ) as formatki_szczegoly,
+        COALESCE(
+          STRING_AGG(
+            DISTINCT 'Poz.' || pf.pozycja_id::text,
+            ', ' ORDER BY 'Poz.' || pf.pozycja_id::text
+          ),
+          ''
+        ) as pozycje_lista,
         COALESCE(
           STRING_AGG(
             DISTINCT poz.kolor_plyty,
@@ -69,7 +79,15 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
         COUNT(DISTINCT pf.id) as typy_formatek,
         SUM(pf.ilosc_planowana) as sztuk_total,
         SUM(pf.ilosc_wyprodukowana) as sztuk_wyprodukowanych,
-        COUNT(DISTINCT p.id) as liczba_pozycji
+        COUNT(DISTINCT p.id) as liczba_pozycji,
+        SUM(CASE 
+          WHEN pf.ilosc_planowana IS NOT NULL 
+          THEN pf.ilosc_planowana * COALESCE(
+            (pf.dlugosc * pf.szerokosc * 18 * 0.00072) / 1000000,
+            0.7
+          )
+          ELSE 0 
+        END) as waga_total
       FROM zko.pozycje p
       LEFT JOIN zko.pozycje_formatki pf ON pf.pozycja_id = p.id
       WHERE p.zko_id = $1
@@ -79,7 +97,7 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
       sukces: true,
       palety: result.rows,
       podsumowanie: summaryResult.rows[0],
-      wersja: 'v2_with_quantities'
+      wersja: 'v2_with_quantities_and_positions'
     });
     
   } catch (error: any) {

@@ -2,13 +2,18 @@ import { useState, useMemo } from 'react';
 import { message } from 'antd';
 import { Paleta, Formatka, PaletaStats } from '../types';
 
-export const usePaletaLogic = (formatki: Formatka[]) => {
+export const usePaletaLogic = (formatki: Formatka[] = []) => {  // NAPRAWIONE: Domyślna pusta tablica
   const [palety, setPalety] = useState<Paleta[]>([]);
   const [selectedPaleta, setSelectedPaleta] = useState<string | null>(null);
 
-  // Oblicz pozostałe ilości formatek
+  // Oblicz pozostałe ilości formatek - z zabezpieczeniem przed undefined
   const pozostaleIlosci = useMemo(() => {
     const result: Record<number, number> = {};
+    
+    // Zabezpieczenie przed undefined formatki
+    if (!formatki || !Array.isArray(formatki)) {
+      return result;
+    }
     
     formatki.forEach(f => {
       let przypisane = 0;
@@ -25,21 +30,35 @@ export const usePaletaLogic = (formatki: Formatka[]) => {
     return result;
   }, [formatki, palety]);
 
-  // Oblicz statystyki palety
+  // Oblicz statystyki palety - z zabezpieczeniem
   const obliczStatystykiPalety = (paleta: Paleta): PaletaStats => {
     let totalWaga = 0;
     let totalSztuk = 0;
     let totalWysokosc = 0;
     const kolory = new Set<string>();
     
+    // Zabezpieczenie przed undefined formatki
+    if (!formatki || !Array.isArray(formatki)) {
+      return {
+        waga: 0,
+        sztuk: 0,
+        wysokosc: 0,
+        kolory: [],
+        wykorzystanieWagi: 0,
+        wykorzystanieWysokosci: 0
+      };
+    }
+    
     paleta.formatki.forEach(pf => {
       const formatka = formatki.find(f => f.id === pf.formatka_id);
       if (formatka) {
         totalSztuk += pf.ilosc;
-        totalWaga += pf.ilosc * formatka.waga_sztuka;
+        totalWaga += pf.ilosc * (formatka.waga_sztuka || 0);
         const poziomy = Math.ceil(pf.ilosc / 4);
-        totalWysokosc = Math.max(totalWysokosc, poziomy * formatka.grubosc);
-        kolory.add(formatka.kolor);
+        totalWysokosc = Math.max(totalWysokosc, poziomy * (formatka.grubosc || 18));
+        if (formatka.kolor) {
+          kolory.add(formatka.kolor);
+        }
       }
     });
     
@@ -48,8 +67,8 @@ export const usePaletaLogic = (formatki: Formatka[]) => {
       sztuk: totalSztuk,
       wysokosc: totalWysokosc,
       kolory: Array.from(kolory),
-      wykorzystanieWagi: (totalWaga / paleta.max_waga) * 100,
-      wykorzystanieWysokosci: (totalWysokosc / paleta.max_wysokosc) * 100
+      wykorzystanieWagi: paleta.max_waga > 0 ? (totalWaga / paleta.max_waga) * 100 : 0,
+      wykorzystanieWysokosci: paleta.max_wysokosc > 0 ? (totalWysokosc / paleta.max_wysokosc) * 100 : 0
     };
   };
 

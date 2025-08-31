@@ -11,6 +11,8 @@ export { PozycjaSelector } from './PozycjaSelector';
 export { PaletyTable } from './PaletyTable';
 export { PaletaCard } from './PaletaCard';
 export { FormatkaTable } from './FormatkaTable';
+export { ExistingPalettes } from './ExistingPalettes';
+export { PozycjaCard } from './PozycjaCard';
 
 // Zakładki
 export { AutomaticPlanningTab } from './AutomaticPlanningTab';
