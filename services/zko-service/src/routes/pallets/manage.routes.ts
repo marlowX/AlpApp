@@ -68,6 +68,192 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 /**
+ * DELETE /api/pallets/:id/clear-formatki - Wyczyść wszystkie formatki z palety
+ * NOWY ENDPOINT dla edycji palety
+ */
+router.delete('/:id/clear-formatki', async (req: Request, res: Response) => {
+  let client;
+  
+  try {
+    const paletaId = parseInt(req.params.id);
+    
+    if (isNaN(paletaId)) {
+      return res.status(400).json({
+        error: 'Nieprawidłowe ID palety'
+      });
+    }
+    
+    client = await db.connect();
+    await client.query('BEGIN');
+    
+    logger.info(`Clearing formatki from pallet ${paletaId}`);
+    
+    // Usuń wszystkie formatki z palety
+    await client.query(
+      'DELETE FROM zko.palety_formatki_ilosc WHERE paleta_id = $1',
+      [paletaId]
+    );
+    
+    // Zaktualizuj paletę
+    await client.query(`
+      UPDATE zko.palety 
+      SET 
+        formatki_ids = ARRAY[]::integer[],
+        ilosc_formatek = 0,
+        wysokosc_stosu = 0,
+        waga_kg = 0,
+        updated_at = NOW()
+      WHERE id = $1
+    `, [paletaId]);
+    
+    await client.query('COMMIT');
+    
+    logger.info(`Cleared formatki from pallet ${paletaId}`);
+    
+    res.json({
+      sukces: true,
+      komunikat: 'Formatki zostały usunięte z palety'
+    });
+    
+  } catch (error: any) {
+    if (client) {
+      await client.query('ROLLBACK');
+    }
+    logger.error('Error clearing formatki:', error);
+    res.status(500).json({ 
+      error: 'Błąd czyszczenia palety',
+      message: error.message 
+    });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+});
+
+/**
+ * POST /api/pallets/:id/update-formatki - Aktualizuj formatki na palecie
+ * NOWY ENDPOINT dla edycji palety
+ */
+router.post('/:id/update-formatki', async (req: Request, res: Response) => {
+  let client;
+  
+  try {
+    const paletaId = parseInt(req.params.id);
+    const { formatki, przeznaczenie, uwagi } = req.body;
+    
+    if (isNaN(paletaId)) {
+      return res.status(400).json({
+        error: 'Nieprawidłowe ID palety'
+      });
+    }
+    
+    if (!Array.isArray(formatki)) {
+      return res.status(400).json({
+        error: 'Formatki muszą być tablicą'
+      });
+    }
+    
+    client = await db.connect();
+    await client.query('BEGIN');
+    
+    logger.info(`Updating formatki for pallet ${paletaId}`, { formatki });
+    
+    // Dodaj nowe formatki
+    let totalWaga = 0;
+    let totalWysokosc = 0;
+    const formatkiIds: number[] = [];
+    
+    for (const f of formatki) {
+      if (!f.formatka_id || !f.ilosc) continue;
+      
+      // Dodaj do tabeli palety_formatki_ilosc
+      await client.query(`
+        INSERT INTO zko.palety_formatki_ilosc (paleta_id, formatka_id, ilosc)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (paleta_id, formatka_id) 
+        DO UPDATE SET ilosc = $3
+      `, [paletaId, f.formatka_id, f.ilosc]);
+      
+      // Pobierz dane formatki do obliczeń
+      const formatkaData = await client.query(`
+        SELECT pf.*, poz.grubosc_plyty
+        FROM zko.pozycje_formatki pf
+        JOIN zko.pozycje poz ON poz.id = pf.pozycja_id
+        WHERE pf.id = $1
+      `, [f.formatka_id]);
+      
+      if (formatkaData.rows.length > 0) {
+        const formatka = formatkaData.rows[0];
+        formatkiIds.push(f.formatka_id);
+        totalWaga += (formatka.waga_sztuka || 0) * f.ilosc;
+        const grubosc = formatka.grubosc_plyty || 18;
+        totalWysokosc = Math.max(totalWysokosc, Math.ceil(f.ilosc / 4) * grubosc);
+      }
+    }
+    
+    // Zaktualizuj paletę
+    await client.query(`
+      UPDATE zko.palety 
+      SET 
+        formatki_ids = $1,
+        ilosc_formatek = $2,
+        wysokosc_stosu = $3,
+        waga_kg = $4,
+        przeznaczenie = COALESCE($5, przeznaczenie),
+        uwagi = COALESCE($6, uwagi),
+        updated_at = NOW()
+      WHERE id = $7
+    `, [
+      formatkiIds,
+      formatkiIds.length,
+      totalWysokosc,
+      totalWaga,
+      przeznaczenie,
+      uwagi,
+      paletaId
+    ]);
+    
+    await client.query('COMMIT');
+    
+    // Pobierz ZKO ID dla WebSocket
+    const paletyResult = await db.query(
+      'SELECT zko_id FROM zko.palety WHERE id = $1',
+      [paletaId]
+    );
+    
+    if (paletyResult.rows.length > 0) {
+      emitZKOUpdate(paletyResult.rows[0].zko_id, 'pallet:updated', {
+        paleta_id: paletaId
+      });
+    }
+    
+    logger.info(`Updated pallet ${paletaId} with ${formatkiIds.length} formatki`);
+    
+    res.json({
+      sukces: true,
+      komunikat: 'Paleta została zaktualizowana',
+      paleta_id: paletaId,
+      formatki_count: formatkiIds.length
+    });
+    
+  } catch (error: any) {
+    if (client) {
+      await client.query('ROLLBACK');
+    }
+    logger.error('Error updating formatki:', error);
+    res.status(500).json({ 
+      error: 'Błąd aktualizacji palety',
+      message: error.message 
+    });
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+});
+
+/**
  * GET /api/pallets/zko/:zkoId - Pobieranie palet dla ZKO
  * Zwraca listę palet z formatkami
  */
@@ -144,7 +330,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const paletaId = parseInt(req.params.id);
     
-    if (isNaN(paletaId)) {  // POPRAWIONE: isNaN zamiast isNan
+    if (isNaN(paletaId)) {
       return res.status(400).json({
         error: 'Nieprawidłowe ID palety'
       });
@@ -435,174 +621,6 @@ router.delete('/empty/:pozycjaId', async (req: Request, res: Response) => {
   } catch (error: any) {
     logger.error('Error cleaning empty pallets:', error);
     res.status(500).json({ error: 'Failed to clean empty pallets' });
-  }
-});
-
-/**
- * POST /api/pallets/zko/:zkoId/change-quantity - Zmiana ilości palet
- * Reorganizuje formatki na nową ilość palet
- */
-router.post('/zko/:zkoId/change-quantity', async (req: Request, res: Response) => {
-  let client;
-  
-  try {
-    const zkoId = parseInt(req.params.zkoId);
-    const { nowa_ilosc } = req.body;
-    
-    if (isNaN(zkoId)) {
-      return res.status(400).json({
-        error: 'Nieprawidłowe ID ZKO',
-        details: 'ID ZKO musi być liczbą'
-      });
-    }
-    
-    if (!nowa_ilosc || nowa_ilosc < 1 || nowa_ilosc > 50) {
-      return res.status(400).json({
-        error: 'Nieprawidłowa ilość palet',
-        details: 'Ilość musi być między 1 a 50'
-      });
-    }
-    
-    client = await db.connect();
-    await client.query('BEGIN');
-    
-    logger.info(`Changing pallet quantity for ZKO ${zkoId} to ${nowa_ilosc}`);
-    
-    // Pobierz obecne palety
-    const currentPallets = await client.query(
-      'SELECT * FROM zko.palety WHERE zko_id = $1 ORDER BY id',
-      [zkoId]
-    );
-    
-    const currentCount = currentPallets.rows.length;
-    
-    if (currentCount === nowa_ilosc) {
-      await client.query('ROLLBACK');
-      return res.json({
-        sukces: true,
-        komunikat: 'Ilość palet jest już taka sama',
-        palety: currentPallets.rows
-      });
-    }
-    
-    // Pobierz info o ZKO
-    const zkoInfo = await client.query(
-      'SELECT numer_zko FROM zko.zlecenia WHERE id = $1',
-      [zkoId]
-    );
-    
-    if (zkoInfo.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'ZKO nie znalezione' });
-    }
-    
-    const numerZko = zkoInfo.rows[0].numer_zko;
-    
-    // Zbierz wszystkie formatki z obecnych palet
-    const allFormatkiIds = [];
-    for (const pallet of currentPallets.rows) {
-      if (pallet.formatki_ids && Array.isArray(pallet.formatki_ids)) {
-        allFormatkiIds.push(...pallet.formatki_ids);
-      }
-    }
-    
-    // Usuń obecne palety
-    await client.query('DELETE FROM zko.palety WHERE zko_id = $1', [zkoId]);
-    
-    // Utwórz nowe palety
-    const newPallets = [];
-    for (let i = 0; i < nowa_ilosc; i++) {
-      const result = await client.query(
-        `INSERT INTO zko.palety (
-          zko_id, 
-          numer_palety, 
-          kierunek, 
-          status,
-          typ_palety,
-          formatki_ids,
-          ilosc_formatek,
-          wysokosc_stosu,
-          waga_kg
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        RETURNING *`,
-        [
-          zkoId,
-          `PAL-${numerZko}-${String(i + 1).padStart(3, '0')}`,
-          'wewnetrzny',
-          'otwarta',
-          'EURO',
-          [], // Puste na początku
-          0,
-          0,
-          0
-        ]
-      );
-      newPallets.push(result.rows[0]);
-    }
-    
-    // Rozdziel formatki równomiernie na nowe palety
-    if (allFormatkiIds.length > 0) {
-      const formatkiPerPallet = Math.ceil(allFormatkiIds.length / nowa_ilosc);
-      
-      for (let i = 0; i < nowa_ilosc; i++) {
-        const startIdx = i * formatkiPerPallet;
-        const endIdx = Math.min(startIdx + formatkiPerPallet, allFormatkiIds.length);
-        const palletFormatki = allFormatkiIds.slice(startIdx, endIdx);
-        
-        if (palletFormatki.length > 0) {
-          await client.query(
-            `UPDATE zko.palety 
-             SET formatki_ids = $1,
-                 ilosc_formatek = $2,
-                 wysokosc_stosu = $3
-             WHERE id = $4`,
-            [
-              palletFormatki,
-              palletFormatki.length,
-              palletFormatki.length * 18, // Zakładamy 18mm grubość
-              newPallets[i].id
-            ]
-          );
-        }
-      }
-    }
-    
-    await client.query('COMMIT');
-    
-    // Pobierz zaktualizowane palety
-    const updatedPallets = await db.query(
-      'SELECT * FROM zko.palety WHERE zko_id = $1 ORDER BY id',
-      [zkoId]
-    );
-    
-    // Emit event
-    emitZKOUpdate(zkoId, 'pallets:reorganized', {
-      zko_id: zkoId,
-      nowa_ilosc: nowa_ilosc,
-      poprzednia_ilosc: currentCount
-    });
-    
-    logger.info(`Changed pallet quantity from ${currentCount} to ${nowa_ilosc} for ZKO ${zkoId}`);
-    
-    res.json({
-      sukces: true,
-      komunikat: `Zmieniono ilość palet z ${currentCount} na ${nowa_ilosc}`,
-      palety: updatedPallets.rows
-    });
-    
-  } catch (error: any) {
-    if (client) {
-      await client.query('ROLLBACK');
-    }
-    logger.error('Error changing pallet quantity:', error);
-    res.status(500).json({ 
-      error: 'Błąd zmiany ilości palet',
-      message: error.message 
-    });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 

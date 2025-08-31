@@ -86,6 +86,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   const [planowanieModalVisible, setPlanowanieModalVisible] = useState(false);
   const [planowanieModularneModalVisible, setPlanowanieModularneModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('manual');
+  const [refreshCounter, setRefreshCounter] = useState(0); // NOWE: Force refresh counter
 
   // ========== HOOKS - cała logika biznesowa jest tutaj ==========
   const {
@@ -112,13 +113,26 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
   // ========== EFFECTS ==========
   useEffect(() => {
     fetchPalety();
-  }, [zkoId, fetchPalety]);
+  }, [zkoId, fetchPalety, refreshCounter]); // NAPRAWIONE: Dodano refreshCounter
 
   useEffect(() => {
     if (selectedPozycjaId) {
       fetchPozycjaFormatki(selectedPozycjaId);
     }
-  }, [selectedPozycjaId, fetchPozycjaFormatki]);
+  }, [selectedPozycjaId, fetchPozycjaFormatki, refreshCounter]); // NAPRAWIONE: Dodano refreshCounter
+
+  // NAPRAWIONE: Funkcja do wymuszenia odświeżenia wszystkiego
+  const handleFullRefresh = () => {
+    console.log('🔄 Full refresh triggered');
+    fetchPalety();
+    if (selectedPozycjaId) {
+      fetchPozycjaFormatki(selectedPozycjaId);
+    }
+    setRefreshCounter(prev => prev + 1);
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
 
   // ========== HANDLERS - tylko przekazywanie do hooków ==========
   const handleQuickPlanning = async () => {
@@ -129,7 +143,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     });
     if (result) {
       message.success('Planowanie zakończone');
-      fetchPalety();
+      handleFullRefresh(); // NAPRAWIONE: Użyj pełnego odświeżenia
     }
   };
 
@@ -137,10 +151,9 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
     try {
       const result = await planujModularnie(zkoId, params);
       if (result) {
-        message.success('Planowanie modulariczne zakończone pomyślnie!');
+        message.success('Planowanie modularyczne zakończone pomyślnie!');
         setPlanowanieModularneModalVisible(false);
-        fetchPalety();
-        onRefresh?.();
+        handleFullRefresh(); // NAPRAWIONE: Użyj pełnego odświeżenia
       }
     } catch (error) {
       console.error('Error in modular planning:', error);
@@ -195,7 +208,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
       if (selectedPozycjaId) {
         fetchPozycjaFormatki(selectedPozycjaId);
       }
-      onRefresh?.();
+      handleFullRefresh(); // NAPRAWIONE: Użyj pełnego odświeżenia
     });
   };
 
@@ -204,19 +217,19 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
       if (selectedPozycjaId) {
         fetchPozycjaFormatki(selectedPozycjaId);
       }
-      onRefresh?.();
+      handleFullRefresh(); // NAPRAWIONE: Użyj pełnego odświeżenia
     });
   };
 
   const handleCreateAllRemaining = (przeznaczenie: string) => {
     if (selectedPozycjaId) {
-      createAllRemainingPallet(selectedPozycjaId, przeznaczenie, onRefresh);
+      createAllRemainingPallet(selectedPozycjaId, przeznaczenie, handleFullRefresh); // NAPRAWIONE
     }
   };
 
   const handleSaveManualPallets = (manualPalety: any[]) => {
     if (selectedPozycjaId) {
-      saveManualPallets(selectedPozycjaId, manualPalety, onRefresh);
+      saveManualPallets(selectedPozycjaId, manualPalety, handleFullRefresh); // NAPRAWIONE
     }
   };
 
@@ -250,10 +263,10 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           <Space>
             <Button
               icon={<ReloadOutlined />}
-              onClick={fetchPalety}
+              onClick={handleFullRefresh}
               loading={loading}
             >
-              Odśwież
+              Odśwież wszystko
             </Button>
             {palety.length > 0 && (
               <Popconfirm
@@ -277,12 +290,19 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
         }
         style={{ marginBottom: 16 }}
       >
-        {/* PODKOMPONENT: PozycjaSelector */}
+        {/* PODKOMPONENT: PozycjaSelector - NAPRAWIONE: Dodano onRefresh */}
         <PozycjaSelector
           zkoId={zkoId}
           selectedPozycjaId={selectedPozycjaId}
-          onSelect={setSelectedPozycjaId}
+          onSelect={(id) => {
+            setSelectedPozycjaId(id);
+            // Wymuś odświeżenie formatek dla nowej pozycji
+            if (id) {
+              fetchPozycjaFormatki(id);
+            }
+          }}
           loading={loading}
+          onRefresh={handleFullRefresh} // NAPRAWIONE: Przekaż funkcję odświeżania
         />
       </Card>
 
@@ -327,7 +347,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
       {/* ZAKŁADKI z podkomponentami */}
       <Card>
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
-          {/* PODKOMPONENT: ManualCreationTab */}
+          {/* PODKOMPONENT: ManualCreationTab - NAPRAWIONE: Dodano onRefresh */}
           <TabPane
             tab={
               <span>
@@ -355,6 +375,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
               loading={loading}
               onSaveManualPallets={handleSaveManualPallets}
               onCreateAllRemaining={handleCreateAllRemaining}
+              onRefresh={handleFullRefresh} // NAPRAWIONE: Przekaż pełne odświeżanie
             />
           </TabPane>
 
@@ -369,7 +390,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
               modularLoading={modularLoading}
               modularError={modularError}
               podsumowanie={podsumowanie}
-              onRefresh={fetchPalety}
+              onRefresh={handleFullRefresh} // NAPRAWIONE
               onViewDetails={handleViewDetails}
               onShowPlanningModal={() => setPlanowanieModalVisible(true)}
               onShowModularModal={() => setPlanowanieModularneModalVisible(true)}
@@ -397,10 +418,7 @@ export const PaletyManager: React.FC<PaletyManagerProps> = ({
           setEditingPaleta(null);
         }}
         onSave={() => {
-          fetchPalety();
-          if (selectedPozycjaId) {
-            fetchPozycjaFormatki(selectedPozycjaId);
-          }
+          handleFullRefresh(); // NAPRAWIONE: Pełne odświeżenie po zapisie
         }}
       />
 

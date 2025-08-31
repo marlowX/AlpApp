@@ -16,13 +16,15 @@ import {
   Space,
   Spin,
   Alert,
-  Empty
+  Empty,
+  Button
 } from 'antd';
 import { 
   CheckCircleOutlined,
   AppstoreOutlined,
   FileTextOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import { PozycjaCard } from './PozycjaCard';
 
@@ -53,24 +55,38 @@ interface PozycjaSelectorProps {
   selectedPozycjaId?: number;
   onSelect: (pozycjaId: number) => void;
   loading?: boolean;
+  onRefresh?: () => void; // NAPRAWIONE: Dodano prop onRefresh
 }
 
 export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
   zkoId,
   selectedPozycjaId,
   onSelect,
-  loading = false
+  loading = false,
+  onRefresh // NAPRAWIONE: Dodano onRefresh
 }) => {
   const [pozycje, setPozycje] = useState<Pozycja[]>([]);
   const [loadingPozycje, setLoadingPozycje] = useState(false);
   const [pozycjeStats, setPozycjeStats] = useState<Record<number, PozycjaStats>>({});
   const [error, setError] = useState<string | null>(null);
+  const [refreshCounter, setRefreshCounter] = useState(0); // NAPRAWIONE: Licznik odświeżeń
 
   useEffect(() => {
     if (zkoId) {
       fetchPozycje();
     }
-  }, [zkoId]);
+  }, [zkoId, refreshCounter]); // NAPRAWIONE: Dodano refreshCounter
+
+  // NAPRAWIONE: Odświeżanie po zmianie selectedPozycjaId
+  useEffect(() => {
+    if (selectedPozycjaId && pozycje.length > 0) {
+      // Odśwież statystyki dla wybranej pozycji
+      const selectedPoz = pozycje.find(p => p.id === selectedPozycjaId);
+      if (selectedPoz) {
+        fetchPozycjeStats([selectedPoz]);
+      }
+    }
+  }, [selectedPozycjaId, refreshCounter]);
 
   const fetchPozycje = async () => {
     try {
@@ -169,6 +185,16 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
     setPozycjeStats(stats);
   };
 
+  // NAPRAWIONE: Funkcja do lokalnego odświeżenia
+  const handleLocalRefresh = () => {
+    console.log('🔄 Refreshing pozycje selector...');
+    setRefreshCounter(prev => prev + 1);
+    fetchPozycje();
+    if (onRefresh) {
+      onRefresh(); // Wywołaj też globalne odświeżenie
+    }
+  };
+
   // Loading state
   if (loadingPozycje || loading) {
     return (
@@ -187,6 +213,15 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
         type="error"
         showIcon
         style={{ marginBottom: 16 }}
+        action={
+          <Button 
+            size="small" 
+            icon={<ReloadOutlined />}
+            onClick={handleLocalRefresh}
+          >
+            Spróbuj ponownie
+          </Button>
+        }
       />
     );
   }
@@ -203,7 +238,14 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
               <Text type="secondary">Dodaj pozycje aby móc zarządzać paletami</Text>
             </Space>
           }
-        />
+        >
+          <Button 
+            icon={<ReloadOutlined />}
+            onClick={handleLocalRefresh}
+          >
+            Odśwież
+          </Button>
+        </Empty>
       </Card>
     );
   }
@@ -218,7 +260,7 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
 
   return (
     <div style={{ marginBottom: 16 }}>
-      {/* Nagłówek */}
+      {/* Nagłówek - NAPRAWIONE: Dodano przycisk odświeżania */}
       <Card 
         size="small"
         style={{ marginBottom: 16 }}
@@ -241,6 +283,14 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
                 <DatabaseOutlined /> Wybrana: ID {selectedPozycjaId}
               </Tag>
             )}
+            <Button 
+              size="small" 
+              icon={<ReloadOutlined />}
+              onClick={handleLocalRefresh}
+              loading={loadingPozycje}
+            >
+              Odśwież
+            </Button>
           </Space>
         </Space>
       </Card>
