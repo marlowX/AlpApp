@@ -3,9 +3,9 @@ import { Table, Button, Space, Tag, Tooltip, Popconfirm, Typography, Badge, Prog
 import { 
   EyeOutlined, 
   DeleteOutlined, 
-  AppstoreOutlined,
-  FileTextOutlined,
-  BgColorsOutlined
+  EditOutlined,
+  BgColorsOutlined,
+  NumberOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -13,15 +13,20 @@ const { Text } = Typography;
 
 interface FormatkaDetail {
   formatka_id: number;
+  pozycja_id?: number;
   ilosc: number;
   nazwa: string;
+  dlugosc?: number;
+  szerokosc?: number;
   kolor?: string;
+  nazwa_plyty?: string;
 }
 
 interface Paleta {
   id: number;
   numer_palety: string;
   pozycja_id?: number;
+  pozycje_lista?: string;
   numer_pozycji?: number;
   nazwa_plyty?: string;
   kolor_plyty?: string;
@@ -42,6 +47,7 @@ interface PaletyTableProps {
   palety: Paleta[];
   loading: boolean;
   onViewDetails: (paleta: Paleta) => void;
+  onEdit?: (paleta: Paleta) => void;
   onDelete?: (paletaId: number) => void;
   deletingId?: number | null;
   renderFormatkiColumn?: (paleta: Paleta) => React.ReactNode;
@@ -51,6 +57,7 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
   palety,
   loading,
   onViewDetails,
+  onEdit,
   onDelete,
   deletingId,
   renderFormatkiColumn
@@ -58,9 +65,8 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
   
   const getStatusColor = (status: string) => {
     const statusColors: Record<string, string> = {
-      'przygotowanie': 'orange',
       'PRZYGOTOWANE': 'blue',
-      'W_PRODUKCJI': 'orange', 
+      'W_PRODUKCJI': 'orange',
       'WYPRODUKOWANE': 'green',
       'WYSLANE': 'purple',
       'DOSTARCZONE': 'cyan'
@@ -85,7 +91,7 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       'WYSYLKA': 'green'
     };
 
-    if (!przeznaczenie) return <Tag color="default">📋 Nie określono</Tag>;
+    if (!przeznaczenie) return null;
 
     return (
       <Tag color={colors[przeznaczenie] || 'default'}>
@@ -98,147 +104,164 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
     const formatki = paleta.formatki || paleta.formatki_szczegoly || [];
     
     if (formatki.length === 0) {
-      return <Text type="secondary" style={{ fontSize: 11 }}>Brak formatek</Text>;
+      return <Text type="secondary">Brak formatek</Text>;
     }
 
-    // Grupuj formatki po kolorach
-    const formatkiByColor = formatki.reduce((acc, f) => {
-      const key = f.kolor || 'Bez koloru';
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(f);
+    // Grupuj formatki według pozycji
+    const formatkiByPozycja = formatki.reduce((acc, f) => {
+      const pozId = f.pozycja_id || 'unknown';
+      if (!acc[pozId]) {
+        acc[pozId] = [];
+      }
+      acc[pozId].push(f);
       return acc;
     }, {} as Record<string, FormatkaDetail[]>);
 
-    const colorKeys = Object.keys(formatkiByColor);
-    const firstColors = colorKeys.slice(0, 2);
-    const remainingColors = colorKeys.length - 2;
+    // Wyświetl wszystkie formatki zgrupowane według pozycji
+    const allFormatki: JSX.Element[] = [];
+    let totalCount = 0;
     
-    const totalSztuk = formatki.reduce((sum, f) => sum + f.ilosc, 0);
+    Object.entries(formatkiByPozycja).forEach(([pozycjaId, pozFormatki]) => {
+      // Dodaj nagłówek pozycji jeśli jest więcej niż jedna pozycja
+      if (Object.keys(formatkiByPozycja).length > 1 && pozycjaId !== 'unknown') {
+        allFormatki.push(
+          <div key={`header-${pozycjaId}`} style={{ marginTop: totalCount > 0 ? 8 : 0, marginBottom: 4 }}>
+            <Tag 
+              color="blue" 
+              style={{ 
+                fontSize: 11, 
+                padding: '0 6px',
+                margin: 0
+              }}
+            >
+              <NumberOutlined style={{ fontSize: 10, marginRight: 2 }} />
+              Pozycja {pozycjaId}
+            </Tag>
+          </div>
+        );
+      }
+      
+      // Sortuj formatki według wymiarów (największe najpierw)
+      const sortedFormatki = pozFormatki.sort((a, b) => {
+        const aSize = (a.dlugosc || 0) * (a.szerokosc || 0);
+        const bSize = (b.dlugosc || 0) * (b.szerokosc || 0);
+        return bSize - aSize;
+      });
+      
+      // Wyświetl formatki
+      sortedFormatki.forEach((f) => {
+        // Formatuj nazwę formatki - preferuj wymiary
+        let formatkaName = '';
+        if (f.dlugosc && f.szerokosc) {
+          // Usuń .00 z wymiarów dla lepszej czytelności
+          const dl = Number(f.dlugosc).toFixed(0);
+          const sz = Number(f.szerokosc).toFixed(0);
+          formatkaName = `${dl}×${sz}`;
+        } else if (f.nazwa) {
+          // Wyciągnij wymiary z nazwy jeśli są (np. "800x180 - WOTAN" -> "800×180")
+          const match = f.nazwa.match(/(\d+)x(\d+)/i);
+          if (match) {
+            formatkaName = `${match[1]}×${match[2]}`;
+          } else {
+            formatkaName = f.nazwa;
+          }
+        } else {
+          formatkaName = 'Formatka';
+        }
+        
+        allFormatki.push(
+          <div 
+            key={`${pozycjaId}-${f.formatka_id}-${totalCount}`} 
+            style={{ 
+              fontSize: 12, 
+              marginBottom: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <Text strong style={{ minWidth: '80px' }}>{formatkaName}</Text>
+            <Text type="secondary">→</Text>
+            <Text strong style={{ color: '#1890ff' }}>{f.ilosc} szt.</Text>
+          </div>
+        );
+        totalCount++;
+      });
+    });
+
+    // Oblicz łączną sumę sztuk
+    const totalSztuk = formatki.reduce((sum, f) => sum + (f.ilosc || 0), 0);
 
     return (
       <Space direction="vertical" size={0} style={{ width: '100%' }}>
-        {/* Pokaż pierwsze 2 kolory */}
-        {firstColors.map(color => {
-          const colorFormatki = formatkiByColor[color];
-          const colorTotal = colorFormatki.reduce((sum, f) => sum + f.ilosc, 0);
-          
-          return (
-            <div key={color} style={{ marginBottom: 2 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <BgColorsOutlined style={{ fontSize: 10, color: '#666' }} />
-                <Text strong style={{ fontSize: 11 }}>
-                  {color}:
-                </Text>
-                <Text style={{ fontSize: 11, color: '#1890ff' }}>
-                  {colorTotal} szt.
-                </Text>
-              </div>
-              {/* Pokaż pierwsze 2 formatki tego koloru */}
-              {colorFormatki.slice(0, 2).map((f, idx) => (
-                <div key={f.formatka_id || idx} style={{ marginLeft: 14, fontSize: 10, color: '#666' }}>
-                  {f.nazwa}: {f.ilosc} szt.
-                </div>
-              ))}
-              {colorFormatki.length > 2 && (
-                <div style={{ marginLeft: 14, fontSize: 10, color: '#999' }}>
-                  +{colorFormatki.length - 2} więcej...
-                </div>
-              )}
-            </div>
-          );
-        })}
-        
-        {remainingColors > 0 && (
-          <Text type="secondary" style={{ fontSize: 10 }}>
-            +{remainingColors} kolorów więcej...
-          </Text>
-        )}
-        
-        {/* Podsumowanie */}
-        <div style={{ 
-          marginTop: 4, 
-          paddingTop: 4, 
-          borderTop: '1px solid #f0f0f0',
-          display: 'flex',
-          justifyContent: 'space-between'
-        }}>
-          <Text strong style={{ fontSize: 11, color: '#1890ff' }}>
-            Razem:
-          </Text>
-          <Text strong style={{ fontSize: 11, color: '#1890ff' }}>
-            {totalSztuk} szt.
-          </Text>
+        <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+          {allFormatki}
         </div>
+        {formatki.length > 0 && (
+          <div style={{ 
+            marginTop: 6, 
+            paddingTop: 6, 
+            borderTop: '1px solid #f0f0f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <Text strong style={{ fontSize: 11, color: '#52c41a' }}>
+              Σ {totalSztuk} szt.
+            </Text>
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              {formatki.length} typów
+            </Text>
+          </div>
+        )}
       </Space>
     );
   };
 
   const columns: ColumnsType<Paleta> = [
     {
-      title: 'Nr Palety',
+      title: 'Paleta',
       dataIndex: 'numer_palety',
       key: 'numer_palety',
-      width: 140,
+      width: 150,
+      fixed: 'left',
       render: (text: string, record: Paleta) => (
         <Space direction="vertical" size={0}>
           <Text strong style={{ fontSize: 12 }}>{text}</Text>
-          <Text type="secondary" style={{ fontSize: 10 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
             ID: {record.id}
           </Text>
         </Space>
       ),
     },
     {
-      title: 'Pozycja',
-      key: 'pozycja',
-      width: 150,
+      title: 'Pozycje',
+      key: 'pozycje',
+      width: 100,
       render: (_, record: Paleta) => {
-        // NAPRAWIONE: Pokaż dokładne informacje o pozycji
-        if (!record.pozycja_id) {
-          return <Text type="secondary" style={{ fontSize: 11 }}>Nie określono</Text>;
+        if (!record.pozycje_lista) {
+          return <Text type="secondary">-</Text>;
         }
         
+        // Parsuj listę pozycji (np. "Poz.62, Poz.63")
+        const pozycje = record.pozycje_lista.split(',').map(p => p.trim());
+        
         return (
-          <Space direction="vertical" size={0} style={{ width: '100%' }}>
-            {/* Numer pozycji z badge */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Badge 
-                count={record.numer_pozycji || record.pozycja_id} 
+          <Space direction="vertical" size={2}>
+            {pozycje.map((poz, idx) => (
+              <Tag 
+                key={idx}
+                color="blue" 
                 style={{ 
-                  backgroundColor: '#52c41a',
-                  fontSize: '10px',
-                  height: '18px',
-                  lineHeight: '18px',
-                  minWidth: '18px'
+                  fontSize: 11,
+                  margin: 0,
+                  padding: '0 6px'
                 }}
-              />
-              <Text strong style={{ fontSize: 12, color: '#1890ff' }}>
-                #{record.numer_pozycji || record.pozycja_id}
-              </Text>
-            </div>
-            
-            {/* Nazwa płyty */}
-            {record.nazwa_plyty && (
-              <Text style={{ fontSize: 11, lineHeight: '14px' }}>
-                {record.nazwa_plyty.length > 20 ? 
-                  `${record.nazwa_plyty.substring(0, 20)}...` : 
-                  record.nazwa_plyty
-                }
-              </Text>
-            )}
-            
-            {/* Kolor płyty */}
-            {record.kolor_plyty && (
-              <Tag style={{ 
-                fontSize: 9, 
-                margin: 0, 
-                padding: '0 4px',
-                lineHeight: '16px',
-                marginTop: 2
-              }}>
-                <BgColorsOutlined style={{ fontSize: 8 }} /> {record.kolor_plyty}
+              >
+                <NumberOutlined style={{ fontSize: 10, marginRight: 2 }} />
+                {poz}
               </Tag>
-            )}
+            ))}
           </Space>
         );
       }
@@ -247,46 +270,62 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 120,
       render: (status: string) => (
-        <Tag color={getStatusColor(status)} style={{ fontSize: 10 }}>
-          {status?.replace(/_/g, ' ')?.toUpperCase() || 'NIEZNANY'}
+        <Tag color={getStatusColor(status)}>
+          {status?.replace(/_/g, ' ') || 'NIEZNANY'}
         </Tag>
       ),
     },
     {
       title: 'Przeznaczenie',
       key: 'przeznaczenie',
-      width: 120,
+      width: 130,
       render: (_, record: Paleta) => getPrzeznaczenieBadge(record.przeznaczenie || record.kierunek),
     },
     {
-      title: 'Formatki na palecie',
+      title: 'Kolory',
+      dataIndex: 'kolory_na_palecie',
+      key: 'kolory',
+      width: 150,
+      render: (kolory: string) => {
+        if (!kolory) return <Text type="secondary">-</Text>;
+        
+        const koloryArray = kolory.split(',').map(k => k.trim()).filter(k => k);
+        return (
+          <Space size={4} wrap>
+            {koloryArray.map((kolor, index) => (
+              <Tag key={index} style={{ fontSize: 11 }}>
+                <BgColorsOutlined style={{ fontSize: 10, marginRight: 2 }} />
+                {kolor}
+              </Tag>
+            ))}
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Formatki',
       key: 'formatki',
-      width: 220,
+      width: 250,
       render: renderFormatkiColumn || renderFormatki,
     },
     {
       title: 'Wysokość',
       dataIndex: 'wysokosc_stosu',
       key: 'wysokosc',
-      width: 90,
+      width: 100,
       render: (wysokosc: number) => {
         const wysokoscNum = Number(wysokosc) || 0;
-        const percent = Math.round((wysokoscNum / 1440) * 100);
-        
         return (
-          <Space direction="vertical" size={2} align="center">
-            <Text style={{ fontSize: 11 }}>{wysokoscNum} mm</Text>
+          <Space direction="vertical" size={0}>
+            <Text>{wysokoscNum} mm</Text>
             <Progress 
-              percent={percent} 
+              percent={Math.round((wysokoscNum / 1440) * 100)} 
               size="small" 
               showInfo={false}
-              strokeWidth={6}
-              strokeColor={wysokoscNum > 1440 ? '#ff4d4f' : wysokoscNum > 1200 ? '#faad14' : '#52c41a'}
-              style={{ width: 60 }}
+              strokeColor={wysokoscNum > 1440 ? '#ff4d4f' : '#52c41a'}
             />
-            <Text style={{ fontSize: 9, color: '#666' }}>{percent}%</Text>
           </Space>
         );
       },
@@ -295,27 +334,44 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Waga',
       dataIndex: 'waga_kg',
       key: 'waga',
-      width: 90,
+      width: 100,
       render: (waga?: number | string) => {
         if (!waga && waga !== 0) return <Text type="secondary">-</Text>;
         
         const wagaNum = Number(waga);
         if (!Number.isFinite(wagaNum)) return <Text type="secondary">-</Text>;
         
-        const percent = Math.round((wagaNum / 700) * 100);
-        
         return (
-          <Space direction="vertical" size={2} align="center">
-            <Text style={{ fontSize: 11 }}>{wagaNum.toFixed(1)} kg</Text>
+          <Space direction="vertical" size={0}>
+            <Text>{wagaNum.toFixed(1)} kg</Text>
             <Progress 
-              percent={percent} 
+              percent={Math.round((wagaNum / 700) * 100)} 
               size="small" 
               showInfo={false}
-              strokeWidth={6}
-              strokeColor={wagaNum > 700 ? '#ff4d4f' : wagaNum > 500 ? '#faad14' : '#52c41a'}
-              style={{ width: 60 }}
+              strokeColor={wagaNum > 700 ? '#ff4d4f' : '#52c41a'}
             />
-            <Text style={{ fontSize: 9, color: '#666' }}>{percent}%</Text>
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Wykorzystanie',
+      key: 'wykorzystanie',
+      width: 100,
+      render: (_, record: Paleta) => {
+        const percent = Number(record.procent_wykorzystania) || 0;
+        return (
+          <Space direction="vertical" size={0} align="center">
+            <Text strong>{percent}%</Text>
+            <Progress 
+              type="circle" 
+              percent={percent} 
+              width={40}
+              strokeColor={
+                percent >= 80 ? '#52c41a' :
+                percent >= 50 ? '#faad14' : '#ff4d4f'
+              }
+            />
           </Space>
         );
       },
@@ -324,36 +380,43 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Akcje',
       key: 'actions',
       fixed: 'right',
-      width: 80,
+      width: 120,
       render: (_, record: Paleta) => (
-        <Space size="small" direction="vertical">
-          <Button
-            type="primary"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => onViewDetails(record)}
-            style={{ fontSize: 10, height: 24, padding: '0 8px' }}
-          >
-            Zobacz
-          </Button>
+        <Space size="small">
+          <Tooltip title="Zobacz szczegóły">
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => onViewDetails(record)}
+            />
+          </Tooltip>
+          {onEdit && (
+            <Tooltip title="Edytuj paletę">
+              <Button
+                type="link"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => onEdit(record)}
+                style={{ color: '#faad14' }}
+              />
+            </Tooltip>
+          )}
           {onDelete && (
             <Popconfirm
-              title="Usunąć paletę?"
-              description={`Czy na pewno usunąć paletę ${record.numer_palety}?`}
+              title="Czy na pewno usunąć tę paletę?"
               onConfirm={() => onDelete(record.id)}
               okText="Usuń"
               cancelText="Anuluj"
               okButtonProps={{ danger: true }}
             >
               <Button
-                danger
+                type="link"
                 size="small"
+                danger
                 icon={<DeleteOutlined />}
                 loading={deletingId === record.id}
-                style={{ fontSize: 10, height: 24, padding: '0 8px' }}
-              >
-                Usuń
-              </Button>
+              />
             </Popconfirm>
           )}
         </Space>
@@ -386,38 +449,35 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       pagination={{
         pageSize: 10,
         showSizeChanger: true,
-        showQuickJumper: true,
-        showTotal: (total, range) => 
-          `${range[0]}-${range[1]} z ${total} palet`,
-        pageSizeOptions: ['5', '10', '20', '50']
+        showTotal: (total) => `Łącznie ${total} palet`,
       }}
-      scroll={{ x: 1200 }}
+      scroll={{ x: 'max-content' }}
       size="small"
+      style={{ width: '100%' }}
       summary={() => (
         palety.length > 0 ? (
           <Table.Summary>
             <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={4}>
-                <Text strong style={{ color: '#1890ff' }}>
-                  📊 Podsumowanie ({palety.length} palet)
-                </Text>
+              <Table.Summary.Cell index={0} colSpan={6}>
+                <Text strong>Podsumowanie</Text>
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={4}>
-                <Text strong style={{ color: '#52c41a' }}>
+              <Table.Summary.Cell index={6}>
+                <Text strong>
                   {totalSztuk} szt.
                 </Text>
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={5}>
-                <Text strong style={{ color: '#faad14' }}>
+              <Table.Summary.Cell index={7}>
+                <Text strong>
                   {totalWysokosc} mm
                 </Text>
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={6}>
-                <Text strong style={{ color: '#1890ff' }}>
+              <Table.Summary.Cell index={8}>
+                <Text strong>
                   {totalWaga.toFixed(1)} kg
                 </Text>
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={7} />
+              <Table.Summary.Cell index={9} />
+              <Table.Summary.Cell index={10} />
             </Table.Summary.Row>
           </Table.Summary>
         ) : null

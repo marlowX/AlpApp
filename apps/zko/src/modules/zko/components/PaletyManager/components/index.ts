@@ -8,7 +8,6 @@
 
 // Główne komponenty
 export { PozycjaSelector } from './PozycjaSelector';
-export { PozycjaCard } from './PozycjaCard';
 export { PaletyTable } from './PaletyTable';
 export { PaletaCard } from './PaletaCard';
 export { FormatkaTable } from './FormatkaTable';
@@ -28,8 +27,4 @@ export { PaletyStats } from './PaletyStats';
 // Modale
 export { PlanowanieModal } from './PlanowanieModal';
 export { PlanowanieModularneModal } from './PlanowanieModularneModal';
-
-// Nowe komponenty
-export { PaletyHeader } from './PaletyHeader';
-export { ExistingPalettes } from './ExistingPalettes';
-export { PaletyTabs } from './PaletyTabs';
+export { EditPaletaModal } from './EditPaletaModal';
