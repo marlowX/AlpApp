@@ -8,6 +8,9 @@ export { useRozkroje } from './useRozkroje';
 // 🆕 NOWY HOOK - Planowanie Modulariczne V2
 export { usePaletyModular } from './usePaletyModular';
 
+// 🆕 NOWY HOOK - Zarządzanie paletami
+export { usePaletyManager } from './usePaletyManager';
+
 // Hook do pobierania listy ZKO - POPRAWKA: zwracamy cały obiekt z data i total
 export const useZKOList = (params?: {
   status?: string;
