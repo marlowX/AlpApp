@@ -1,11 +1,11 @@
 import React from 'react';
-import { Table, Space, Tag, Button, Badge, Tooltip, Modal, Typography, Popconfirm } from 'antd';
+import { Table, Button, Space, Tag, Tooltip, Popconfirm, Typography, Badge, Progress } from 'antd';
 import { 
-  SwapOutlined, 
-  ColumnHeightOutlined, 
-  InfoCircleOutlined,
-  DeleteOutlined,
-  EyeOutlined
+  EyeOutlined, 
+  DeleteOutlined, 
+  AppstoreOutlined,
+  FileTextOutlined,
+  BgColorsOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -14,41 +14,34 @@ const { Text } = Typography;
 interface FormatkaDetail {
   formatka_id: number;
   ilosc: number;
-  nazwa?: string;
-  dlugosc?: number;
-  szerokosc?: number;
+  nazwa: string;
   kolor?: string;
-  pozycja_id?: number;
 }
 
 interface Paleta {
   id: number;
   numer_palety: string;
+  pozycja_id?: number;
+  numer_pozycji?: number;
+  nazwa_plyty?: string;
+  kolor_plyty?: string;
+  przeznaczenie?: string;
   kierunek?: string;
   status: string;
   sztuk_total?: number;
   ilosc_formatek?: number;
-  wysokosc_stosu?: number;
-  kolory_na_palecie?: string;
-  formatki_ids?: number[];
-  formatki_szczegoly?: FormatkaDetail[];
-  formatki?: any[];
-  typ?: string;
-  created_at?: string;
-  updated_at?: string;
+  wysokosc_stosu: number;
   waga_kg?: number;
+  kolory_na_palecie: string;
+  formatki_szczegoly?: FormatkaDetail[];
+  formatki?: FormatkaDetail[];
   procent_wykorzystania?: number;
-  przeznaczenie?: string;
-  pozycja_id?: number;
-  pozycje_info?: string;
 }
 
 interface PaletyTableProps {
   palety: Paleta[];
   loading: boolean;
   onViewDetails: (paleta: Paleta) => void;
-  onTransferFormatki?: (paleta: Paleta) => void;
-  onClosePaleta?: (paletaId: number) => void;
   onDelete?: (paletaId: number) => void;
   deletingId?: number | null;
   renderFormatkiColumn?: (paleta: Paleta) => React.ReactNode;
@@ -58,177 +51,89 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
   palety,
   loading,
   onViewDetails,
-  onTransferFormatki,
-  onClosePaleta,
   onDelete,
   deletingId,
   renderFormatkiColumn
 }) => {
+  
   const getStatusColor = (status: string) => {
-    switch(status?.toLowerCase()) {
-      case 'otwarta': return 'processing';
-      case 'zamknieta': return 'success';
-      case 'wyslana': return 'warning';
-      case 'przygotowanie': return 'default';
-      case 'pakowanie': return 'processing';
-      case 'zapakowana': return 'success';
-      default: return 'default';
-    }
+    const statusColors: Record<string, string> = {
+      'PRZYGOTOWANE': 'blue',
+      'W_PRODUKCJI': 'orange',
+      'WYPRODUKOWANE': 'green',
+      'WYSLANE': 'purple',
+      'DOSTARCZONE': 'cyan'
+    };
+    return statusColors[status] || 'default';
   };
 
   const getPrzeznaczenieBadge = (przeznaczenie?: string) => {
-    if (!przeznaczenie) return null;
-    
     const icons: Record<string, string> = {
       'MAGAZYN': '📦',
       'OKLEINIARKA': '🎨',
       'WIERCENIE': '🔧',
       'CIECIE': '✂️',
-      'WYSYLKA': '📤'
+      'WYSYLKA': '🚚'
     };
     
     const colors: Record<string, string> = {
       'MAGAZYN': 'blue',
-      'OKLEINIARKA': 'purple',
-      'WIERCENIE': 'orange',
-      'CIECIE': 'cyan',
+      'OKLEINIARKA': 'orange',
+      'WIERCENIE': 'purple',
+      'CIECIE': 'red',
       'WYSYLKA': 'green'
     };
-    
+
+    if (!przeznaczenie) return null;
+
     return (
       <Tag color={colors[przeznaczenie] || 'default'}>
-        {icons[przeznaczenie] || ''} {przeznaczenie}
+        {icons[przeznaczenie]} {przeznaczenie}
       </Tag>
     );
   };
 
-  const getWysokoscColor = (wysokosc: number) => {
-    if (wysokosc > 1440) return '#ff4d4f';
-    if (wysokosc > 1200) return '#faad14';
-    return '#52c41a';
-  };
-
-  const handleClosePaleta = (record: Paleta) => {
-    Modal.confirm({
-      title: 'Zamknięcie palety',
-      content: `Czy na pewno chcesz zamknąć paletę ${record.numer_palety || `PAL-${record.id}`}?`,
-      okText: 'Zamknij',
-      cancelText: 'Anuluj',
-      onOk: () => onClosePaleta?.(record.id)
-    });
-  };
-
-  // Funkcja obliczająca wagę na podstawie formatek - ZABEZPIECZONA
-  const calculateWeight = (paleta: Paleta): number => {
-    try {
-      // Jeśli mamy wagę z API, zwróć ją
-      const wagaZApi = parseFloat(String(paleta.waga_kg || 0));
-      if (!isNaN(wagaZApi) && wagaZApi > 0) {
-        return wagaZApi;
-      }
-      
-      // Jeśli mamy formatki, oblicz wagę
-      if (paleta.formatki && Array.isArray(paleta.formatki)) {
-        let totalWeight = 0;
-        paleta.formatki.forEach((f: any) => {
-          const sztuk = parseInt(String(f.ilosc || f.sztuk || 0));
-          const dlugosc = parseFloat(String(f.dlugosc || 0));
-          const szerokosc = parseFloat(String(f.szerokosc || 0));
-          
-          // Zakładamy wagę 12.6 kg/m² dla płyty 18mm
-          const powierzchnia = (dlugosc * szerokosc) / 1000000; // m²
-          const wagaSztuki = powierzchnia * 12.6; // kg
-          
-          if (!isNaN(wagaSztuki) && !isNaN(sztuk)) {
-            totalWeight += sztuk * wagaSztuki;
-          }
-        });
-        
-        if (totalWeight > 0) {
-          return totalWeight;
-        }
-      }
-      
-      // Domyślna waga na podstawie ilości formatek (przybliżenie)
-      const sztuk = parseInt(String(paleta.sztuk_total || paleta.ilosc_formatek || 0));
-      if (!isNaN(sztuk) && sztuk > 0) {
-        return sztuk * 0.5; // Zakładamy średnio 0.5 kg na formatkę
-      }
-      
-      return 0;
-    } catch (error) {
-      console.error('Error calculating weight:', error);
-      return 0;
-    }
-  };
-
-  const renderFormatkiInfo = (paleta: Paleta) => {
-    if (renderFormatkiColumn) {
-      return renderFormatkiColumn(paleta);
-    }
-
-    const sztuk = paleta.sztuk_total || paleta.ilosc_formatek || 0;
+  const renderFormatki = (paleta: Paleta) => {
+    const formatki = paleta.formatki || paleta.formatki_szczegoly || [];
     
-    // Sprawdź różne warianty danych formatek
-    const formatki = paleta.formatki_szczegoly || paleta.formatki || [];
-    
-    // Informacja o pozycjach
-    let pozycjeInfo = '';
-    if (paleta.pozycje_info) {
-      pozycjeInfo = paleta.pozycje_info;
-    } else if (paleta.pozycja_id) {
-      pozycjeInfo = `Pozycja: ${paleta.pozycja_id}`;
-    } else if (formatki.length > 0) {
-      const pozycje = [...new Set(formatki.map((f: any) => f.pozycja_id).filter(Boolean))];
-      if (pozycje.length > 0) {
-        pozycjeInfo = `Pozycje: ${pozycje.join(', ')}`;
-      }
+    if (formatki.length === 0) {
+      return <Text type="secondary">Brak formatek</Text>;
     }
-    
-    if (formatki.length > 0) {
-      return (
-        <Tooltip
-          title={
-            <div>
-              {pozycjeInfo && <div style={{ marginBottom: 8 }}><strong>{pozycjeInfo}</strong></div>}
-              <strong>Szczegóły formatek:</strong>
-              {formatki.map((f: any, index: number) => (
-                <div key={f.formatka_id || index}>
-                  {f.nazwa || `Formatka ${f.formatka_id || index + 1}`}: <strong>{f.ilosc || f.sztuk || 0}</strong> szt.
-                  {f.pozycja_id && <Text type="secondary"> (poz. {f.pozycja_id})</Text>}
-                </div>
-              ))}
-            </div>
-          }
-        >
-          <Space direction="vertical" size={0} style={{ textAlign: 'center' }}>
-            <Badge 
-              count={sztuk} 
-              overflowCount={999}
-              style={{ backgroundColor: sztuk > 0 ? '#1890ff' : '#d9d9d9' }}
-            />
-            {pozycjeInfo && (
-              <Text type="secondary" style={{ fontSize: 11 }}>
-                {pozycjeInfo.length > 15 ? pozycjeInfo.substring(0, 15) + '...' : pozycjeInfo}
-              </Text>
-            )}
-          </Space>
-        </Tooltip>
-      );
-    }
+
+    // Pokaż pierwsze 3 formatki
+    const visibleFormatki = formatki.slice(0, 3);
+    const remainingCount = formatki.length - 3;
 
     return (
-      <Space direction="vertical" size={0} style={{ textAlign: 'center' }}>
-        <Badge 
-          count={sztuk} 
-          overflowCount={999}
-          style={{ backgroundColor: sztuk > 0 ? '#1890ff' : '#d9d9d9' }}
-        />
-        {pozycjeInfo && (
+      <Space direction="vertical" size={0}>
+        {visibleFormatki.map((f, index) => (
+          <div key={f.formatka_id || index} style={{ fontSize: 12 }}>
+            <Text>{f.nazwa}: </Text>
+            <Text strong>{f.ilosc} szt.</Text>
+            {f.kolor && (
+              <Tag 
+                style={{ 
+                  marginLeft: 4, 
+                  fontSize: 10,
+                  padding: '0 4px',
+                  lineHeight: '16px'
+                }}
+              >
+                {f.kolor}
+              </Tag>
+            )}
+          </div>
+        ))}
+        {remainingCount > 0 && (
           <Text type="secondary" style={{ fontSize: 11 }}>
-            {pozycjeInfo}
+            +{remainingCount} więcej...
           </Text>
         )}
+        <div style={{ marginTop: 4 }}>
+          <Text strong style={{ fontSize: 11, color: '#1890ff' }}>
+            Razem: {paleta.sztuk_total || paleta.ilosc_formatek || 0} szt.
+          </Text>
+        </div>
       </Space>
     );
   };
@@ -238,45 +143,37 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       title: 'Paleta',
       dataIndex: 'numer_palety',
       key: 'numer_palety',
+      width: 150,
       render: (text: string, record: Paleta) => (
-        <Space direction="vertical" size="small">
-          <Text strong>{text || `PAL-${record.id}`}</Text>
-          <Space>
-            <Tag>{record.typ || 'EURO'}</Tag>
-            {getPrzeznaczenieBadge(record.przeznaczenie)}
-          </Space>
+        <Space direction="vertical" size={0}>
+          <Text strong style={{ fontSize: 12 }}>{text}</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            ID: {record.id}
+          </Text>
         </Space>
-      )
+      ),
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => (
-        <Tag color={getStatusColor(status)}>
-          {(status || 'PRZYGOTOWANE').toUpperCase()}
-        </Tag>
-      )
-    },
-    {
-      title: 'Kolory',
-      dataIndex: 'kolory_na_palecie',
-      key: 'kolory_na_palecie',
-      render: (kolory: string) => {
-        if (!kolory) return <Text type="secondary">-</Text>;
-        
-        const kolorList = kolory.split(',').map(k => {
-          const parts = k.trim().split(' x');
-          return parts[0];
-        });
-        
-        const uniqueKolory = [...new Set(kolorList)];
+      title: 'Pozycja',
+      key: 'pozycja',
+      width: 120,
+      render: (_, record: Paleta) => {
+        if (!record.pozycja_id) {
+          return <Text type="secondary">-</Text>;
+        }
         
         return (
-          <Space size={4} wrap>
-            {uniqueKolory.map(k => 
-              <Tag key={k} color="blue" style={{ margin: 2 }}>
-                {k}
+          <Space direction="vertical" size={0}>
+            <Badge 
+              count={record.numer_pozycji || record.pozycja_id} 
+              style={{ backgroundColor: '#52c41a' }}
+            />
+            {record.nazwa_plyty && (
+              <Text style={{ fontSize: 11 }}>{record.nazwa_plyty}</Text>
+            )}
+            {record.kolor_plyty && (
+              <Tag style={{ fontSize: 10, margin: 0 }}>
+                <BgColorsOutlined /> {record.kolor_plyty}
               </Tag>
             )}
           </Space>
@@ -284,128 +181,166 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
       }
     },
     {
-      title: 'Formatek',
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      width: 120,
+      render: (status: string) => (
+        <Tag color={getStatusColor(status)}>
+          {status?.replace(/_/g, ' ') || 'NIEZNANY'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Przeznaczenie',
+      key: 'przeznaczenie',
+      width: 130,
+      render: (_, record: Paleta) => getPrzeznaczenieBadge(record.przeznaczenie || record.kierunek),
+    },
+    {
+      title: 'Kolory',
+      dataIndex: 'kolory_na_palecie',
+      key: 'kolory',
+      width: 150,
+      render: (kolory: string) => {
+        if (!kolory) return <Text type="secondary">-</Text>;
+        
+        const koloryArray = kolory.split(',').map(k => k.trim());
+        return (
+          <Space size={4} wrap>
+            {koloryArray.map((kolor, index) => (
+              <Tag key={index} style={{ fontSize: 11 }}>
+                {kolor}
+              </Tag>
+            ))}
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Formatki',
       key: 'formatki',
-      align: 'center',
-      render: (_: any, record: Paleta) => renderFormatkiInfo(record)
+      width: 200,
+      render: renderFormatkiColumn || renderFormatki,
     },
     {
       title: 'Wysokość',
       dataIndex: 'wysokosc_stosu',
-      key: 'wysokosc_stosu',
-      render: (wysokosc: any) => {
-        const value = parseInt(String(wysokosc || 36)); // Domyślnie 36mm (2 warstwy po 18mm)
+      key: 'wysokosc',
+      width: 100,
+      render: (wysokosc: number) => {
+        const wysokoscNum = Number(wysokosc) || 0;
         return (
-          <Tooltip title={`${value > 1440 ? 'Za wysoka!' : value > 1200 ? 'Blisko limitu' : 'OK'}`}>
-            <Space>
-              <ColumnHeightOutlined style={{ color: getWysokoscColor(value) }} />
-              <Text style={{ color: getWysokoscColor(value) }}>
-                {value} mm
-              </Text>
-            </Space>
-          </Tooltip>
+          <Space direction="vertical" size={0}>
+            <Text>{wysokoscNum} mm</Text>
+            <Progress 
+              percent={Math.round((wysokoscNum / 1440) * 100)} 
+              size="small" 
+              showInfo={false}
+              strokeColor={wysokoscNum > 1440 ? '#ff4d4f' : '#52c41a'}
+            />
+          </Space>
         );
-      }
+      },
     },
     {
       title: 'Waga',
-      key: 'waga_calculated',
-      render: (_: any, record: Paleta) => {
-        const waga = calculateWeight(record);
-        const wagaNum = parseFloat(String(waga || 0));
+      dataIndex: 'waga_kg',
+      key: 'waga',
+      width: 100,
+      render: (waga?: number | string) => {
+        if (!waga && waga !== 0) return <Text type="secondary">-</Text>;
         
-        if (isNaN(wagaNum)) {
-          return <Text type="secondary">-</Text>;
-        }
-        
-        const color = wagaNum > 700 ? '#ff4d4f' : wagaNum > 600 ? '#faad14' : '#52c41a';
+        const wagaNum = Number(waga);
+        if (!Number.isFinite(wagaNum)) return <Text type="secondary">-</Text>;
         
         return (
-          <Tooltip title={record.waga_kg ? 'Waga z systemu' : 'Waga obliczona'}>
-            <Text style={{ color }}>
-              {wagaNum.toFixed(1)} kg
-            </Text>
-          </Tooltip>
+          <Space direction="vertical" size={0}>
+            <Text>{wagaNum.toFixed(1)} kg</Text>
+            <Progress 
+              percent={Math.round((wagaNum / 700) * 100)} 
+              size="small" 
+              showInfo={false}
+              strokeColor={wagaNum > 700 ? '#ff4d4f' : '#52c41a'}
+            />
+          </Space>
         );
-      }
+      },
     },
     {
       title: 'Wykorzystanie',
-      dataIndex: 'procent_wykorzystania',
-      key: 'procent_wykorzystania',
-      render: (procent: any, record: Paleta) => {
-        let procentNum = parseFloat(String(procent || 0));
-        
-        // Jeśli brak procentu, oblicz na podstawie wagi
-        if (!procent || isNaN(procentNum)) {
-          const waga = calculateWeight(record);
-          procentNum = Math.min(100, Math.round((waga / 700) * 100));
-        }
-        
-        if (isNaN(procentNum)) {
-          return <Text type="secondary">-</Text>;
-        }
-        
-        const color = procentNum < 50 ? '#ff4d4f' : procentNum < 75 ? '#faad14' : '#52c41a';
+      key: 'wykorzystanie',
+      width: 100,
+      render: (_, record: Paleta) => {
+        const percent = Number(record.procent_wykorzystania) || 0;
         return (
-          <Text style={{ color }}>
-            {Math.round(procentNum)}%
-          </Text>
+          <Space direction="vertical" size={0} align="center">
+            <Text strong>{percent}%</Text>
+            <Progress 
+              type="circle" 
+              percent={percent} 
+              width={40}
+              strokeColor={
+                percent >= 80 ? '#52c41a' :
+                percent >= 50 ? '#faad14' : '#ff4d4f'
+              }
+            />
+          </Space>
         );
-      }
+      },
     },
     {
       title: 'Akcje',
       key: 'actions',
-      width: 150,
-      render: (_: any, record: Paleta) => {
-        const sztuk = record.sztuk_total || record.ilosc_formatek || 0;
-        
-        return (
-          <Space size="small">
-            <Tooltip title="Szczegóły">
-              <Button 
-                size="small" 
-                icon={<EyeOutlined />}
-                onClick={() => onViewDetails(record)}
+      fixed: 'right',
+      width: 100,
+      render: (_, record: Paleta) => (
+        <Space size="small">
+          <Tooltip title="Zobacz szczegóły">
+            <Button
+              type="link"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => onViewDetails(record)}
+            />
+          </Tooltip>
+          {onDelete && (
+            <Popconfirm
+              title="Czy na pewno usunąć tę paletę?"
+              onConfirm={() => onDelete(record.id)}
+              okText="Usuń"
+              cancelText="Anuluj"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                loading={deletingId === record.id}
               />
-            </Tooltip>
-            
-            {onTransferFormatki && (
-              <Tooltip title="Przenieś formatki">
-                <Button 
-                  size="small" 
-                  icon={<SwapOutlined />}
-                  onClick={() => onTransferFormatki(record)}
-                  disabled={sztuk === 0}
-                />
-              </Tooltip>
-            )}
-            
-            {onDelete && (
-              <Popconfirm
-                title="Czy na pewno usunąć paletę?"
-                description={`Paleta ${record.numer_palety || `PAL-${record.id}`} zostanie trwale usunięta`}
-                onConfirm={() => onDelete(record.id)}
-                okText="Usuń"
-                cancelText="Anuluj"
-                okButtonProps={{ danger: true }}
-              >
-                <Tooltip title="Usuń paletę">
-                  <Button
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined />}
-                    loading={deletingId === record.id}
-                  />
-                </Tooltip>
-              </Popconfirm>
-            )}
-          </Space>
-        );
-      }
-    }
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
+
+  // Oblicz sumy dla podsumowania - z zabezpieczeniem przed NaN
+  const totalSztuk = palety.reduce((sum, p) => {
+    const val = Number(p.sztuk_total || p.ilosc_formatek || 0);
+    return sum + (Number.isFinite(val) ? val : 0);
+  }, 0);
+  
+  const totalWysokosc = palety.reduce((sum, p) => {
+    const val = Number(p.wysokosc_stosu || 0);
+    return sum + (Number.isFinite(val) ? val : 0);
+  }, 0);
+  
+  const totalWaga = palety.reduce((sum, p) => {
+    const val = Number(p.waga_kg || 0);
+    return sum + (Number.isFinite(val) ? val : 0);
+  }, 0);
 
   return (
     <Table
@@ -417,9 +352,37 @@ export const PaletyTable: React.FC<PaletyTableProps> = ({
         pageSize: 10,
         showSizeChanger: true,
         showTotal: (total) => `Łącznie ${total} palet`,
-        pageSizeOptions: ['10', '20', '50', '100']
       }}
-      size="middle"
+      scroll={{ x: 1300 }}
+      size="small"
+      summary={() => (
+        palety.length > 0 ? (
+          <Table.Summary>
+            <Table.Summary.Row>
+              <Table.Summary.Cell index={0} colSpan={6}>
+                <Text strong>Podsumowanie</Text>
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={6}>
+                <Text strong>
+                  {totalSztuk} szt.
+                </Text>
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={7}>
+                <Text strong>
+                  {totalWysokosc} mm
+                </Text>
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={8}>
+                <Text strong>
+                  {totalWaga.toFixed(1)} kg
+                </Text>
+              </Table.Summary.Cell>
+              <Table.Summary.Cell index={9} />
+              <Table.Summary.Cell index={10} />
+            </Table.Summary.Row>
+          </Table.Summary>
+        ) : null
+      )}
     />
   );
 };
