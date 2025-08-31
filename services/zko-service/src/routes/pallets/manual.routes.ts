@@ -6,7 +6,7 @@ import { z } from 'zod';
 const router = Router();
 const logger = pino();
 
-// Schema dla ręcznego tworzenia palety
+// Schema dla ręcznego tworzenia palety - NAPRAWIONE obsługa null dla uwagi
 const ManualPaletaSchema = z.object({
   pozycja_id: z.number().int().positive(),
   formatki: z.array(z.object({
@@ -17,7 +17,7 @@ const ManualPaletaSchema = z.object({
   max_waga: z.number().default(700),
   max_wysokosc: z.number().default(1440),
   operator: z.string().default('system'),
-  uwagi: z.string().optional()
+  uwagi: z.string().nullable().optional().transform(val => val || null)
 });
 
 /**
@@ -115,6 +115,10 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
   let client;
   
   try {
+    // Loguj całe żądanie dla debugowania
+    logger.info('=== BATCH CREATE REQUEST START ===');
+    logger.info('Raw body:', JSON.stringify(req.body));
+    
     // Konwertuj pozycja_id na liczbę jeśli przyszło jako string
     const pozycja_id = typeof req.body.pozycja_id === 'string' 
       ? parseInt(req.body.pozycja_id, 10)
@@ -122,25 +126,47 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
       
     const { palety } = req.body;
     
-    logger.info('Batch create request:', { 
+    logger.info('Parsed values:', { 
       pozycja_id, 
+      pozycja_id_type: typeof pozycja_id,
       palety_count: palety?.length,
-      body: req.body 
+      palety_is_array: Array.isArray(palety),
+      first_paleta: palety?.[0]
     });
     
-    if (!pozycja_id || isNaN(pozycja_id) || !Array.isArray(palety)) {
-      logger.error('Invalid input:', { pozycja_id, palety: Array.isArray(palety) });
+    // Walidacja podstawowa
+    if (!pozycja_id || isNaN(pozycja_id)) {
+      logger.error('Invalid pozycja_id:', { pozycja_id, isNaN: isNaN(pozycja_id) });
       return res.status(400).json({
-        error: 'Wymagane: pozycja_id (jako liczba) i tablica palet'
+        error: 'Nieprawidłowe ID pozycji',
+        details: `pozycja_id=${pozycja_id}, type=${typeof pozycja_id}`,
+        sukces: false
       });
     }
     
-    // Filtruj puste palety
-    const niepustePalety = palety.filter(p => p.formatki && p.formatki.length > 0);
+    if (!Array.isArray(palety)) {
+      logger.error('Palety is not an array:', { palety, type: typeof palety });
+      return res.status(400).json({
+        error: 'Wymagana tablica palet',
+        details: `palety type=${typeof palety}`,
+        sukces: false
+      });
+    }
+    
+    // Filtruj puste palety - NAPRAWIONE warunek
+    const niepustePalety = palety.filter(p => {
+      const hasFormatki = p && p.formatki && Array.isArray(p.formatki) && p.formatki.length > 0;
+      logger.info(`Checking paleta: formatki=${p?.formatki?.length}, valid=${hasFormatki}`);
+      return hasFormatki;
+    });
+    
+    logger.info(`Filtered pallets: ${niepustePalety.length} of ${palety.length} have formatki`);
     
     if (niepustePalety.length === 0) {
+      logger.warn('No pallets with formatki after filtering');
       return res.status(400).json({
         error: 'Brak palet z formatkami do zapisania',
+        details: `Otrzymano ${palety.length} palet, ale żadna nie ma formatek`,
         sukces: false
       });
     }
@@ -153,11 +179,19 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
     for (let i = 0; i < niepustePalety.length; i++) {
       const paleta = niepustePalety[i];
       try {
-        logger.info(`Processing pallet ${i + 1}:`, paleta);
+        logger.info(`Processing pallet ${i + 1}/${niepustePalety.length}:`, {
+          formatki_count: paleta.formatki?.length,
+          przeznaczenie: paleta.przeznaczenie
+        });
         
         // Domyślny operator jeśli brak
         if (!paleta.operator) {
           paleta.operator = 'user';
+        }
+        
+        // Upewnij się że uwagi są ustawione
+        if (!paleta.uwagi) {
+          paleta.uwagi = `Paleta ${i + 1} z pozycji ${pozycja_id}`;
         }
         
         const params = ManualPaletaSchema.parse({
@@ -165,7 +199,7 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
           ...paleta
         });
         
-        logger.info(`Parsed params for pallet ${i + 1}:`, params);
+        logger.info(`Calling PostgreSQL function for pallet ${i + 1}`);
         
         // Użyj POPRAWIONEJ funkcji
         const result = await client.query(`
@@ -177,27 +211,33 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
           params.max_waga,
           params.max_wysokosc,
           params.operator,
-          params.uwagi || null
+          params.uwagi
         ]);
         
         const response = result.rows[0];
+        logger.info(`PostgreSQL response for pallet ${i + 1}:`, {
+          sukces: response.sukces,
+          paleta_id: response.paleta_id,
+          numer: response.numer_palety
+        });
         
         if (!response.sukces) {
           logger.error(`Failed to create pallet ${i + 1}:`, response.komunikat);
           await client.query('ROLLBACK');
           return res.status(400).json({
             error: `Błąd tworzenia palety ${i + 1}: ${response.komunikat}`,
+            details: response,
             sukces: false
           });
         }
         
-        logger.info(`Successfully created pallet ${i + 1}:`, response.numer_palety);
         utworzonePalety.push(response);
+        logger.info(`Successfully added pallet ${i + 1} to results`);
         
       } catch (parseError: any) {
-        logger.error(`Error parsing pallet ${i + 1} data:`, {
+        logger.error(`Error processing pallet ${i + 1}:`, {
           error: parseError.message,
-          issues: parseError instanceof z.ZodError ? parseError.issues : undefined,
+          stack: parseError.stack,
           paleta
         });
         
@@ -207,62 +247,83 @@ router.post('/manual/batch', async (req: Request, res: Response) => {
           return res.status(400).json({
             error: `Błąd walidacji danych palety ${i + 1}`,
             details: parseError.issues,
-            paleta_index: i
+            paleta_index: i,
+            sukces: false
           });
         }
         
         return res.status(400).json({
-          error: `Błąd przetwarzania palety ${i + 1}`,
-          details: parseError.message
+          error: `Błąd przetwarzania palety ${i + 1}: ${parseError.message}`,
+          details: parseError.toString(),
+          sukces: false
         });
       }
     }
     
+    // Commit transakcji
     await client.query('COMMIT');
+    logger.info(`Transaction committed. Created ${utworzonePalety.length} pallets`);
     
     // WebSocket notification
-    const pozycjaResult = await db.query(
-      'SELECT zko_id FROM zko.pozycje WHERE id = $1',
-      [pozycja_id]
-    );
-    
-    if (pozycjaResult.rows[0]) {
-      emitZKOUpdate(pozycjaResult.rows[0].zko_id, 'pallets:batch-created', {
-        pozycja_id,
-        palety_utworzone: utworzonePalety.length,
-        palety: utworzonePalety.map(p => ({
-          id: p.paleta_id,
-          numer: p.numer_palety,
-          statystyki: p.statystyki
-        }))
-      });
+    try {
+      const pozycjaResult = await db.query(
+        'SELECT zko_id FROM zko.pozycje WHERE id = $1',
+        [pozycja_id]
+      );
+      
+      if (pozycjaResult.rows[0]) {
+        emitZKOUpdate(pozycjaResult.rows[0].zko_id, 'pallets:batch-created', {
+          pozycja_id,
+          palety_utworzone: utworzonePalety.length,
+          palety: utworzonePalety.map(p => ({
+            id: p.paleta_id,
+            numer: p.numer_palety,
+            statystyki: p.statystyki
+          }))
+        });
+        logger.info('WebSocket notification sent');
+      }
+    } catch (wsError: any) {
+      logger.warn('WebSocket notification failed:', wsError.message);
+      // Nie przerywaj - palety już zapisane
     }
     
-    logger.info(`Created ${utworzonePalety.length} manual pallets for position ${pozycja_id}`);
-    
-    res.json({
+    const successResponse = {
       sukces: true,
       palety_utworzone: utworzonePalety,
-      komunikat: `Utworzono ${utworzonePalety.length} palet`
+      komunikat: `Utworzono ${utworzonePalety.length} palet`,
+      total: utworzonePalety.length
+    };
+    
+    logger.info('=== BATCH CREATE SUCCESS ===', {
+      created_count: utworzonePalety.length,
+      pallet_ids: utworzonePalety.map(p => p.paleta_id)
     });
     
+    return res.json(successResponse);
+    
   } catch (error: any) {
+    logger.error('=== BATCH CREATE ERROR ===', {
+      error: error.message,
+      stack: error.stack
+    });
+    
     if (client) {
       await client.query('ROLLBACK');
     }
     
     if (error instanceof z.ZodError) {
-      logger.error('Validation error:', error.errors);
       return res.status(400).json({
         error: 'Błąd walidacji danych',
-        details: error.errors
+        details: error.errors,
+        sukces: false
       });
     }
     
-    logger.error('Error creating batch pallets:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Błąd tworzenia palet',
-      message: error.message
+      message: error.message,
+      sukces: false
     });
   } finally {
     if (client) {

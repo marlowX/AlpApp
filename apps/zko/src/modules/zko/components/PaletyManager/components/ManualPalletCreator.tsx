@@ -117,14 +117,18 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
     });
   };
 
-  // Zapisz wszystkie - POPRAWIONA OBSŁUGA BŁĘDÓW
+  // NAPRAWIONA funkcja zapisywania - NIE czyści palet przed wysłaniem
   const handleSaveAll = async () => {
     if (!pozycjaId) {
-      message.error('Brak ID pozycji');
+      message.error('Brak ID pozycji - nie można zapisać palet');
       return;
     }
 
+    // Skopiuj palety PRZED czyszczeniem, filtruj puste
     const paletySkladowe = palety.filter(p => p.formatki && p.formatki.length > 0);
+    
+    console.log('📋 Palety do zapisania:', paletySkladowe);
+    
     if (paletySkladowe.length === 0) {
       message.warning('Brak palet z formatkami do zapisania');
       return;
@@ -132,65 +136,94 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
 
     try {
       setSaving(true);
+      message.info(`Zapisywanie ${paletySkladowe.length} palet...`);
       
       // Przygotuj dane do wysłania
       const payload = {
-        pozycja_id: pozycjaId,
-        palety: paletySkladowe.map(p => ({
-          formatki: p.formatki,
+        pozycja_id: Number(pozycjaId),
+        palety: paletySkladowe.map((p, index) => ({
+          formatki: p.formatki.map(f => ({
+            formatka_id: Number(f.formatka_id),
+            ilosc: Number(f.ilosc)
+          })),
           przeznaczenie: p.przeznaczenie || 'MAGAZYN',
-          max_waga: p.max_waga || 700,
-          max_wysokosc: p.max_wysokosc || 1440,
-          operator: 'user'
+          max_waga: Number(p.max_waga || 700),
+          max_wysokosc: Number(p.max_wysokosc || 1440),
+          operator: 'user',
+          uwagi: p.uwagi || `Paleta ${index + 1} z pozycji ${pozycjaId}`
         }))
       };
       
-      console.log('Wysyłam dane:', JSON.stringify(payload, null, 2));
+      console.log('📤 Wysyłam dane do API:', JSON.stringify(payload, null, 2));
       
-      // Bezpośrednie wysłanie do API
-      const response = await fetch('http://localhost:5001/api/pallets/manual/batch', {
+      const response = await fetch('/api/pallets/manual/batch', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(payload)
       });
 
       const data = await response.json();
-      console.log('Odpowiedź z API:', data);
+      console.log('📥 Odpowiedź z API:', {
+        status: response.status,
+        ok: response.ok,
+        data
+      });
       
-      // Sprawdź czy jest błąd "Brak palet z formatkami do zapisania"
-      // Jeśli tak, ale response.ok, to traktuj jako sukces
-      if (response.ok || (data.error && data.error.includes('Brak palet z formatkami') && response.status === 400)) {
-        // Sprawdź czy są palety_utworzone w odpowiedzi
-        const utworzonePalety = data.palety_utworzone || data.palety || [];
+      if (response.ok && data.sukces) {
+        const utworzonePalety = data.palety_utworzone || [];
         
-        if (utworzonePalety.length > 0 || response.ok) {
-          message.success(`Zapisano ${utworzonePalety.length || paletySkladowe.length} palet`);
-          wyczyscPalety();
-          
-          // Odśwież widok rodzica z opóźnieniem
-          if (onRefresh) {
-            setTimeout(() => {
-              onRefresh();
-            }, 1000);
-          }
-          
-          // Wywołaj callback rodzica jeśli istnieje
-          if (onSave) {
-            onSave(utworzonePalety);
-          }
-          return;
+        // Wyczyść lokalne palety TYLKO po pomyślnym zapisie
+        wyczyscPalety();
+        
+        message.success({
+          content: `✅ Pomyślnie zapisano ${utworzonePalety.length} palet do bazy danych!`,
+          duration: 3
+        });
+        
+        // Callback do rodzica
+        if (onSave) {
+          onSave(utworzonePalety);
+        }
+        
+        // Odśwież dane po krótkim opóźnieniu
+        if (onRefresh) {
+          setTimeout(() => {
+            onRefresh();
+          }, 500);
+        }
+        
+      } else {
+        // Obsługa błędów API - NIE czyść palet przy błędzie!
+        console.error('❌ Błąd API:', {
+          status: response.status,
+          error: data.error,
+          details: data.details
+        });
+        
+        if (data.details) {
+          message.error({
+            content: `Błąd: ${data.error}\nSzczegóły: ${data.details}`,
+            duration: 5
+          });
+        } else if (data.error) {
+          message.error({
+            content: `Błąd zapisywania: ${data.error}`,
+            duration: 5
+          });
+        } else {
+          message.error('Nieznany błąd zapisywania palet');
         }
       }
       
-      // Jeśli faktyczny błąd
-      if (!response.ok && data.error && !data.error.includes('Brak palet z formatkami')) {
-        console.error('Błąd API:', data);
-        message.error(data.error || 'Błąd zapisywania palet');
-      }
-      
     } catch (error) {
-      console.error('Error saving pallets:', error);
-      message.error('Błąd połączenia z serwerem');
+      console.error('❌ Błąd połączenia:', error);
+      message.error({
+        content: 'Błąd połączenia z serwerem. Sprawdź czy backend działa.',
+        duration: 5
+      });
     } finally {
       setSaving(false);
     }
@@ -315,14 +348,14 @@ export const ManualPalletCreator: React.FC<ManualPalletCreatorProps> = ({
                   icon={<SaveOutlined />}
                   type="primary"
                   onClick={handleSaveAll}
-                  disabled={palety.length === 0}
+                  disabled={palety.length === 0 || saving}
                   loading={saving || loading}
                   style={{ 
                     background: '#52c41a', 
                     borderColor: '#52c41a' 
                   }}
                 >
-                  Zapisz wszystkie ({palety.length})
+                  {saving ? 'Zapisywanie...' : `Zapisz wszystkie (${palety.length})`}
                 </Button>
               </Space>
             }
