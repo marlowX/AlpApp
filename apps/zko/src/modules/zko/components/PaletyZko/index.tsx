@@ -1,5 +1,5 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko - NAPRAWIONY DRAG & DROP
+ * @fileoverview Główny komponent modułu PaletyZko - Z AUTOMATYCZNYM ODŚWIEŻANIEM FORMATEK
  * @module PaletyZko
  */
 
@@ -66,6 +66,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   const {
     formatki,
     loading: formatkiLoading,
+    fetchFormatki, // Dodajemy fetchFormatki do odświeżania
     getFormatkiDostepne,
     obliczStatystyki
   } = useFormatki(selectedPozycjaId);
@@ -73,8 +74,9 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   // ========== HANDLERS ==========
   const handleRefresh = useCallback(() => {
     fetchPalety();
+    fetchFormatki(); // Odśwież też formatki
     if (onRefresh) onRefresh();
-  }, [fetchPalety, onRefresh]);
+  }, [fetchPalety, fetchFormatki, onRefresh]);
 
   const handleSelectPozycja = useCallback((pozycjaId: number) => {
     setSelectedPozycjaId(pozycjaId);
@@ -90,8 +92,9 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     if (paleta) {
       setCreateModalVisible(false);
       message.success('Paleta utworzona pomyślnie');
+      await fetchFormatki(); // Odśwież listę formatek po utworzeniu palety
     }
-  }, [selectedPozycjaId, utworzPalete]);
+  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
 
   // Tworzenie pustej palety
   const handleCreateEmptyPaleta = useCallback(async () => {
@@ -113,8 +116,11 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   }, [selectedPozycjaId, utworzPalete]);
 
   const handleDeletePaleta = useCallback(async (paletaId: number) => {
-    await usunPalete(paletaId);
-  }, [usunPalete]);
+    const success = await usunPalete(paletaId);
+    if (success) {
+      await fetchFormatki(); // Odśwież listę formatek po usunięciu palety
+    }
+  }, [usunPalete, fetchFormatki]);
 
   const handleClosePaleta = useCallback(async (paletaId: number) => {
     await zamknijPalete(paletaId);
@@ -126,10 +132,13 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       return;
     }
 
-    await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
-  }, [selectedPozycjaId, utworzPaletyDlaPozostalych]);
+    const result = await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
+    if (result) {
+      await fetchFormatki(); // Odśwież listę formatek po utworzeniu palet
+    }
+  }, [selectedPozycjaId, utworzPaletyDlaPozostalych, fetchFormatki]);
 
-  // DRAG & DROP - Handler dla upuszczenia formatki na paletę - NAPRAWIONY
+  // DRAG & DROP - Handler dla upuszczenia formatki na paletę - Z ODŚWIEŻANIEM
   const handleDropFormatka = useCallback(async (
     formatka: any,
     ilosc: number,
@@ -197,13 +206,17 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       
       if (success) {
         message.success(`Dodano ${ilosc} szt. formatki do palety`);
-        await fetchPalety();
+        // Odśwież obie listy po przeciągnięciu
+        await Promise.all([
+          fetchPalety(),
+          fetchFormatki() // 🔥 WAŻNE: Odśwież listę formatek po dodaniu do palety
+        ]);
       }
     } catch (error) {
       console.error('Błąd podczas dodawania formatki:', error);
       message.error('Błąd podczas dodawania formatki do palety');
     }
-  }, [palety, edytujPalete, fetchPalety]);
+  }, [palety, edytujPalete, fetchPalety, fetchFormatki]);
 
   const formatkiDostepne = getFormatkiDostepne();
   const statystykiFormatek = obliczStatystyki();
@@ -279,8 +292,8 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       title={
                         <div style={{ fontSize: '12px' }}>
                           <div>• Przeciągnij formatki na palety</div>
-                          <div>• Domyślnie przeciągane są wszystkie sztuki</div>
-                          <div>• Odznacz checkbox aby ustawić własną ilość</div>
+                          <div>• Pokazane są tylko formatki nie przypisane w całości</div>
+                          <div>• Liczba w nawiasie to dostępne sztuki</div>
                         </div>
                       }
                     >
@@ -321,7 +334,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   <Empty 
                     description={
                       selectedPozycjaId 
-                        ? "Brak dostępnych formatek dla tej pozycji"
+                        ? "Wszystkie formatki zostały przypisane do palet"
                         : "Wybierz pozycję ZKO aby zobaczyć formatki"
                     }
                   />

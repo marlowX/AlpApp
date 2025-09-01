@@ -1,5 +1,5 @@
 /**
- * @fileoverview Hook do zarządzania formatkami
+ * @fileoverview Hook do zarządzania formatkami - Z FILTROWANIEM PRZYPISANYCH
  * @module PaletyZko/hooks/useFormatki
  */
 
@@ -32,32 +32,51 @@ export const useFormatki = (pozycjaId?: number) => {
         `${API_URL}/zko/pozycje/${pozycjaId}/formatki`
       );
 
-      if (response.data) {
-        // Mapuj dane z backendu na nasz format
-        const formatkiData = response.data.formatki || response.data || [];
-        setFormatki(formatkiData.map((f: any) => ({
-          id: f.id,
-          pozycja_id: f.pozycja_id,
-          wymiar_x: f.dlugosc || f.wymiar_x || 0,
-          wymiar_y: f.szerokosc || f.wymiar_y || 0,
-          ilosc_szt: f.ilosc_planowana || f.ilosc_szt || 0,
-          ilosc_dostepna: f.ilosc_planowana || f.ilosc_dostepna || 0,
-          typ: f.typ || 'formatka',
-          kolor: f.kolor || f.kolor_plyty,
-          grubosc: f.grubosc || 18,
-          waga_sztuki: f.waga_sztuki,
-          nazwa_plyty: f.nazwa_plyty,
-          numer_formatki: f.nazwa_formatki || f.numer_formatki
-        })));
+      if (response.data && response.data.sukces) {
+        // Mapuj dane z backendu na nasz format - UŻYWAMY DANYCH Z BACKENDU
+        const formatkiData = response.data.formatki || [];
         
-        // Ustaw mapę formatek na paletach (jeśli jest dostępna)
+        // Ustaw mapę formatek na paletach
         const mapa = new Map<number, number>();
-        if (response.data.na_paletach) {
-          Object.entries(response.data.na_paletach).forEach(([id, ilosc]) => {
-            mapa.set(Number(id), Number(ilosc));
-          });
-        }
+        
+        const mappedFormatki = formatkiData.map((f: any) => {
+          // Zapisz ile formatek jest na paletach
+          if (f.ilosc_w_paletach > 0) {
+            mapa.set(f.id, f.ilosc_w_paletach);
+          }
+          
+          return {
+            id: f.id,
+            pozycja_id: f.pozycja_id,
+            wymiar_x: f.dlugosc || 0,
+            wymiar_y: f.szerokosc || 0,
+            dlugosc: f.dlugosc || 0,
+            szerokosc: f.szerokosc || 0,
+            ilosc_szt: f.ilosc_planowana || 0,
+            ilosc_dostepna: f.ilosc_dostepna || 0, // Backend już obliczył dostępność
+            ilosc_na_paletach: f.ilosc_w_paletach || 0,
+            czy_w_pelni_przypisana: f.czy_w_pelni_przypisana || false,
+            typ: f.typ_formatki || 'formatka',
+            kolor: f.kolor,
+            kolor_plyty: f.kolor,
+            grubosc: f.grubosc || 18,
+            waga_sztuki: f.waga_sztuka,
+            nazwa_plyty: f.nazwa_plyty,
+            numer_formatki: f.nazwa || f.nazwa_formatki,
+            nazwa_formatki: f.nazwa || f.nazwa_formatki,
+            sztuki_dostepne: f.ilosc_dostepna || 0 // Dla kompatybilności
+          };
+        });
+        
+        setFormatki(mappedFormatki);
         setFormatkiNaPaletach(mapa);
+        
+        console.log('Loaded formatki:', {
+          total: mappedFormatki.length,
+          dostepne: mappedFormatki.filter((f: any) => f.ilosc_dostepna > 0).length,
+          w_pelni_przypisane: mappedFormatki.filter((f: any) => f.czy_w_pelni_przypisana).length,
+          podsumowanie: response.data.podsumowanie
+        });
       }
     } catch (error) {
       console.error('Błąd pobierania formatek:', error);
@@ -72,22 +91,19 @@ export const useFormatki = (pozycjaId?: number) => {
 
   /**
    * Oblicza dostępną ilość formatki (nie przypisaną do palet)
+   * UWAGA: Teraz dane są już obliczone przez backend
    */
   const obliczDostepnaIlosc = useCallback((formatka: Formatka): number => {
-    const naPaletach = formatkiNaPaletach.get(formatka.id) || 0;
-    const calkowita = formatka.ilosc_szt || 0;
-    return Math.max(0, calkowita - naPaletach);
-  }, [formatkiNaPaletach]);
+    // Backend już obliczył dostępność, używamy wartości z serwera
+    return formatka.ilosc_dostepna || 0;
+  }, []);
 
   /**
    * Zwraca formatki z obliczoną dostępną ilością
    */
   const getFormatkiZDostepnoscia = useCallback((): Formatka[] => {
-    return formatki.map(f => ({
-      ...f,
-      ilosc_dostepna: obliczDostepnaIlosc(f)
-    }));
-  }, [formatki, obliczDostepnaIlosc]);
+    return formatki; // Dane już mają obliczoną dostępność z backendu
+  }, [formatki]);
 
   /**
    * Grupuje formatki po kolorze
@@ -141,19 +157,21 @@ export const useFormatki = (pozycjaId?: number) => {
       sztukiNaPaletach: 0,
       liczbaKolorow: 0,
       liczbaTypow: 0,
-      wagaTotal: 0
+      wagaTotal: 0,
+      w_pelni_przypisane: 0
     };
 
     const kolory = new Set<string>();
     const typy = new Set<string>();
 
     formatki.forEach(f => {
-      const dostepne = obliczDostepnaIlosc(f);
-      const naPaletach = formatkiNaPaletach.get(f.id) || 0;
-      
       stats.sztukiTotal += f.ilosc_szt || 0;
-      stats.sztukiDostepne += dostepne;
-      stats.sztukiNaPaletach += naPaletach;
+      stats.sztukiDostepne += f.ilosc_dostepna || 0;
+      stats.sztukiNaPaletach += (f as any).ilosc_na_paletach || 0;
+      
+      if ((f as any).czy_w_pelni_przypisana) {
+        stats.w_pelni_przypisane++;
+      }
       
       if (f.kolor) kolory.add(f.kolor);
       if (f.typ) typy.add(f.typ);
@@ -168,14 +186,28 @@ export const useFormatki = (pozycjaId?: number) => {
     stats.liczbaTypow = typy.size;
 
     return stats;
-  }, [formatki, obliczDostepnaIlosc, formatkiNaPaletach]);
+  }, [formatki]);
 
   /**
-   * Filtruje formatki dostępne do dodania
+   * 🔥 KLUCZOWA METODA - Filtruje formatki dostępne do dodania
+   * Zwraca tylko te formatki, które NIE są w pełni przypisane do palet
    */
   const getFormatkiDostepne = useCallback((): Formatka[] => {
-    return getFormatkiZDostepnoscia().filter(f => f.ilosc_dostepna > 0);
-  }, [getFormatkiZDostepnoscia]);
+    // Filtruj formatki które mają jeszcze dostępne sztuki
+    const dostepne = formatki.filter(f => {
+      const iloscDostepna = f.ilosc_dostepna || 0;
+      const czyWPelniPrzypisana = (f as any).czy_w_pelni_przypisana || false;
+      
+      // Zwracaj tylko te które:
+      // 1. Mają dostępne sztuki (ilosc_dostepna > 0)
+      // 2. NIE są w pełni przypisane
+      return iloscDostepna > 0 && !czyWPelniPrzypisana;
+    });
+    
+    console.log(`Formatki dostępne do dodania: ${dostepne.length} z ${formatki.length}`);
+    
+    return dostepne;
+  }, [formatki]);
 
   /**
    * Sortuje formatki
