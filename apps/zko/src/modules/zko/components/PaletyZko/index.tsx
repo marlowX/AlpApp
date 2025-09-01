@@ -6,17 +6,18 @@
  * - Maksymalnie 300 linii kodu
  * - Logika w hookach
  * - UI w podkomponentach
- * - Pełna obsługa Drag & Drop
+ * - Pełna obsługa Drag & Drop w JEDNYM WIDOKU
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Tabs, Space, Typography, Button, Badge, message, Spin } from 'antd';
+import { Card, Row, Col, Space, Typography, Button, Badge, message, Spin, Empty, Alert } from 'antd';
 import {
   AppstoreOutlined,
   PlusOutlined,
   ReloadOutlined,
   DeleteOutlined,
-  DragOutlined
+  DragOutlined,
+  ArrowRightOutlined
 } from '@ant-design/icons';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -39,7 +40,6 @@ import { usePalety, useFormatki } from './hooks';
 import { PaletaFormData, PRZEZNACZENIE_PALETY } from './types';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
 
 interface PaletyZkoProps {
   zkoId: number;
@@ -51,7 +51,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   const [selectedPozycjaId, setSelectedPozycjaId] = useState<number>();
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [detailsPaletaId, setDetailsPaletaId] = useState<number>();
-  const [activeTab, setActiveTab] = useState('palety');
 
   // ========== HOOKS ==========
   const {
@@ -65,7 +64,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     edytujPalete,
     usunPalete,
     usunWszystkiePalety,
-    przenieFormatki,
     zamknijPalete,
     utworzPaletyDlaPozostalych
   } = usePalety(zkoId);
@@ -124,7 +122,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     targetPaletaId: number
   ) => {
     try {
-      // Pobierz aktualną zawartość palety
       const paleta = palety.find(p => p.id === targetPaletaId);
       if (!paleta) {
         message.error('Nie znaleziono palety');
@@ -136,42 +133,51 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         return;
       }
 
+      console.log('Dropping formatka:', formatka, 'ilosc:', ilosc, 'to paleta:', targetPaletaId);
+
+      // POPRAWKA: Użyj prawidłowego ID formatki
+      const formatkaId = formatka.id;
+      
       // Przygotuj formatki do aktualizacji
       const currentFormatki = paleta.formatki_szczegoly || [];
-      const existingFormatka = currentFormatki.find((f: any) => f.formatka_id === formatka.id);
+      const existingFormatka = currentFormatki.find((f: any) => 
+        (f.formatka_id === formatkaId) || (f.id === formatkaId)
+      );
       
       let updatedFormatki;
       if (existingFormatka) {
         // Zwiększ ilość istniejącej formatki
-        updatedFormatki = currentFormatki.map((f: any) => 
-          f.formatka_id === formatka.id 
-            ? { formatka_id: f.formatka_id, ilosc: f.ilosc + ilosc }
-            : { formatka_id: f.formatka_id, ilosc: f.ilosc }
-        );
+        updatedFormatki = currentFormatki.map((f: any) => {
+          const fId = f.formatka_id || f.id;
+          if (fId === formatkaId) {
+            return { formatka_id: formatkaId, ilosc: (f.ilosc || 0) + ilosc };
+          }
+          return { formatka_id: fId, ilosc: f.ilosc || 0 };
+        });
       } else {
         // Dodaj nową formatkę
+        const currentFormatkiMapped = currentFormatki.map((f: any) => ({ 
+          formatka_id: f.formatka_id || f.id, 
+          ilosc: f.ilosc || 0 
+        }));
         updatedFormatki = [
-          ...currentFormatki.map((f: any) => ({ formatka_id: f.formatka_id, ilosc: f.ilosc })),
-          { formatka_id: formatka.id, ilosc: ilosc }
+          ...currentFormatkiMapped,
+          { formatka_id: formatkaId, ilosc: ilosc }
         ];
       }
+
+      console.log('Sending formatki to backend:', updatedFormatki);
 
       const success = await edytujPalete(targetPaletaId, { formatki: updatedFormatki });
       if (success) {
         message.success(`Dodano ${ilosc} szt. formatki do palety`);
-        await fetchPalety(); // Odśwież listę palet
+        await fetchPalety();
       }
     } catch (error) {
       console.error('Błąd podczas dodawania formatki:', error);
       message.error('Błąd podczas dodawania formatki do palety');
     }
   }, [palety, edytujPalete, fetchPalety]);
-
-  // Handler dla ręcznego wyboru formatki
-  const handleSelectFormatka = useCallback(async (formatka: any, ilosc: number) => {
-    message.info('Wybierz paletę docelową w zakładce "Palety"');
-    setActiveTab('palety');
-  }, []);
 
   const formatkiDostepne = getFormatkiDostepne();
   const statystykiFormatek = obliczStatystyki();
@@ -232,73 +238,125 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
           </Space>
         </Card>
 
-        {/* Główna zawartość */}
-        <Card>
-          <Tabs activeKey={activeTab} onChange={setActiveTab}>
-            <TabPane 
-              tab={
-                <span>
-                  <AppstoreOutlined /> Palety ({palety.length})
-                </span>
-              } 
-              key="palety"
+        {/* GŁÓWNY WIDOK - FORMATKI PO LEWEJ, PALETY PO PRAWEJ */}
+        <Row gutter={16}>
+          {/* LEWA KOLUMNA - FORMATKI DO PRZECIĄGANIA */}
+          <Col xs={24} lg={8}>
+            <Card 
+              title={
+                <Space>
+                  <DragOutlined />
+                  <span>Dostępne formatki ({formatkiDostepne.length})</span>
+                </Space>
+              }
+              extra={
+                formatkiDostepne.length > 0 && (
+                  <Button
+                    size="small"
+                    onClick={handleCreateRemaining}
+                    disabled={!selectedPozycjaId}
+                  >
+                    Utwórz palety dla wszystkich
+                  </Button>
+                )
+              }
+              style={{ height: '100%' }}
             >
               {loading ? (
                 <div style={{ textAlign: 'center', padding: 50 }}>
                   <Spin size="large" />
                 </div>
-              ) : (
+              ) : formatkiDostepne.length > 0 ? (
                 <>
-                  <div style={{ marginBottom: 16 }}>
-                    <Space>
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => setCreateModalVisible(true)}
-                        disabled={!selectedPozycjaId}
-                      >
-                        Nowa paleta
-                      </Button>
-                      {formatkiDostepne.length > 0 && (
-                        <Button
-                          onClick={handleCreateRemaining}
-                          disabled={!selectedPozycjaId}
-                        >
-                          Utwórz palety dla pozostałych ({statystykiFormatek.sztukiDostepne} szt.)
-                        </Button>
-                      )}
-                    </Space>
-                  </div>
-
-                  <PaletyGridDND
-                    palety={palety}
-                    onEdit={(paleta) => message.info('Edycja w przygotowaniu')}
-                    onDelete={handleDeletePaleta}
-                    onClose={handleClosePaleta}
-                    onShowDetails={(id) => setDetailsPaletaId(id)}
-                    onDropFormatka={handleDropFormatka}
-                    deleting={deleting}
+                  <Alert
+                    message="Przeciągnij formatki na palety"
+                    description={
+                      <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
+                        <li>Domyślnie przeciągane są <b>wszystkie sztuki</b></li>
+                        <li>Odznacz checkbox aby ustawić własną ilość</li>
+                        <li>Przeciągnij formatkę na wybraną paletę po prawej</li>
+                      </ul>
+                    }
+                    type="info"
+                    showIcon
+                    icon={<ArrowRightOutlined />}
+                    style={{ marginBottom: 16 }}
+                  />
+                  <FormatkaSelectorDND
+                    formatki={formatkiDostepne}
+                    loading={formatkiLoading}
+                    onSelectFormatka={() => {}}
                   />
                 </>
+              ) : (
+                <Empty 
+                  description={
+                    selectedPozycjaId 
+                      ? "Brak dostępnych formatek dla tej pozycji"
+                      : "Wybierz pozycję ZKO aby zobaczyć formatki"
+                  }
+                />
               )}
-            </TabPane>
+            </Card>
+          </Col>
 
-            <TabPane 
-              tab={
-                <span>
-                  <DragOutlined /> Formatki ({formatkiDostepne.length})
-                </span>
-              } 
-              key="formatki"
+          {/* PRAWA KOLUMNA - PALETY (DROP ZONES) */}
+          <Col xs={24} lg={16}>
+            <Card 
+              title={
+                <Space>
+                  <AppstoreOutlined />
+                  <span>Palety ({palety.length})</span>
+                </Space>
+              }
+              extra={
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => setCreateModalVisible(true)}
+                  disabled={!selectedPozycjaId}
+                >
+                  Nowa paleta
+                </Button>
+              }
             >
-              <FormatkaSelectorDND
-                formatki={formatkiDostepne}
-                loading={formatkiLoading}
-                onSelectFormatka={handleSelectFormatka}
-              />
-            </TabPane>
-          </Tabs>
-        </Card>
+              {loading ? (
+                <div style={{ textAlign: 'center', padding: 50 }}>
+                  <Spin size="large" />
+                </div>
+              ) : palety.length > 0 ? (
+                <PaletyGridDND
+                  palety={palety}
+                  onEdit={(paleta) => message.info('Edycja w przygotowaniu')}
+                  onDelete={handleDeletePaleta}
+                  onClose={handleClosePaleta}
+                  onShowDetails={(id) => setDetailsPaletaId(id)}
+                  onDropFormatka={handleDropFormatka}
+                  deleting={deleting}
+                />
+              ) : (
+                <Empty 
+                  image={<AppstoreOutlined style={{ fontSize: 48 }} />}
+                  description={
+                    <div>
+                      <p>Brak palet</p>
+                      {selectedPozycjaId && (
+                        <Button
+                          type="primary"
+                          icon={<PlusOutlined />}
+                          onClick={() => setCreateModalVisible(true)}
+                          style={{ marginTop: 16 }}
+                        >
+                          Utwórz pierwszą paletę
+                        </Button>
+                      )}
+                    </div>
+                  }
+                />
+              )}
+            </Card>
+          </Col>
+        </Row>
 
         {/* Modale */}
         <CreatePaletaModal

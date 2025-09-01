@@ -1,11 +1,10 @@
 /**
- * @fileoverview Selektor formatek z DRAG & DROP
+ * @fileoverview Selektor formatek z DRAG & DROP - wersja kompaktowa
  * @module PaletyZko/components/FormatkaSelectorDND
  */
 
 import React, { useState } from 'react';
 import {
-  Card,
   Input,
   Select,
   Space,
@@ -13,18 +12,15 @@ import {
   Typography,
   Badge,
   Empty,
-  Alert,
   Divider
 } from 'antd';
 import {
   SearchOutlined,
-  AppstoreOutlined,
-  InfoCircleOutlined,
-  DragOutlined
+  AppstoreOutlined
 } from '@ant-design/icons';
 import { Formatka } from '../types';
 import { FormatkaItem } from './FormatkaItem';
-import { formatujWymiary, formatujKolor, formatujWage, obliczWageSztuki } from '../utils';
+import { formatujKolor, formatujWage, obliczWageSztuki } from '../utils';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -85,90 +81,69 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
   const totalWaga = formatkiConverted.reduce((sum, f) => sum + (obliczWageSztuki(f) * f.sztuki_dostepne), 0);
 
   return (
-    <div className="formatka-selector">
-      {/* Nagłówek ze statystykami */}
-      <div style={{ marginBottom: 16 }}>
-        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Title level={5} style={{ margin: 0 }}>
-            <AppstoreOutlined /> Dostępne formatki ({formatki.length})
-          </Title>
-          <Space>
-            <Tag color="green">{totalSztuk} szt.</Tag>
-            <Tag color="blue">{formatujWage(totalWaga)}</Tag>
-          </Space>
+    <div className="formatka-selector-compact">
+      {/* Statystyki */}
+      <div style={{ marginBottom: 12, textAlign: 'center' }}>
+        <Space>
+          <Tag color="green">{totalSztuk} szt.</Tag>
+          <Tag color="blue">{formatujWage(totalWaga)}</Tag>
+          <Tag>{filteredFormatki.length} typów</Tag>
         </Space>
       </div>
 
-      {/* Filtry */}
-      <Space style={{ width: '100%', marginBottom: 16 }} wrap>
+      {/* Filtry - kompaktowe */}
+      <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
         <Input
           placeholder="Szukaj formatki..."
           prefix={<SearchOutlined />}
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
-          style={{ width: 200 }}
+          size="small"
         />
         
-        <Select
-          value={filterKolor}
-          onChange={setFilterKolor}
-          style={{ width: 150 }}
-          placeholder="Wszystkie kolory"
-        >
-          <Option value="all">Wszystkie kolory</Option>
-          {uniqueKolory.map(kolor => (
-            <Option key={kolor} value={kolor}>
-              <Badge color={kolor} text={formatujKolor(kolor)} />
-            </Option>
-          ))}
-        </Select>
-        
-        <Select
-          value={sortBy}
-          onChange={setSortBy}
-          style={{ width: 150 }}
-        >
-          <Option value="rozmiar">Sortuj po rozmiarze</Option>
-          <Option value="ilosc">Sortuj po ilości</Option>
-          <Option value="kolor">Sortuj po kolorze</Option>
-        </Select>
+        <Space style={{ width: '100%' }}>
+          <Select
+            value={filterKolor}
+            onChange={setFilterKolor}
+            style={{ flex: 1 }}
+            placeholder="Kolor"
+            size="small"
+          >
+            <Option value="all">Wszystkie</Option>
+            {uniqueKolory.map(kolor => (
+              <Option key={kolor} value={kolor}>
+                <Badge color={kolor} text={formatujKolor(kolor)} />
+              </Option>
+            ))}
+          </Select>
+          
+          <Select
+            value={sortBy}
+            onChange={setSortBy}
+            style={{ width: 100 }}
+            size="small"
+          >
+            <Option value="rozmiar">Rozmiar</Option>
+            <Option value="ilosc">Ilość</Option>
+            <Option value="kolor">Kolor</Option>
+          </Select>
+        </Space>
       </Space>
 
-      {/* Instrukcja drag & drop */}
-      {totalSztuk > 0 && (
-        <Alert
-          message={
-            <Space>
-              <DragOutlined />
-              <span>Przeciągnij i upuść formatki na palety</span>
-            </Space>
-          }
-          description={
-            <div>
-              <p style={{ margin: '4px 0' }}>
-                • Przeciągnij formatkę z listy poniżej na wybraną paletę w zakładce "Palety"
-              </p>
-              <p style={{ margin: '4px 0' }}>
-                • Ustaw ilość sztuk przed przeciągnięciem
-              </p>
-              <p style={{ margin: '4px 0' }}>
-                • Możesz też kliknąć przycisk kopiowania aby dodać ręcznie
-              </p>
-            </div>
-          }
-          type="info"
-          showIcon
-          style={{ marginBottom: 16 }}
-        />
-      )}
-
-      <Divider />
+      <Divider style={{ margin: '12px 0' }} />
 
       {/* Lista formatek z drag & drop */}
       {loading ? (
-        <Card loading style={{ marginTop: 16 }} />
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          Ładowanie...
+        </div>
       ) : filteredFormatki.length > 0 ? (
-        <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+        <div style={{ 
+          maxHeight: 'calc(100vh - 500px)', 
+          minHeight: 300,
+          overflowY: 'auto',
+          paddingRight: 4
+        }}>
           {filteredFormatki.map(formatka => (
             <FormatkaItem
               key={formatka.id}
@@ -184,6 +159,7 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
               ? "Brak formatek spełniających kryteria" 
               : "Brak dostępnych formatek"
           }
+          style={{ padding: '20px 0' }}
         />
       )}
     </div>
