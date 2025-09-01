@@ -33,7 +33,9 @@ import {
   TeamOutlined,
   DeleteOutlined,
   ClockCircleOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
+  DragOutlined,
+  ExperimentOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -41,6 +43,7 @@ import { useZKO } from '../hooks';
 import { statusColors, statusLabels } from '../utils/constants';
 import { AddPozycjaModal } from '../components/AddPozycja';
 import { PaletyManager } from '../components/PaletyManager';
+import { PaletyZko } from '../components/PaletyZko'; // NOWY MODUŁ DRAG & DROP
 import zkoApi from '../services/zkoApi';
 import '../styles/zko-details.css';
 
@@ -439,15 +442,53 @@ export const ZKODetailsPage: React.FC = () => {
             )}
           </Tabs.TabPane>
           
+          {/* NOWA ZAKŁADKA - Palety Drag & Drop */}
           <Tabs.TabPane 
             tab={
               <Space>
-                <AppstoreOutlined />
-                Zarządzanie paletami
+                <DragOutlined style={{ color: '#1890ff' }} />
+                <span style={{ color: '#1890ff', fontWeight: 500 }}>
+                  Palety (Drag & Drop)
+                </span>
+                <Badge 
+                  count="NEW" 
+                  style={{ 
+                    backgroundColor: '#52c41a',
+                    fontSize: 10,
+                    height: 16,
+                    lineHeight: '16px',
+                    padding: '0 4px'
+                  }} 
+                />
               </Space>
             } 
-            key="palety"
+            key="palety-dnd"
           >
+            <PaletyZko 
+              zkoId={Number(id)} 
+              onRefresh={refetch}
+            />
+          </Tabs.TabPane>
+          
+          {/* STARA ZAKŁADKA - do testowania */}
+          <Tabs.TabPane 
+            tab={
+              <Space>
+                <ExperimentOutlined style={{ color: '#999' }} />
+                <span style={{ color: '#999' }}>
+                  Palety (wersja testowa)
+                </span>
+              </Space>
+            } 
+            key="palety-old"
+          >
+            <Alert
+              message="Wersja testowa"
+              description="To jest stara wersja modułu palet. Używaj nowej wersji z Drag & Drop dla lepszego doświadczenia."
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+            />
             <PaletyManager 
               zkoId={Number(id)} 
               onRefresh={refetch}

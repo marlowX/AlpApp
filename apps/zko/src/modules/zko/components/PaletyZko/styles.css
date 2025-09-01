@@ -1,0 +1,486 @@
+/**
+ * @fileoverview Style CSS dla modułu PaletyZko z Drag & Drop
+ * @module PaletyZko/styles
+ */
+
+/* ==================== GŁÓWNY KONTENER ==================== */
+.palety-zko {
+  width: 100%;
+  min-height: 600px;
+}
+
+/* ==================== KARTY PALET - DRAG & DROP ==================== */
+.paleta-card {
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: visible;
+}
+
+.paleta-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Stan podczas przeciągania nad paletą */
+.paleta-card.drag-over {
+  border-color: #1890ff !important;
+  background-color: rgba(24, 144, 255, 0.05) !important;
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(24, 144, 255, 0.3);
+}
+
+/* Animacja pulsowania dla drop zone */
+.paleta-card.can-drop {
+  animation: dropPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dropPulse {
+  0%, 100% {
+    border-color: transparent;
+  }
+  50% {
+    border-color: #52c41a;
+  }
+}
+
+/* Stan palety zamkniętej */
+.paleta-card.locked {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Wskaźnik pełnej palety */
+.paleta-card.paleta-full::before {
+  content: '⚠️ PEŁNA';
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: #ff4d4f;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  z-index: 10;
+}
+
+/* ==================== FORMATKI - DRAGGABLE ==================== */
+.formatka-item {
+  cursor: grab;
+  transition: all 0.2s ease;
+  user-select: none;
+  position: relative;
+}
+
+.formatka-item:active {
+  cursor: grabbing;
+}
+
+/* Stan podczas przeciągania */
+.formatka-item.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg) scale(0.98);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.formatka-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(to right, transparent, rgba(24, 144, 255, 0.02));
+}
+
+/* Ikona drag */
+.formatka-item .drag-handle {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #bfbfbf;
+  transition: color 0.2s ease;
+}
+
+.formatka-item:hover .drag-handle {
+  color: #1890ff;
+  transform: translateY(-50%) scale(1.2);
+}
+
+/* ==================== DROP INDICATOR ==================== */
+.drop-indicator {
+  border: 2px dashed #1890ff;
+  background: linear-gradient(
+    45deg,
+    rgba(24, 144, 255, 0.05) 25%,
+    transparent 25%,
+    transparent 75%,
+    rgba(24, 144, 255, 0.05) 75%,
+    rgba(24, 144, 255, 0.05)
+  );
+  background-size: 20px 20px;
+  animation: dropIndicatorMove 1s linear infinite;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  margin: 8px 0;
+}
+
+@keyframes dropIndicatorMove {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 20px 20px;
+  }
+}
+
+.drop-indicator-text {
+  color: #1890ff;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* ==================== BADGE KOLORÓW ==================== */
+.color-badge {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  margin-right: 4px;
+  vertical-align: middle;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ==================== STATYSTYKI ==================== */
+.stats-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.stats-card .ant-statistic-title {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.stats-card .ant-statistic-content {
+  color: white;
+  font-weight: 600;
+}
+
+/* ==================== PROGRESS BARS ==================== */
+.progress-with-label {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.progress-label {
+  position: absolute;
+  top: -20px;
+  right: 0;
+  font-size: 11px;
+  color: #8c8c8c;
+}
+
+/* Kolory progress barów z gradientem */
+.ant-progress-line.weight-progress .ant-progress-bg {
+  background: linear-gradient(to right, #52c41a, #faad14);
+}
+
+.ant-progress-line.height-progress .ant-progress-bg {
+  background: linear-gradient(to right, #1890ff, #722ed1);
+}
+
+/* ==================== DRAG GHOST IMAGE ==================== */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.8;
+  transform: rotate(-5deg);
+  background: white;
+  padding: 8px;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ==================== DROP ZONE EMPTY STATE ==================== */
+.drop-zone-empty {
+  border: 3px dashed #d9d9d9;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  transition: all 0.3s ease;
+  min-height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(0, 0, 0, 0.01) 10px,
+    rgba(0, 0, 0, 0.01) 20px
+  );
+}
+
+.drop-zone-empty.active {
+  border-color: #1890ff;
+  background-color: rgba(24, 144, 255, 0.05);
+  transform: scale(1.02);
+}
+
+.drop-zone-empty.reject {
+  border-color: #ff4d4f;
+  background-color: rgba(255, 77, 79, 0.05);
+  animation: shake 0.5s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ==================== ANIMACJE ==================== */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(24, 144, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
+  }
+}
+
+.pulse-animation {
+  animation: pulse 2s infinite;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* ==================== SIATKA PALET ==================== */
+.palety-grid {
+  margin-top: 16px;
+}
+
+.palety-grid .ant-row {
+  margin: -8px;
+}
+
+.palety-grid .ant-col {
+  padding: 8px;
+}
+
+/* Grupowanie po przeznaczeniu */
+.przeznaczenie-group {
+  margin-bottom: 32px;
+  padding: 16px;
+  background: linear-gradient(to bottom, #fafafa, #f5f5f5);
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.przeznaczenie-group-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #262626;
+}
+
+/* ==================== DRAG PREVIEW ==================== */
+.drag-preview {
+  background: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.drag-preview-icon {
+  color: #1890ff;
+}
+
+.drag-preview-count {
+  background: #52c41a;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* ==================== MODAL TWORZENIA ==================== */
+.create-paleta-modal .ant-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.formatka-selector-list {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+  padding: 8px;
+  margin-top: 8px;
+}
+
+.selected-formatka-item {
+  background: linear-gradient(to right, #f6ffed, #f0f9ff);
+  border: 1px solid #b7eb8f;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.selected-formatka-item::before {
+  content: '✓';
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #52c41a;
+  font-size: 16px;
+  font-weight: bold;
+  transition: left 0.3s ease;
+}
+
+.selected-formatka-item:hover::before {
+  left: 8px;
+}
+
+.selected-formatka-item:hover {
+  background: linear-gradient(to right, #f0f9ff, #e6f7ff);
+  border-color: #91d5ff;
+  padding-left: 32px;
+}
+
+/* ==================== TOOLTIPS ==================== */
+.custom-tooltip {
+  max-width: 300px;
+}
+
+.tooltip-content {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 768px) {
+  .palety-grid .ant-col {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .stats-card {
+    padding: 12px;
+  }
+
+  .create-paleta-modal .ant-modal {
+    max-width: 95vw;
+  }
+
+  .formatka-item {
+    font-size: 12px;
+  }
+
+  .drop-zone-empty {
+    min-height: 150px;
+    padding: 16px;
+  }
+}
+
+@media (max-width: 576px) {
+  .paleta-card .ant-card-actions > li {
+    padding: 8px 4px;
+  }
+
+  .paleta-card .ant-card-actions .anticon {
+    font-size: 14px;
+  }
+
+  .drag-handle {
+    display: none;
+  }
+}
+
+/* ==================== DARK MODE (opcjonalne) ==================== */
+@media (prefers-color-scheme: dark) {
+  .palety-zko {
+    background: #141414;
+  }
+
+  .paleta-card {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+
+  .drop-zone-empty {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+
+  .przeznaczenie-group {
+    background: linear-gradient(to bottom, #1f1f1f, #262626);
+    border-color: #303030;
+  }
+
+  .formatka-item {
+    background: #262626;
+    color: #ffffff;
+  }
+
+  .drop-indicator {
+    background: rgba(24, 144, 255, 0.1);
+  }
+}
+
+/* ==================== PRINT STYLES ==================== */
+@media print {
+  .palety-zko .ant-btn,
+  .palety-zko .ant-card-actions,
+  .drag-handle,
+  .drop-indicator {
+    display: none !important;
+  }
+
+  .paleta-card {
+    page-break-inside: avoid;
+    border: 1px solid #000 !important;
+  }
+
+  .ant-progress {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
