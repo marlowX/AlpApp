@@ -24,8 +24,15 @@ export const obliczWageSztuki = (formatka: Formatka): number => {
     return formatka.waga_sztuki;
   }
   
-  // Oblicz na podstawie wymiarów
-  const powierzchnia = (formatka.wymiar_x * formatka.wymiar_y) / 1000000; // m²
+  // Sprawdź alternatywne nazwy pól
+  if (formatka.waga_sztuka && formatka.waga_sztuka > 0) {
+    return formatka.waga_sztuka;
+  }
+  
+  // Oblicz na podstawie wymiarów - obsłuż różne nazwy pól
+  const dlugosc = formatka.wymiar_x || formatka.dlugosc || 0;
+  const szerokosc = formatka.wymiar_y || formatka.szerokosc || 0;
+  const powierzchnia = (dlugosc * szerokosc) / 1000000; // m²
   const grubosc = (formatka.grubosc || LIMITY_PALETY.GRUBOSC_PLYTY_MM) / 1000; // m
   const objetosc = powierzchnia * grubosc; // m³
   const gestosc = 650; // kg/m³ dla płyty wiórowej
@@ -94,7 +101,9 @@ export const obliczStatystykiPalety = (formatki: FormatkaZIloscia[]): PaletaStat
  */
 export const obliczPowierzchnie = (formatki: FormatkaZIloscia[]): number => {
   return formatki.reduce((suma, f) => {
-    const powierzchniaSztuki = (f.wymiar_x * f.wymiar_y) / 1000000; // m²
+    const dlugosc = f.wymiar_x || f.dlugosc || 0;
+    const szerokosc = f.wymiar_y || f.szerokosc || 0;
+    const powierzchniaSztuki = (dlugosc * szerokosc) / 1000000; // m²
     return suma + (powierzchniaSztuki * f.ilosc_na_palecie);
   }, 0);
 };
@@ -161,40 +170,6 @@ export const sugerujIloscFormatek = (
     maxZeWzgleduNaWage,
     maxZeWzgleduNaWysokosc
   );
-};
-
-/**
- * Formatuje wagę do wyświetlenia
- * NAPRAWIONE: Obsługuje różne typy danych
- */
-export const formatujWage = (waga: number | string | null | undefined): string => {
-  // Konwertuj do liczby jeśli to możliwe
-  const wagaNum = Number(waga);
-  
-  // Sprawdź czy konwersja się udała
-  if (isNaN(wagaNum) || wagaNum === null || wagaNum === undefined) {
-    return '0.0 kg';
-  }
-  
-  return `${wagaNum.toFixed(1)} kg`;
-};
-
-/**
- * Formatuje wysokość do wyświetlenia
- */
-export const formatujWysokosc = (wysokosc: number | string | null | undefined): string => {
-  // Konwertuj do liczby jeśli to możliwe
-  const wysokoscNum = Number(wysokosc);
-  
-  // Sprawdź czy konwersja się udała
-  if (isNaN(wysokoscNum) || wysokoscNum === null || wysokoscNum === undefined) {
-    return '0 mm';
-  }
-  
-  if (wysokoscNum >= 1000) {
-    return `${(wysokoscNum / 1000).toFixed(2)} m`;
-  }
-  return `${Math.round(wysokoscNum)} mm`;
 };
 
 /**

@@ -7,6 +7,7 @@
 .palety-zko {
   width: 100%;
   min-height: 600px;
+  background: transparent;
 }
 
 /* ==================== KARTY PALET - DRAG & DROP ==================== */
@@ -15,17 +16,24 @@
   border: 2px solid transparent;
   position: relative;
   overflow: visible;
+  background: #ffffff !important;
+}
+
+.paleta-card .ant-card-body {
+  background: #ffffff !important;
+  padding: 16px;
 }
 
 .paleta-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: #1890ff;
 }
 
 /* Stan podczas przeciągania nad paletą */
 .paleta-card.drag-over {
   border-color: #1890ff !important;
-  background-color: rgba(24, 144, 255, 0.05) !important;
+  background-color: #e6f7ff !important;
   transform: scale(1.02);
   box-shadow: 0 0 20px rgba(24, 144, 255, 0.3);
 }
@@ -71,6 +79,11 @@
   transition: all 0.2s ease;
   user-select: none;
   position: relative;
+  background: #ffffff !important;
+}
+
+.formatka-item .ant-card-body {
+  background: #ffffff !important;
 }
 
 .formatka-item:active {
@@ -87,7 +100,7 @@
 .formatka-item:hover {
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: linear-gradient(to right, transparent, rgba(24, 144, 255, 0.02));
+  background: linear-gradient(to right, #ffffff, rgba(24, 144, 255, 0.02)) !important;
 }
 
 /* Ikona drag */
@@ -171,6 +184,15 @@
 .stats-card .ant-statistic-content {
   color: white;
   font-weight: 600;
+}
+
+/* ==================== PALETY HEADER ==================== */
+.palety-header {
+  background: #ffffff !important;
+}
+
+.palety-header .ant-card-body {
+  background: #ffffff !important;
 }
 
 /* ==================== PROGRESS BARS ==================== */
@@ -283,6 +305,7 @@
 /* ==================== SIATKA PALET ==================== */
 .palety-grid {
   margin-top: 16px;
+  background: transparent;
 }
 
 .palety-grid .ant-row {
@@ -297,7 +320,7 @@
 .przeznaczenie-group {
   margin-bottom: 32px;
   padding: 16px;
-  background: linear-gradient(to bottom, #fafafa, #f5f5f5);
+  background: #fafafa;
   border-radius: 8px;
   border: 1px solid #e8e8e8;
 }
@@ -341,6 +364,7 @@
 .create-paleta-modal .ant-modal-body {
   max-height: 70vh;
   overflow-y: auto;
+  background: #ffffff !important;
 }
 
 .formatka-selector-list {
@@ -350,6 +374,7 @@
   border-radius: 4px;
   padding: 8px;
   margin-top: 8px;
+  background: #ffffff;
 }
 
 .selected-formatka-item {
@@ -395,6 +420,19 @@
   line-height: 1.5;
 }
 
+/* ==================== TABS ==================== */
+.palety-zko .ant-tabs-content {
+  background: transparent !important;
+}
+
+.palety-zko .ant-card {
+  background: #ffffff !important;
+}
+
+.palety-zko .ant-card-body {
+  background: #ffffff !important;
+}
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
   .palety-grid .ant-col {
@@ -434,35 +472,25 @@
   }
 }
 
-/* ==================== DARK MODE (opcjonalne) ==================== */
-@media (prefers-color-scheme: dark) {
-  .palety-zko {
-    background: #141414;
-  }
+/* ==================== OVERRIDE DARK MODE ==================== */
+.palety-zko,
+.palety-zko * {
+  background-color: transparent;
+}
 
-  .paleta-card {
-    background: #1f1f1f;
-    border-color: #303030;
-  }
+.palety-zko .ant-card,
+.palety-zko .ant-card-head,
+.palety-zko .ant-card-body,
+.palety-zko .ant-modal-content,
+.palety-zko .ant-modal-header,
+.palety-zko .ant-modal-body {
+  background: #ffffff !important;
+  color: rgba(0, 0, 0, 0.85) !important;
+}
 
-  .drop-zone-empty {
-    background: #1f1f1f;
-    border-color: #303030;
-  }
-
-  .przeznaczenie-group {
-    background: linear-gradient(to bottom, #1f1f1f, #262626);
-    border-color: #303030;
-  }
-
-  .formatka-item {
-    background: #262626;
-    color: #ffffff;
-  }
-
-  .drop-indicator {
-    background: rgba(24, 144, 255, 0.1);
-  }
+.palety-zko .ant-card-meta-title,
+.palety-zko .ant-card-meta-description {
+  color: rgba(0, 0, 0, 0.85) !important;
 }
 
 /* ==================== PRINT STYLES ==================== */

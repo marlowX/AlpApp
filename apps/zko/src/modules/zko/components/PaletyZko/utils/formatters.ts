@@ -70,7 +70,7 @@ export const formatujStatus = (status: StatusPalety): string => {
     przygotowanie: 'W przygotowaniu',
     gotowa: 'Gotowa',
     w_transporcie: 'W transporcie',
-    dostarczona: 'Dostarczona',
+    dostarczona: 'Dostarczona', 
     zamknieta: 'Zamknięta'
   };
   return nazwy[status] || status;
@@ -88,6 +88,31 @@ export const getKolorStatusu = (status: StatusPalety): string => {
     zamknieta: 'gray'
   };
   return kolory[status] || 'default';
+};
+
+/**
+ * Formatuje wagę w kg
+ */
+export const formatujWage = (waga: number | undefined): string => {
+  if (waga === undefined || waga === null || waga === 0) return '0 kg';
+  if (waga < 1) {
+    return `${Math.round(waga * 1000)} g`;
+  }
+  return `${waga.toFixed(1)} kg`;
+};
+
+/**
+ * Formatuje wysokość w mm
+ */
+export const formatujWysokosc = (wysokosc: number | undefined): string => {
+  if (wysokosc === undefined || wysokosc === null || wysokosc === 0) return '0 mm';
+  if (wysokosc >= 1000) {
+    return `${(wysokosc / 1000).toFixed(2)} m`;
+  }
+  if (wysokosc >= 10) {
+    return `${(wysokosc / 10).toFixed(1)} cm`;
+  }
+  return `${wysokosc} mm`;
 };
 
 /**
@@ -114,7 +139,11 @@ export const formatujKolor = (kolor: string | undefined): string => {
     'CZAR': 'Czarny',
     'SZAR': 'Szary',
     'BEZOW': 'Beżowy',
-    'BRAZOW': 'Brązowy'
+    'BRAZOW': 'Brązowy',
+    'WHITE': 'Biały',
+    'BLACK': 'Czarny',
+    'GRAY': 'Szary',
+    'GREY': 'Szary'
   };
   
   const upper = kolor.toUpperCase();
@@ -130,10 +159,14 @@ export const getKolorHex = (kolor: string | undefined): string => {
   const mapaHex: Record<string, string> = {
     'BIA': '#ffffff',
     'BIAL': '#ffffff',
+    'WHITE': '#ffffff',
     'CZA': '#2c2c2c',
     'CZAR': '#2c2c2c',
+    'BLACK': '#2c2c2c',
     'SZA': '#808080',
     'SZAR': '#808080',
+    'GRAY': '#808080',
+    'GREY': '#808080',
     'BEZ': '#f5deb3',
     'BEZOW': '#f5deb3',
     'BRA': '#8b4513',

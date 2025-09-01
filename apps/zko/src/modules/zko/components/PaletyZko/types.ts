@@ -37,20 +37,27 @@ export type StatusPalety = typeof STATUS_PALETY[keyof typeof STATUS_PALETY];
 export interface Formatka {
   id: number;
   pozycja_id: number;
-  wymiar_x: number;
-  wymiar_y: number;
-  ilosc_szt: number;
-  ilosc_dostepna: number;
-  typ: string;
+  // Obsługuje różne nazwy z backend
+  wymiar_x?: number;
+  wymiar_y?: number;
+  dlugosc?: number;
+  szerokosc?: number;
+  ilosc_szt?: number;
+  ilosc_dostepna?: number;
+  sztuki_dostepne?: number;
+  typ?: string;
   kolor?: string;
   grubosc?: number;
   waga_sztuki?: number;
+  waga_sztuka?: number;
   nazwa_plyty?: string;
   numer_formatki?: string;
+  data_produkcji?: string;
 }
 
 export interface FormatkaZIloscia extends Formatka {
   ilosc_na_palecie: number;
+  ilosc?: number;
 }
 
 export interface Paleta {
@@ -58,15 +65,16 @@ export interface Paleta {
   zko_id: number;
   pozycja_id?: number;
   numer_palety: string;
-  typ_palety: string;
-  przeznaczenie: PrzeznaczeniePalety;
-  status: StatusPalety;
+  typ_palety?: string;
+  przeznaczenie: PrzeznaczeniePalety | string;
+  status: StatusPalety | string;
   formatki_ids?: number[];
-  ilosc_formatek: number;
+  ilosc_formatek?: number;
+  sztuk_total?: number;
   wysokosc_stosu: number;
   waga_kg: number;
-  max_waga_kg: number;
-  max_wysokosc_mm: number;
+  max_waga_kg?: number;
+  max_wysokosc_mm?: number;
   kolory_na_palecie?: string;
   powierzchnia_m2?: number;
   lokalizacja_aktualna?: string;
@@ -92,7 +100,7 @@ export interface PaletaFormData {
 export interface PozycjaZKO {
   id: number;
   zko_id: number;
-  rozkroj_id: number;
+  rozkroj_id?: number;
   ilosc_plyt: number;
   kolor_plyty: string;
   nazwa_plyty: string;
