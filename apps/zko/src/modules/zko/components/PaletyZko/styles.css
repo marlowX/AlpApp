@@ -1,5 +1,5 @@
 /**
- * @fileoverview Style CSS dla modułu PaletyZko z Drag & Drop
+ * @fileoverview Style CSS dla modułu PaletyZko z Drag & Drop - ULEPSZONE
  * @module PaletyZko/styles
  */
 
@@ -10,16 +10,90 @@
   background: transparent;
 }
 
-/* ==================== KARTY - WYRÓWNANIE ==================== */
-.palety-zko .ant-card {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+/* ==================== FORMATKI - KOMPAKTOWY DESIGN ==================== */
+.formatka-item-compact {
+  cursor: move !important;
+  transition: all 0.2s ease;
+  user-select: none;
+  position: relative;
+  background: #ffffff;
+  margin-bottom: 4px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  padding: 8px 12px;
 }
 
-.palety-zko .ant-card-body {
-  flex: 1;
-  overflow: auto;
+/* Hover effect dla całej formatki */
+.formatka-item-compact:hover {
+  background: #fafafa !important;
+  border-color: #40a9ff !important;
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+}
+
+/* Stan podczas przeciągania */
+.formatka-item-compact:active {
+  cursor: grabbing !important;
+  transform: scale(0.98) rotate(1deg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Uchwyt do przeciągania - większy obszar aktywny */
+.formatka-item-compact .drag-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+.formatka-item-compact:hover .drag-handle {
+  opacity: 1;
+}
+
+/* ==================== SELEKTOR FORMATEK - ULTRA KOMPAKT ==================== */
+.formatka-selector-ultra-compact {
+  padding: 0;
+}
+
+/* Ukryj scrollbar ale zachowaj funkcjonalność */
+.formatka-selector-ultra-compact > div:last-child {
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 transparent;
+}
+
+.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar {
+  width: 6px;
+}
+
+.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar-thumb {
+  background-color: #d9d9d9;
+  border-radius: 3px;
+}
+
+.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar-thumb:hover {
+  background-color: #bfbfbf;
+}
+
+/* Małe inputy i selecty */
+.formatka-selector-ultra-compact .ant-input-sm {
+  font-size: 12px !important;
+  height: 28px !important;
+}
+
+.formatka-selector-ultra-compact .ant-select-sm .ant-select-selector {
+  font-size: 12px !important;
+  height: 28px !important;
 }
 
 /* ==================== KARTY PALET - DRAG & DROP ==================== */
@@ -45,10 +119,31 @@
 
 /* Stan podczas przeciągania nad paletą */
 .paleta-card.drag-over {
-  border-color: #1890ff !important;
-  background-color: #e6f7ff !important;
+  border-color: #52c41a !important;
+  background: linear-gradient(to bottom, #f6ffed, #ffffff) !important;
   transform: scale(1.02);
-  box-shadow: 0 0 20px rgba(24, 144, 255, 0.3);
+  box-shadow: 0 0 20px rgba(82, 196, 26, 0.3);
+}
+
+.paleta-card.drag-over::before {
+  content: '⬇ UPUŚĆ TUTAJ';
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #52c41a;
+  color: white;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  z-index: 100;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.8; transform: translateX(-50%) scale(1.05); }
 }
 
 /* Animacja pulsowania dla drop zone */
@@ -59,9 +154,11 @@
 @keyframes dropPulse {
   0%, 100% {
     border-color: transparent;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   }
   50% {
     border-color: #52c41a;
+    box-shadow: 0 4px 20px rgba(82, 196, 26, 0.2);
   }
 }
 
@@ -69,6 +166,15 @@
 .paleta-card.locked {
   opacity: 0.7;
   cursor: not-allowed;
+  background: #f5f5f5 !important;
+}
+
+.paleta-card.locked::after {
+  content: '🔒';
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 16px;
 }
 
 /* Wskaźnik pełnej palety */
@@ -86,116 +192,112 @@
   z-index: 10;
 }
 
-/* ==================== FORMATKI - DRAGGABLE ==================== */
-.formatka-item {
-  cursor: grab;
-  transition: all 0.2s ease;
-  user-select: none;
-  position: relative;
-  background: #ffffff !important;
-  margin-bottom: 8px;
-}
-
-.formatka-item .ant-card-body {
-  background: #ffffff !important;
-}
-
-.formatka-item:active {
-  cursor: grabbing;
-}
-
-/* Stan podczas przeciągania */
-.formatka-item.dragging {
-  opacity: 0.5;
-  transform: rotate(2deg) scale(0.98);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-}
-
-.formatka-item:hover {
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  background: linear-gradient(to right, #ffffff, rgba(24, 144, 255, 0.02)) !important;
-}
-
-/* ==================== SELEKTOR FORMATEK - KOMPAKT ==================== */
-.formatka-selector-compact {
-  padding: 0;
-}
-
-.formatka-selector-compact .ant-input-affix-wrapper {
-  background: #ffffff;
-}
-
-.formatka-selector-compact .ant-select-selector {
-  background: #ffffff !important;
-}
-
 /* ==================== DROP INDICATOR ==================== */
 .drop-indicator {
-  border: 2px dashed #1890ff;
+  border: 2px dashed #52c41a;
   background: linear-gradient(
     45deg,
-    rgba(24, 144, 255, 0.05) 25%,
+    rgba(82, 196, 26, 0.05) 25%,
     transparent 25%,
     transparent 75%,
-    rgba(24, 144, 255, 0.05) 75%,
-    rgba(24, 144, 255, 0.05)
+    rgba(82, 196, 26, 0.05) 75%,
+    rgba(82, 196, 26, 0.05)
   );
   background-size: 20px 20px;
   animation: dropIndicatorMove 1s linear infinite;
-  padding: 16px;
+  padding: 24px;
   border-radius: 8px;
   text-align: center;
   margin: 8px 0;
 }
 
 @keyframes dropIndicatorMove {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 20px 20px;
-  }
+  0% { background-position: 0 0; }
+  100% { background-position: 20px 20px; }
 }
 
 .drop-indicator-text {
-  color: #1890ff;
-  font-weight: 500;
+  color: #52c41a;
+  font-weight: 600;
+  font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
 
-/* ==================== BADGE KOLORÓW ==================== */
-.color-badge {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.1);
-  margin-right: 4px;
-  vertical-align: middle;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+/* ==================== SEPARATORY WIZUALNE ==================== */
+.formatka-item-compact + .formatka-item-compact {
+  margin-top: 4px;
 }
 
-/* ==================== STATYSTYKI ==================== */
-.stats-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+/* Dodaj subtelny separator między formatkami */
+.formatka-item-compact::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #f0f0f0 20%, #f0f0f0 80%, transparent);
 }
 
-.stats-card .ant-statistic-title {
-  color: rgba(255, 255, 255, 0.9);
+/* ==================== CHECKBOX I TAGI ==================== */
+.formatka-item-compact .ant-checkbox-wrapper {
+  font-size: 11px !important;
 }
 
-.stats-card .ant-statistic-content {
-  color: white;
-  font-weight: 600;
+.formatka-item-compact .ant-checkbox {
+  transform: scale(0.9);
+}
+
+.formatka-item-compact .ant-tag {
+  font-size: 11px !important;
+  padding: 0 6px !important;
+  line-height: 18px !important;
+  border-radius: 3px !important;
+}
+
+/* ==================== ALERT - KOMPAKTOWY ==================== */
+.palety-zko .ant-alert {
+  padding: 8px 12px !important;
+  margin-bottom: 12px !important;
+}
+
+.palety-zko .ant-alert-message {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.palety-zko .ant-alert-description {
+  font-size: 12px !important;
+  margin-top: 4px !important;
+}
+
+.palety-zko .ant-alert-description ul {
+  margin: 4px 0 !important;
+  padding-left: 20px !important;
+}
+
+.palety-zko .ant-alert-description li {
+  margin: 2px 0 !important;
+}
+
+/* ==================== STATYSTYKI - MINI ==================== */
+.stats-mini {
+  background: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.stats-mini .ant-tag {
+  margin: 0 !important;
+  font-size: 11px !important;
+  font-weight: 500;
 }
 
 /* ==================== PALETY HEADER ==================== */
@@ -205,6 +307,7 @@
 
 .palety-header .ant-card-body {
   background: #ffffff !important;
+  padding: 16px !important;
 }
 
 /* ==================== PROGRESS BARS ==================== */
@@ -236,25 +339,6 @@
   padding: 8px;
 }
 
-/* Grupowanie po przeznaczeniu */
-.przeznaczenie-group {
-  margin-bottom: 32px;
-  padding: 16px;
-  background: #fafafa;
-  border-radius: 8px;
-  border: 1px solid #e8e8e8;
-}
-
-.przeznaczenie-group-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #262626;
-}
-
 /* ==================== WYRÓWNANIE KOLUMN ==================== */
 .palety-zko .ant-row {
   align-items: stretch;
@@ -275,55 +359,14 @@
   overflow-y: auto;
 }
 
-/* ==================== MODAL TWORZENIA ==================== */
-.create-paleta-modal .ant-modal-body {
-  max-height: 70vh;
-  overflow-y: auto;
-  background: #ffffff !important;
-}
-
-.formatka-selector-list {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid #f0f0f0;
-  border-radius: 4px;
-  padding: 8px;
-  margin-top: 8px;
-  background: #ffffff;
-}
-
 /* ==================== TOOLTIPS ==================== */
 .custom-tooltip {
-  max-width: 300px;
+  max-width: 250px;
 }
 
 .tooltip-content {
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-/* ==================== TABS ==================== */
-.palety-zko .ant-tabs-content {
-  background: transparent !important;
-}
-
-.palety-zko .ant-card {
-  background: #ffffff !important;
-}
-
-.palety-zko .ant-card-body {
-  background: #ffffff !important;
-}
-
-/* ==================== PRZYCISKI ==================== */
-.palety-zko .ant-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.palety-zko .ant-space-compact {
-  display: flex;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 /* ==================== RESPONSIVE ==================== */
@@ -333,16 +376,8 @@
     max-width: 100% !important;
   }
 
-  .stats-card {
-    padding: 12px;
-  }
-
-  .create-paleta-modal .ant-modal {
-    max-width: 95vw;
-  }
-
-  .formatka-item {
-    font-size: 12px;
+  .formatka-item-compact {
+    padding: 6px 10px;
   }
 
   .palety-zko .ant-card-body {
@@ -358,9 +393,13 @@
   .paleta-card .ant-card-actions .anticon {
     font-size: 14px;
   }
+  
+  .formatka-item-compact {
+    font-size: 11px;
+  }
 }
 
-/* ==================== OVERRIDE DARK MODE ==================== */
+/* ==================== DARK MODE OVERRIDE ==================== */
 .palety-zko,
 .palety-zko * {
   background-color: transparent;
@@ -371,13 +410,9 @@
 .palety-zko .ant-card-body,
 .palety-zko .ant-modal-content,
 .palety-zko .ant-modal-header,
-.palety-zko .ant-modal-body {
+.palety-zko .ant-modal-body,
+.formatka-item-compact {
   background: #ffffff !important;
-  color: rgba(0, 0, 0, 0.85) !important;
-}
-
-.palety-zko .ant-card-meta-title,
-.palety-zko .ant-card-meta-description {
   color: rgba(0, 0, 0, 0.85) !important;
 }
 
@@ -393,10 +428,5 @@
   .paleta-card {
     page-break-inside: avoid;
     border: 1px solid #000 !important;
-  }
-
-  .ant-progress {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
   }
 }
