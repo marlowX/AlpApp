@@ -72,8 +72,6 @@ router.get('/:id', async (req: Request, res: Response) => {
  * NOWY ENDPOINT dla edycji palety
  */
 router.delete('/:id/clear-formatki', async (req: Request, res: Response) => {
-  let client;
-  
   try {
     const paletaId = parseInt(req.params.id);
     
@@ -83,61 +81,43 @@ router.delete('/:id/clear-formatki', async (req: Request, res: Response) => {
       });
     }
     
-    client = await db.connect();
-    await client.query('BEGIN');
+    logger.info(`Clearing formatki from pallet ${paletaId} using pal_edytuj function`);
     
-    logger.info(`Clearing formatki from pallet ${paletaId}`);
-    
-    // Usuń wszystkie formatki z palety
-    await client.query(
-      'DELETE FROM zko.palety_formatki_ilosc WHERE paleta_id = $1',
-      [paletaId]
+    // Użyj funkcji pal_edytuj z pustą tablicą formatek
+    const result = await db.query(
+      `SELECT * FROM zko.pal_edytuj($1, $2::jsonb, $3, $4, $5)`,
+      [
+        paletaId,
+        JSON.stringify([]), // pusta tablica formatek
+        null, // przeznaczenie
+        'Wyczyszczono wszystkie formatki', // uwagi
+        'user' // operator
+      ]
     );
     
-    // Zaktualizuj paletę
-    await client.query(`
-      UPDATE zko.palety 
-      SET 
-        formatki_ids = ARRAY[]::integer[],
-        ilosc_formatek = 0,
-        wysokosc_stosu = 0,
-        waga_kg = 0,
-        updated_at = NOW()
-      WHERE id = $1
-    `, [paletaId]);
+    const response = result.rows[0];
     
-    await client.query('COMMIT');
-    
-    logger.info(`Cleared formatki from pallet ${paletaId}`);
-    
-    res.json({
-      sukces: true,
-      komunikat: 'Formatki zostały usunięte z palety'
-    });
+    if (response.sukces) {
+      logger.info(`Cleared formatki from pallet ${paletaId}`);
+      res.json(response);
+    } else {
+      res.status(400).json(response);
+    }
     
   } catch (error: any) {
-    if (client) {
-      await client.query('ROLLBACK');
-    }
     logger.error('Error clearing formatki:', error);
     res.status(500).json({ 
       error: 'Błąd czyszczenia palety',
       message: error.message 
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
 /**
  * POST /api/pallets/:id/update-formatki - Aktualizuj formatki na palecie
- * TYMCZASOWE OBEJŚCIE - wykonuje operacje bezpośrednio zamiast wywołać funkcję PostgreSQL
+ * UŻYWA FUNKCJI POSTGRESQL pal_edytuj
  */
 router.post('/:id/update-formatki', async (req: Request, res: Response) => {
-  let client;
-  
   try {
     const paletaId = parseInt(req.params.id);
     const { formatki, przeznaczenie, uwagi } = req.body;
@@ -155,172 +135,50 @@ router.post('/:id/update-formatki', async (req: Request, res: Response) => {
       });
     }
     
-    logger.info(`Updating pallet ${paletaId} using direct SQL`, { 
+    logger.info(`Updating pallet ${paletaId} using pal_edytuj function`, { 
       formatki_count: formatki.length,
       przeznaczenie 
     });
     
-    client = await db.connect();
-    await client.query('BEGIN');
-    
-    // Pobierz dane palety
-    const paletaResult = await client.query(
-      'SELECT * FROM zko.palety WHERE id = $1',
-      [paletaId]
+    // Wywołaj funkcję PostgreSQL pal_edytuj
+    const result = await db.query(
+      `SELECT * FROM zko.pal_edytuj($1, $2::jsonb, $3, $4, $5)`,
+      [
+        paletaId,
+        JSON.stringify(formatki), // konwertuj tablicę na JSONB
+        przeznaczenie || null,
+        uwagi || null,
+        'user' // operator
+      ]
     );
     
-    if (paletaResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.json({
-        sukces: false,
-        komunikat: `Paleta o ID ${paletaId} nie istnieje`
-      });
-    }
+    const response = result.rows[0];
     
-    const paleta = paletaResult.rows[0];
-    
-    // 1. Usuń stare formatki
-    await client.query(
-      'DELETE FROM zko.palety_formatki_ilosc WHERE paleta_id = $1',
-      [paletaId]
-    );
-    
-    let totalWaga = 0;
-    let totalWysokosc = 0;
-    let totalSztuk = 0;
-    let formatkiIds = [];
-    
-    // 2. Dodaj nowe formatki jeśli są
-    for (const formatka of formatki) {
-      if (formatka.ilosc > 0) {
-        // Pobierz dane formatki
-        const formatkaDataResult = await client.query(`
-          SELECT 
-            pf.id,
-            pf.waga_sztuka,
-            COALESCE(poz.grubosc_plyty, 18) as grubosc,
-            pf.nazwa_formatki,
-            poz.kolor_plyty
-          FROM zko.pozycje_formatki pf
-          LEFT JOIN zko.pozycje poz ON poz.id = pf.pozycja_id
-          WHERE pf.id = $1
-        `, [formatka.formatka_id]);
-        
-        if (formatkaDataResult.rows.length > 0) {
-          const formatkaData = formatkaDataResult.rows[0];
-          
-          // Dodaj do tabeli palety_formatki_ilosc
-          await client.query(`
-            INSERT INTO zko.palety_formatki_ilosc (paleta_id, formatka_id, ilosc)
-            VALUES ($1, $2, $3)
-          `, [paletaId, formatka.formatka_id, formatka.ilosc]);
-          
-          // Aktualizuj statystyki
-          formatkiIds.push(formatka.formatka_id);
-          totalSztuk += formatka.ilosc;
-          totalWaga += (formatkaData.waga_sztuka || 0) * formatka.ilosc;
-          
-          // Oblicz wysokość (4 sztuki na poziom)
-          const wysokosc = Math.ceil(formatka.ilosc / 4) * formatkaData.grubosc;
-          totalWysokosc = Math.max(totalWysokosc, wysokosc);
-          
-          logger.info(`Added formatka ${formatkaData.nazwa_formatki}: ${formatka.ilosc} pcs, color: ${formatkaData.kolor_plyty}`);
-        }
+    if (response.sukces) {
+      // Emit WebSocket event
+      if (response.zko_id) {
+        emitZKOUpdate(response.zko_id, 'pallet:updated', {
+          paleta_id: paletaId,
+          numer_palety: response.numer_palety,
+          formatki_count: response.sztuk_total,
+          przeznaczenie: response.przeznaczenie
+        });
       }
+      
+      logger.info(`Successfully updated pallet ${paletaId}`, response);
+      res.json(response);
+    } else {
+      logger.error(`Failed to update pallet ${paletaId}:`, response.komunikat);
+      res.status(400).json(response);
     }
-    
-    // 3. Zaktualizuj paletę
-    await client.query(`
-      UPDATE zko.palety
-      SET 
-        formatki_ids = $1,
-        ilosc_formatek = $2,
-        wysokosc_stosu = $3,
-        waga_kg = $4,
-        przeznaczenie = COALESCE($5, przeznaczenie),
-        uwagi = CASE WHEN $6 IS NOT NULL THEN $6 ELSE uwagi END,
-        updated_at = NOW()
-      WHERE id = $7
-    `, [
-      formatkiIds.length > 0 ? formatkiIds : null,
-      totalSztuk,
-      totalWysokosc,
-      totalWaga,
-      przeznaczenie,
-      uwagi,
-      paletaId
-    ]);
-    
-    // 4. Dodaj wpis do historii
-    await client.query(`
-      INSERT INTO zko.palety_historia (
-        paleta_id,
-        zko_id,
-        akcja,
-        operator,
-        opis_zmiany,
-        stan_po,
-        created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-    `, [
-      paletaId,
-      paleta.zko_id,
-      'EDYCJA',
-      'user',
-      `Edycja palety - ${totalSztuk} formatek`,
-      JSON.stringify({
-        formatki_count: totalSztuk,
-        waga_kg: totalWaga,
-        wysokosc_mm: totalWysokosc,
-        przeznaczenie: przeznaczenie || paleta.przeznaczenie,
-        uwagi: uwagi
-      })
-    ]);
-    
-    await client.query('COMMIT');
-    
-    const response = {
-      sukces: true,
-      komunikat: totalSztuk > 0 
-        ? `Paleta ${paleta.numer_palety} zaktualizowana: ${totalSztuk} szt. w ${formatkiIds.length} typach`
-        : `Paleta ${paleta.numer_palety} zaktualizowana (pusta)`,
-      paleta_id: paletaId,
-      numer_palety: paleta.numer_palety,
-      sztuk_total: totalSztuk,
-      typy_formatek: formatkiIds.length,
-      waga_kg: totalWaga,
-      wysokosc_mm: totalWysokosc,
-      przeznaczenie: przeznaczenie || paleta.przeznaczenie,
-      zko_id: paleta.zko_id
-    };
-    
-    // Emit WebSocket event
-    if (paleta.zko_id) {
-      emitZKOUpdate(paleta.zko_id, 'pallet:updated', {
-        paleta_id: paletaId,
-        numer_palety: paleta.numer_palety,
-        formatki_count: totalSztuk,
-        przeznaczenie: przeznaczenie || paleta.przeznaczenie
-      });
-    }
-    
-    logger.info(`Successfully updated pallet ${paletaId}`, response);
-    res.json(response);
     
   } catch (error: any) {
-    if (client) {
-      await client.query('ROLLBACK');
-    }
     logger.error('Error updating pallet:', error);
     res.status(500).json({ 
       error: 'Błąd aktualizacji palety',
       message: error.message,
       details: error.stack
     });
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 });
 
