@@ -1,5 +1,5 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko z DRAG & DROP - FINALNA WERSJA
+ * @fileoverview Główny komponent modułu PaletyZko - NAPRAWIONY DRAG & DROP
  * @module PaletyZko
  */
 
@@ -129,7 +129,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
   }, [selectedPozycjaId, utworzPaletyDlaPozostalych]);
 
-  // DRAG & DROP - Handler dla upuszczenia formatki na paletę
+  // DRAG & DROP - Handler dla upuszczenia formatki na paletę - NAPRAWIONY
   const handleDropFormatka = useCallback(async (
     formatka: any,
     ilosc: number,
@@ -147,8 +147,16 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         return;
       }
 
+      // WAŻNE: Użyj właściwego ID formatki
       const formatkaId = formatka.id;
       
+      console.log('Dropping formatka:', { 
+        formatkaId, 
+        ilosc, 
+        targetPaletaId,
+        formatka 
+      });
+
       // Przygotuj formatki do aktualizacji
       const currentFormatki = paleta.formatki_szczegoly || [];
       const existingFormatka = currentFormatki.find((f: any) => 
@@ -157,6 +165,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       
       let updatedFormatki;
       if (existingFormatka) {
+        // Zwiększ ilość istniejącej formatki
         updatedFormatki = currentFormatki.map((f: any) => {
           const fId = f.formatka_id || f.id;
           if (fId === formatkaId) {
@@ -165,6 +174,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
           return { formatka_id: fId, ilosc: f.ilosc || 0 };
         });
       } else {
+        // Dodaj nową formatkę
         const currentFormatkiMapped = currentFormatki.map((f: any) => ({ 
           formatka_id: f.formatka_id || f.id, 
           ilosc: f.ilosc || 0 
@@ -175,7 +185,16 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         ];
       }
 
-      const success = await edytujPalete(targetPaletaId, { formatki: updatedFormatki });
+      console.log('Sending to backend:', { 
+        paletaId: targetPaletaId,
+        formatki: updatedFormatki 
+      });
+
+      const success = await edytujPalete(targetPaletaId, { 
+        formatki: updatedFormatki,
+        przeznaczenie: paleta.przeznaczenie
+      });
+      
       if (success) {
         message.success(`Dodano ${ilosc} szt. formatki do palety`);
         await fetchPalety();
@@ -198,6 +217,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         <Card 
           className="palety-header"
           style={{ marginBottom: 16 }}
+          styles={{ body: { padding: '16px' } }}
         >
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -279,10 +299,12 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     </Button>
                   )
                 }
-                bodyStyle={{ 
-                  height: '600px',
-                  overflowY: 'auto',
-                  padding: '12px'
+                styles={{ 
+                  body: { 
+                    height: '600px',
+                    overflowY: 'auto',
+                    padding: '12px'
+                  }
                 }}
               >
                 {loading ? (
@@ -335,10 +357,12 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     </Button>
                   </Space>
                 }
-                bodyStyle={{ 
-                  height: '600px',
-                  overflowY: 'auto',
-                  padding: '12px'
+                styles={{ 
+                  body: { 
+                    height: '600px',
+                    overflowY: 'auto',
+                    padding: '12px'
+                  }
                 }}
               >
                 {loading ? (

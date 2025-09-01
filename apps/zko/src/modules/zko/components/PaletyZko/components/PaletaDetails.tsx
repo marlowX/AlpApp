@@ -1,5 +1,5 @@
 /**
- * @fileoverview Modal szczegółów palety - POPRAWIONY
+ * @fileoverview Modal szczegółów palety - BEZ BŁĘDÓW
  * @module PaletyZko/components/PaletaDetails
  */
 
@@ -37,7 +37,7 @@ export const PaletaDetails: React.FC<PaletaDetailsProps> = ({
     } catch (error) {
       console.error('Błąd pobierania szczegółów palety:', error);
       message.error('Nie udało się pobrać szczegółów palety');
-      onClose(); // Zamknij modal jeśli nie można pobrać danych
+      onClose();
     } finally {
       setLoading(false);
     }
@@ -51,8 +51,18 @@ export const PaletaDetails: React.FC<PaletaDetailsProps> = ({
       render: (text: string, record: any) => {
         const dlugosc = Math.round(record.dlugosc || 0);
         const szerokosc = Math.round(record.szerokosc || 0);
-        const kolor = record.kolor || 'BRAK';
-        return <Text strong style={{ fontFamily: 'monospace' }}>{`${dlugosc}×${szerokosc}-${kolor}`}</Text>;
+        // Wyciągamy kolor bez liczby arkuszy
+        const kolorRaw = record.kolor || 'BRAK';
+        const kolor = kolorRaw.split(' ')[0];
+        return (
+          <Text strong style={{ 
+            fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace',
+            fontSize: '13px',
+            letterSpacing: '0.5px'
+          }}>
+            {`${dlugosc}×${szerokosc}-${kolor}`}
+          </Text>
+        );
       }
     },
     {
@@ -62,7 +72,7 @@ export const PaletaDetails: React.FC<PaletaDetailsProps> = ({
       width: 100,
       align: 'center' as const,
       render: (ilosc: number) => (
-        <Tag color="green">{ilosc} szt.</Tag>
+        <Tag color="green" style={{ fontWeight: 600 }}>{ilosc} szt.</Tag>
       )
     },
     {
@@ -176,7 +186,8 @@ export const PaletaDetails: React.FC<PaletaDetailsProps> = ({
               <Tag>{paleta.ilosc_formatek || 0} formatek</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Kolory">
-              {paleta.kolory_na_palecie || 'CZARNY x4'}
+              {/* Wyciągamy kolor bez liczby arkuszy */}
+              {paleta.kolory_na_palecie ? paleta.kolory_na_palecie.split(' ')[0] : '-'}
             </Descriptions.Item>
           </Descriptions>
 
@@ -191,6 +202,7 @@ export const PaletaDetails: React.FC<PaletaDetailsProps> = ({
               pagination={false}
               size="small"
               rowKey={(record) => `${record.formatka_id}-${record.pozycja_id}`}
+              locale={{ emptyText: 'Brak formatek na palecie' }}
             />
           </div>
 

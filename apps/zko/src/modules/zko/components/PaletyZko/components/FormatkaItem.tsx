@@ -1,11 +1,11 @@
 /**
- * @fileoverview Element formatki z obsługą DRAG - WERSJA FINALNA
+ * @fileoverview Element formatki z obsługą DRAG - WERSJA FINALNA POPRAWIONA
  * @module PaletyZko/components/FormatkaItem
  */
 
 import React, { useState, useEffect } from 'react';
 import { useDrag } from 'react-dnd';
-import { Space, Typography, Tag, Checkbox, Tooltip } from 'antd';
+import { Space, Typography, Tag, Checkbox } from 'antd';
 import { DragOutlined } from '@ant-design/icons';
 import { Formatka } from '../types';
 
@@ -47,10 +47,12 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
     })
   });
 
-  // Formatowanie nazwy: 562x310-CZARNY
+  // Formatowanie nazwy: 562×70-ARTISAN (bez x3)
   const dlugosc = Math.round(formatka.dlugosc || formatka.wymiar_x || 0);
   const szerokosc = Math.round(formatka.szerokosc || formatka.wymiar_y || 0);
-  const kolor = formatka.kolor || formatka.kolor_plyty || 'BRAK';
+  // Wyciągamy kolor bez liczby arkuszy (np. "ARTISAN x3" -> "ARTISAN")
+  const kolorRaw = formatka.kolor || formatka.kolor_plyty || 'BRAK';
+  const kolor = kolorRaw.split(' ')[0]; // Bierzemy tylko pierwszą część przed spacją
   const nazwa = `${dlugosc}×${szerokosc}-${kolor}`;
   const grubosc = formatka.grubosc ? `${formatka.grubosc}mm` : '18mm';
 
@@ -97,9 +99,13 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         {/* Główne informacje */}
         <div style={{ flex: 1 }}>
-          {/* Nazwa formatki */}
+          {/* Nazwa formatki - lepsza czcionka */}
           <div style={{ marginBottom: '4px' }}>
-            <Text strong style={{ fontSize: '13px', fontFamily: 'monospace' }}>
+            <Text strong style={{ 
+              fontSize: '14px', 
+              fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace',
+              letterSpacing: '0.5px'
+            }}>
               {nazwa}
             </Text>
             <Text type="secondary" style={{ fontSize: '11px', marginLeft: '8px' }}>
@@ -110,7 +116,7 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
           {/* Dodatkowe info */}
           <div>
             <Text type="secondary" style={{ fontSize: '11px' }}>
-              FORMATKA · Poz: {formatka.pozycja_id || 79}
+              FORMATKA · Poz: {formatka.pozycja_id || 80}
             </Text>
           </div>
         </div>

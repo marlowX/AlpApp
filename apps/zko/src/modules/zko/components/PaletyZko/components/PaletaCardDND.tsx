@@ -1,66 +1,31 @@
 /**
- * @fileoverview Karta palety z obsługą DRAG & DROP
+ * @fileoverview Karta palety z drag & drop - z przyciskiem usuwania
  * @module PaletyZko/components/PaletaCardDND
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useDrop } from 'react-dnd';
+import { Card, Tag, Space, Typography, Progress, Button, Popconfirm, Tooltip } from 'antd';
 import {
-  Card,
-  Tag,
-  Space,
-  Typography,
-  Progress,
-  Button,
-  Dropdown,
-  Modal,
-  List,
-  Badge,
-  Empty,
-  Divider,
-  message
-} from 'antd';
-import type { MenuProps } from 'antd';
-import {
-  MoreOutlined,
   EditOutlined,
   DeleteOutlined,
   LockOutlined,
-  UnlockOutlined,
   EyeOutlined,
-  InboxOutlined,
-  PlusOutlined,
-  DownloadOutlined
+  CloseOutlined
 } from '@ant-design/icons';
-import { Paleta, Formatka } from '../types';
-import {
-  formatujNumerPalety,
-  formatujPrzeznaczenie,
-  getIkonaPrzeznaczenia,
-  formatujWage,
-  formatujWysokosc,
-  formatujStatus,
-  getKolorStatusu,
-  formatujKolor
-} from '../utils';
+import { Paleta } from '../types';
+import { formatujWage, formatujWysokosc, formatujPrzeznaczenie, getIkonaPrzeznaczenia } from '../utils';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 interface PaletaCardDNDProps {
   paleta: Paleta;
-  onEdit?: (paleta: Paleta) => void;
-  onDelete?: (id: number) => void;
-  onClose?: (id: number) => void;
-  onShowDetails?: (id: number) => void;
-  onAddFormatka?: (paletaId: number) => void;
-  onDropFormatka?: (formatka: Formatka, ilosc: number, targetPaletaId: number) => void;
-  deleting?: boolean;
-}
-
-interface DragItem {
-  type: string;
-  formatka: Formatka;
-  ilosc: number;
+  onEdit: (paleta: Paleta) => void;
+  onDelete: (paletaId: number) => void;
+  onClose: (paletaId: number) => void;
+  onShowDetails: (paletaId: number) => void;
+  onDropFormatka: (formatka: any, ilosc: number, paletaId: number) => void;
+  deleting?: number | null;
 }
 
 export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
@@ -69,271 +34,155 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
   onDelete,
   onClose,
   onShowDetails,
-  onAddFormatka,
   onDropFormatka,
-  deleting = false
+  deleting
 }) => {
-  const [editModalVisible, setEditModalVisible] = useState(false);
-
-  // Setup drop zone
-  const [{ isOver, canDrop }, drop] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>({
+  // Setup drop target
+  const [{ isOver, canDrop }, drop] = useDrop({
     accept: 'FORMATKA',
-    canDrop: () => paleta.status !== 'zamknieta',
-    drop: (item) => {
-      if (onDropFormatka && paleta.status !== 'zamknieta') {
-        onDropFormatka(item.formatka, item.ilosc, paleta.id);
-      }
+    drop: (item: any) => {
+      onDropFormatka(item.formatka, item.ilosc, paleta.id);
     },
+    canDrop: () => paleta.status !== 'zamknieta',
     collect: (monitor) => ({
       isOver: monitor.isOver(),
       canDrop: monitor.canDrop()
     })
   });
 
+  const isActive = isOver && canDrop;
+  const sztuk = paleta.ilosc_formatek || paleta.sztuk_total || 0;
+  const waga = paleta.waga_kg || 0;
+  const wysokosc = paleta.wysokosc_stosu || 0;
   const maxWaga = paleta.max_waga_kg || 700;
   const maxWysokosc = paleta.max_wysokosc_mm || 1440;
-  const procentWagi = (paleta.waga_kg / maxWaga) * 100;
-  const procentWysokosci = (paleta.wysokosc_stosu / maxWysokosc) * 100;
-  const iloscFormatek = paleta.sztuk_total || paleta.ilosc_formatek || 0;
+  const procentWagi = Math.round((waga / maxWaga) * 100);
+  const procentWysokosci = Math.round((wysokosc / maxWysokosc) * 100);
 
-  // Style dla drop zone
-  const dropZoneStyle: React.CSSProperties = {
-    cursor: 'pointer',
-    border: isOver && canDrop ? '2px dashed #1890ff' : undefined,
-    backgroundColor: isOver && canDrop ? 'rgba(24, 144, 255, 0.05)' : undefined,
-    transition: 'all 0.3s ease'
-  };
-
-  // Menu akcji
-  const menuItems: MenuProps['items'] = [
-    {
-      key: 'edit',
-      label: 'Edytuj',
-      icon: <EditOutlined />,
-      onClick: () => setEditModalVisible(true),
-      disabled: paleta.status === 'zamknieta'
-    },
-    {
-      key: 'details',
-      label: 'Szczegóły',
-      icon: <EyeOutlined />,
-      onClick: () => onShowDetails?.(paleta.id)
-    },
-    {
-      type: 'divider'
-    },
-    {
-      key: 'close',
-      label: paleta.status === 'zamknieta' ? 'Otwórz' : 'Zamknij',
-      icon: paleta.status === 'zamknieta' ? <UnlockOutlined /> : <LockOutlined />,
-      onClick: () => onClose?.(paleta.id)
-    },
-    {
-      key: 'delete',
-      label: 'Usuń',
-      icon: <DeleteOutlined />,
-      danger: true,
-      onClick: () => {
-        Modal.confirm({
-          title: 'Potwierdź usunięcie',
-          content: `Czy na pewno chcesz usunąć paletę ${formatujNumerPalety(paleta.numer_palety)}?`,
-          okText: 'Usuń',
-          cancelText: 'Anuluj',
-          okButtonProps: { danger: true },
-          onOk: () => onDelete?.(paleta.id)
-        });
-      }
-    }
-  ];
+  // Wyciągamy kolor bez liczby arkuszy
+  const kolorRaw = paleta.kolory_na_palecie || paleta.kolor || '';
+  const kolor = kolorRaw.split(' ')[0] || '-';
 
   return (
-    <>
-      <div ref={drop}>
-        <Card
-          className="paleta-card"
-          loading={deleting}
-          onClick={() => setEditModalVisible(true)}
-          style={dropZoneStyle}
-          title={
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-              <Space>
-                {isOver && canDrop ? (
-                  <DownloadOutlined style={{ color: '#1890ff' }} />
-                ) : (
-                  <InboxOutlined />
-                )}
-                <Text strong>{formatujNumerPalety(paleta.numer_palety)}</Text>
-                <Tag color={getKolorStatusu(paleta.status)}>
-                  {formatujStatus(paleta.status)}
-                </Tag>
-              </Space>
-              <Dropdown 
-                menu={{ items: menuItems }} 
-                trigger={['click']}
-                placement="bottomRight"
-              >
-                <Button 
-                  icon={<MoreOutlined />} 
-                  size="small" 
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </Dropdown>
+    <div ref={drop}>
+      <Card
+        className={`paleta-card ${isActive ? 'drag-over' : ''} ${canDrop ? 'can-drop' : ''} ${paleta.status === 'zamknieta' ? 'locked' : ''}`}
+        size="small"
+        hoverable
+        onClick={() => onShowDetails(paleta.id)}
+        style={{
+          border: isActive ? '2px solid #52c41a' : undefined,
+          position: 'relative'
+        }}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Space>
+              <LockOutlined style={{ fontSize: '14px' }} />
+              <Text strong style={{ fontSize: '13px' }}>{paleta.numer_palety}</Text>
             </Space>
-          }
-        >
-          {/* Drop indicator */}
-          {isOver && canDrop && (
-            <div style={{ 
-              padding: 8, 
-              marginBottom: 12, 
-              backgroundColor: '#e6f7ff',
-              border: '1px dashed #1890ff',
-              borderRadius: 4,
-              textAlign: 'center'
-            }}>
-              <DownloadOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-              <Text style={{ color: '#1890ff' }}>Upuść tutaj aby dodać formatki</Text>
-            </div>
-          )}
-
+            {/* Przycisk usuwania na kafelku */}
+            <Popconfirm
+              title="Czy na pewno usunąć paletę?"
+              onConfirm={(e) => {
+                e?.stopPropagation();
+                onDelete(paleta.id);
+              }}
+              okText="Tak"
+              cancelText="Nie"
+            >
+              <Button
+                type="text"
+                danger
+                size="small"
+                icon={<CloseOutlined />}
+                loading={deleting === paleta.id}
+                onClick={(e) => e.stopPropagation()}
+                style={{ marginRight: -8 }}
+              />
+            </Popconfirm>
+          </div>
+        }
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="small">
           {/* Przeznaczenie */}
-          <div style={{ marginBottom: 12 }}>
-            <Text type="secondary">Przeznaczenie:</Text>
-            <div style={{ marginTop: 4 }}>
-              <Tag color="blue" style={{ fontSize: 14 }}>
-                {getIkonaPrzeznaczenia(paleta.przeznaczenie)} {formatujPrzeznaczenie(paleta.przeznaczenie)}
+          <div>
+            <Text type="secondary" style={{ fontSize: '11px' }}>Przeznaczenie:</Text>
+            <div>
+              <Tag color="blue" style={{ margin: 0 }}>
+                {getIkonaPrzeznaczenia(paleta.przeznaczenie || 'MAGAZYN')} {formatujPrzeznaczenie(paleta.przeznaczenie || 'MAGAZYN')}
               </Tag>
             </div>
           </div>
 
           {/* Formatki */}
-          <div style={{ marginBottom: 12 }}>
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-              <Text type="secondary">Formatki:</Text>
-              <Tag>{iloscFormatek} formatek</Tag>
-            </Space>
-            
-            {paleta.kolory_na_palecie && (
-              <div style={{ marginTop: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>Kolory: </Text>
-                {paleta.kolory_na_palecie.split(',').map((kolor, idx) => (
-                  <Badge 
-                    key={idx} 
-                    color={kolor.trim()} 
-                    text={formatujKolor(kolor.trim())}
-                    style={{ marginRight: 8 }}
-                  />
-                ))}
-              </div>
-            )}
+          <div>
+            <Text type="secondary" style={{ fontSize: '11px' }}>Formatki:</Text>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text strong>{sztuk} formatek</Text>
+              {paleta.status === 'zamknieta' && (
+                <Tag color="orange" style={{ fontSize: '10px' }}>Zamknięta</Tag>
+              )}
+            </div>
           </div>
 
+          {/* Kolor */}
+          {kolor && kolor !== '-' && (
+            <div>
+              <Text type="secondary" style={{ fontSize: '11px' }}>Kolory:</Text>
+              <Text>{kolor}</Text>
+            </div>
+          )}
+
           {/* Waga */}
-          <div style={{ marginBottom: 8 }}>
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-              <Text type="secondary">Waga:</Text>
-              <Text>{formatujWage(paleta.waga_kg)}</Text>
-            </Space>
-            <Progress
-              percent={Math.round(procentWagi)}
-              strokeColor={procentWagi > 90 ? '#ff4d4f' : procentWagi > 70 ? '#faad14' : '#52c41a'}
+          <div>
+            <Text type="secondary" style={{ fontSize: '11px' }}>Waga:</Text>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text>{formatujWage(waga)}</Text>
+              <Text type="secondary" style={{ fontSize: '10px' }}>{procentWagi}%</Text>
+            </div>
+            <Progress 
+              percent={procentWagi} 
               showInfo={false}
               size="small"
+              strokeColor={procentWagi > 90 ? '#ff4d4f' : '#1890ff'}
+              style={{ marginBottom: 0 }}
             />
           </div>
 
           {/* Wysokość */}
-          <div style={{ marginBottom: 12 }}>
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-              <Text type="secondary">Wysokość:</Text>
-              <Text>{formatujWysokosc(paleta.wysokosc_stosu)}</Text>
-            </Space>
-            <Progress
-              percent={Math.round(procentWysokosci)}
-              strokeColor={procentWysokosci > 90 ? '#ff4d4f' : procentWysokosci > 70 ? '#faad14' : '#52c41a'}
+          <div>
+            <Text type="secondary" style={{ fontSize: '11px' }}>Wysokość:</Text>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text>{formatujWysokosc(wysokosc)}</Text>
+              <Text type="secondary" style={{ fontSize: '10px' }}>{procentWysokosci}%</Text>
+            </div>
+            <Progress 
+              percent={procentWysokosci} 
               showInfo={false}
               size="small"
+              strokeColor={procentWysokosci > 90 ? '#ff4d4f' : '#52c41a'}
+              style={{ marginBottom: 0 }}
             />
           </div>
 
-          {/* Status palety */}
-          {paleta.status === 'zamknieta' && (
-            <div style={{ 
-              marginTop: 12, 
-              padding: 8, 
-              backgroundColor: '#f0f0f0',
-              borderRadius: 4,
-              textAlign: 'center'
-            }}>
-              <LockOutlined style={{ marginRight: 8 }} />
-              <Text type="secondary">Paleta zamknięta</Text>
-            </div>
-          )}
-
-          {/* Przycisk dodawania gdy paleta jest pusta */}
-          {iloscFormatek === 0 && paleta.status !== 'zamknieta' && (
-            <Button
-              type="dashed"
-              icon={<PlusOutlined />}
-              block
+          {/* Przycisk dodawania formatek dla pustych palet */}
+          {sztuk === 0 && paleta.status !== 'zamknieta' && (
+            <Button 
+              type="dashed" 
+              block 
+              size="small"
+              icon={<EditOutlined />}
               onClick={(e) => {
                 e.stopPropagation();
-                onAddFormatka?.(paleta.id);
+                onEdit(paleta);
               }}
+              style={{ marginTop: 8 }}
             >
               Dodaj formatki
             </Button>
           )}
-        </Card>
-      </div>
-
-      {/* Modal edycji */}
-      <Modal
-        title={`Edycja palety ${formatujNumerPalety(paleta.numer_palety)}`}
-        open={editModalVisible}
-        onCancel={() => setEditModalVisible(false)}
-        footer={null}
-        width={800}
-      >
-        {paleta.formatki_szczegoly && paleta.formatki_szczegoly.length > 0 ? (
-          <>
-            <Divider>Formatki na palecie</Divider>
-            <List
-              dataSource={paleta.formatki_szczegoly}
-              renderItem={(item: any) => (
-                <List.Item>
-                  <Space>
-                    <Text>{item.dlugosc} × {item.szerokosc} mm</Text>
-                    <Badge color={item.kolor} text={formatujKolor(item.kolor)} />
-                    <Tag color="green">{item.ilosc} szt.</Tag>
-                    <Text type="secondary">{item.nazwa_plyty}</Text>
-                  </Space>
-                </List.Item>
-              )}
-            />
-          </>
-        ) : (
-          <Empty description="Paleta jest pusta" />
-        )}
-        
-        <Divider />
-        
-        <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
-          <Button onClick={() => setEditModalVisible(false)}>
-            Zamknij
-          </Button>
-          <Button 
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setEditModalVisible(false);
-              onEdit?.(paleta);
-            }}
-          >
-            Edytuj zawartość
-          </Button>
         </Space>
-      </Modal>
-    </>
+      </Card>
+    </div>
   );
 };
