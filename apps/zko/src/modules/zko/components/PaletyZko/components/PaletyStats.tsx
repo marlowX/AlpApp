@@ -33,6 +33,8 @@ export const PaletyStats: React.FC<PaletyStatsProps> = ({
   statystykiFormatek 
 }) => {
   const getPrzeznaczenieTags = () => {
+    if (!podsumowanie.po_przeznaczeniu) return null;
+    
     return Object.entries(podsumowanie.po_przeznaczeniu).map(([przezn, dane]) => {
       const przeznaczenie = przezn as keyof typeof PRZEZNACZENIE_PALETY;
       return (
@@ -43,22 +45,27 @@ export const PaletyStats: React.FC<PaletyStatsProps> = ({
     });
   };
 
+  // Bezpieczne pobieranie wartości
+  const wagaTotal = podsumowanie?.waga_total || 0;
+  const procentWagi = podsumowanie?.procent_wykorzystania_wagi || 0;
+  const procentWysokosci = podsumowanie?.procent_wykorzystania_wysokosci || 0;
+
   return (
     <Card size="small" style={{ marginTop: 8 }}>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
           <Statistic
             title="Liczba palet"
-            value={podsumowanie.liczba_palet}
+            value={podsumowanie?.liczba_palet || 0}
             prefix={<AppstoreOutlined />}
-            suffix={podsumowanie.liczba_palet === 1 ? 'paleta' : 'palet'}
+            suffix={podsumowanie?.liczba_palet === 1 ? 'paleta' : 'palet'}
           />
         </Col>
         
         <Col xs={24} sm={12} md={6}>
           <Statistic
             title="Formatki na paletach"
-            value={podsumowanie.sztuk_total}
+            value={podsumowanie?.sztuk_total || 0}
             prefix={<InboxOutlined />}
             suffix="szt."
           />
@@ -72,23 +79,20 @@ export const PaletyStats: React.FC<PaletyStatsProps> = ({
         <Col xs={24} sm={12} md={6}>
           <Statistic
             title="Łączna waga"
-            value={formatujWage(podsumowanie.waga_total)}
+            value={formatujWage(wagaTotal)}  // POPRAWIONE - przekazujemy liczbę, nie obiekt
             prefix={<ColumnHeightOutlined />}
           />
           <Progress 
-            percent={Math.round(podsumowanie.procent_wykorzystania_wagi)} 
+            percent={Math.round(procentWagi)} 
             size="small"
-            strokeColor={podsumowanie.procent_wykorzystania_wagi > 90 ? '#ff4d4f' : '#1890ff'}
+            strokeColor={procentWagi > 90 ? '#ff4d4f' : '#1890ff'}
           />
         </Col>
         
         <Col xs={24} sm={12} md={6}>
           <Statistic
             title="Wykorzystanie"
-            value={formatujProcent(Math.max(
-              podsumowanie.procent_wykorzystania_wagi,
-              podsumowanie.procent_wykorzystania_wysokosci
-            ))}
+            value={formatujProcent(Math.max(procentWagi, procentWysokosci))}
             prefix={<ThunderboltOutlined />}
           />
           <Space size={4} wrap>
