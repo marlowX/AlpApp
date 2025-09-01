@@ -1,17 +1,17 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko z DRAG & DROP - POPRAWIONY
+ * @fileoverview Główny komponent modułu PaletyZko z DRAG & DROP - FINALNA WERSJA
  * @module PaletyZko
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Row, Col, Space, Typography, Button, Badge, message, Spin, Empty, Alert } from 'antd';
+import { Card, Row, Col, Space, Typography, Button, Badge, message, Spin, Empty, Tooltip } from 'antd';
 import {
   AppstoreOutlined,
   PlusOutlined,
   ReloadOutlined,
   DeleteOutlined,
   DragOutlined,
-  ArrowRightOutlined,
+  InfoCircleOutlined,
   InboxOutlined
 } from '@ant-design/icons';
 import { DndProvider } from 'react-dnd';
@@ -255,6 +255,17 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   <Space>
                     <DragOutlined />
                     <span>Dostępne formatki ({formatkiDostepne.length})</span>
+                    <Tooltip 
+                      title={
+                        <div style={{ fontSize: '12px' }}>
+                          <div>• Przeciągnij formatki na palety</div>
+                          <div>• Domyślnie przeciągane są wszystkie sztuki</div>
+                          <div>• Odznacz checkbox aby ustawić własną ilość</div>
+                        </div>
+                      }
+                    >
+                      <InfoCircleOutlined style={{ fontSize: '14px', color: '#1890ff', cursor: 'help' }} />
+                    </Tooltip>
                   </Space>
                 }
                 extra={
@@ -270,7 +281,8 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                 }
                 bodyStyle={{ 
                   height: '600px',
-                  overflowY: 'auto'
+                  overflowY: 'auto',
+                  padding: '12px'
                 }}
               >
                 {loading ? (
@@ -278,27 +290,11 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     <Spin size="large" />
                   </div>
                 ) : formatkiDostepne.length > 0 ? (
-                  <>
-                    <Alert
-                      message="Przeciągnij formatki na palety"
-                      description={
-                        <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
-                          <li>Domyślnie przeciągane są <b>wszystkie sztuki</b></li>
-                          <li>Odznacz checkbox aby ustawić własną ilość</li>
-                          <li>Przeciągnij formatkę na paletę po prawej</li>
-                        </ul>
-                      }
-                      type="info"
-                      showIcon
-                      icon={<ArrowRightOutlined />}
-                      style={{ marginBottom: 16 }}
-                    />
-                    <FormatkaSelectorDND
-                      formatki={formatkiDostepne}
-                      loading={formatkiLoading}
-                      onSelectFormatka={() => {}}
-                    />
-                  </>
+                  <FormatkaSelectorDND
+                    formatki={formatkiDostepne}
+                    loading={formatkiLoading}
+                    onSelectFormatka={() => {}}
+                  />
                 ) : (
                   <Empty 
                     description={
@@ -341,7 +337,8 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                 }
                 bodyStyle={{ 
                   height: '600px',
-                  overflowY: 'auto'
+                  overflowY: 'auto',
+                  padding: '12px'
                 }}
               >
                 {loading ? (
