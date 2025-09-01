@@ -3,17 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   Form,
   Input,
-  InputNumber,
   Button,
   Card,
   Space,
   message,
   Select,
   DatePicker,
-  Divider
+  Divider,
+  Spin,
+  Tag
 } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, PlusOutlined } from '@ant-design/icons';
-import { useCreateZKO } from '../hooks';
+import { useCreateZKO, useKooperanci } from '../hooks';
 import type { CreateZKODto } from '../types';
 
 const { TextArea } = Input;
@@ -25,6 +26,9 @@ export const ZKOCreatePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [customKooperant, setCustomKooperant] = useState('');
   const createMutation = useCreateZKO();
+  
+  // Pobieramy kooperantów z bazy danych
+  const { data: kooperanci, isLoading: kooperanciLoading } = useKooperanci();
 
   const handleSubmit = async (values: any) => {
     setLoading(true);
@@ -51,24 +55,15 @@ export const ZKOCreatePage: React.FC = () => {
     }
   };
 
-  const defaultKooperanci = [
-    'Bomar',
-    'Alpma Niziny',
-    'Alpma Szropy'
-  ];
-
-  const allKooperanci = [
-    ...defaultKooperanci,
-    'Bomar',
-    'Alpma Niziny',
-    'Alpma Szropy'
-  ];
-
   const handleKooperantChange = (value: string) => {
     if (value !== 'CUSTOM') {
       setCustomKooperant('');
     }
   };
+
+  // Sortujemy kooperantów - najpierw produkcja, potem transport
+  const kooperanciProdukcja = kooperanci?.filter((k: any) => k.typ === 'produkcja') || [];
+  const kooperanciTransport = kooperanci?.filter((k: any) => k.typ === 'transport') || [];
 
   return (
     <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
@@ -91,7 +86,7 @@ export const ZKOCreatePage: React.FC = () => {
           onFinish={handleSubmit}
           initialValues={{
             priorytet: 5,
-            kooperant: 'Bomar' // Domyślny kooperant
+            kooperant: kooperanciProdukcja[0]?.value || '' // Domyślny kooperant
           }}
         >
           <Form.Item
@@ -101,51 +96,55 @@ export const ZKOCreatePage: React.FC = () => {
               { required: true, message: 'Kooperant jest wymagany' },
             ]}
           >
-            <Select
-              placeholder="Wybierz kooperanta"
-              showSearch
-              allowClear
-              optionFilterProp="children"
-              onChange={handleKooperantChange}
-              dropdownRender={(menu) => (
-                <>
-                  <div style={{ padding: '4px 8px', fontWeight: 'bold', color: '#666' }}>
-                    Główni kooperanci:
-                  </div>
-                  {defaultKooperanci.map(kooperant => (
-                    <Option key={kooperant} value={kooperant}>
-                      <strong>{kooperant}</strong>
-                    </Option>
-                  ))}
-                  <Divider style={{ margin: '8px 0' }} />
-                  <div style={{ padding: '4px 8px', fontWeight: 'bold', color: '#666' }}>
-                    Pozostali:
-                  </div>
-                  {allKooperanci.filter(k => !defaultKooperanci.includes(k)).map(kooperant => (
-                    <Option key={kooperant} value={kooperant}>
-                      {kooperant}
-                    </Option>
-                  ))}
-                  <Divider style={{ margin: '8px 0' }} />
-                  <Option key="CUSTOM" value="CUSTOM">
-                    <PlusOutlined /> Dodaj nowego kooperanta
-                  </Option>
-                </>
-              )}
-            >
-              {allKooperanci.map(kooperant => (
-                <Option key={kooperant} value={kooperant}>
-                  {defaultKooperanci.includes(kooperant) ? (
-                    <strong>{kooperant}</strong>
-                  ) : (
-                    kooperant
-                  )}
+            {kooperanciLoading ? (
+              <Spin />
+            ) : (
+              <Select
+                placeholder="Wybierz kooperanta"
+                showSearch
+                allowClear
+                optionFilterProp="children"
+                onChange={handleKooperantChange}
+              >
+                {kooperanciProdukcja.length > 0 && (
+                  <Select.OptGroup label="🏭 Kooperanci produkcyjni">
+                    {kooperanciProdukcja.map((k: any) => (
+                      <Option key={k.value} value={k.value}>
+                        <Space>
+                          <span>{k.label}</span>
+                          {k.ocena && (
+                            <Tag color={k.ocena >= 4.5 ? 'green' : k.ocena >= 4 ? 'blue' : 'orange'}>
+                              ⭐ {Number(k.ocena).toFixed(1)}
+                            </Tag>
+                          )}
+                        </Space>
+                      </Option>
+                    ))}
+                  </Select.OptGroup>
+                )}
+                
+                {kooperanciTransport.length > 0 && (
+                  <Select.OptGroup label="🚚 Transport">
+                    {kooperanciTransport.map((k: any) => (
+                      <Option key={k.value} value={k.value}>
+                        <Space>
+                          <span>{k.label}</span>
+                          {k.ocena && (
+                            <Tag color={k.ocena >= 4.5 ? 'green' : k.ocena >= 4 ? 'blue' : 'orange'}>
+                              ⭐ {Number(k.ocena).toFixed(1)}
+                            </Tag>
+                          )}
+                        </Space>
+                      </Option>
+                    ))}
+                  </Select.OptGroup>
+                )}
+                
+                <Option key="CUSTOM" value="CUSTOM">
+                  <PlusOutlined /> Dodaj nowego kooperanta
                 </Option>
-              ))}
-              <Option key="CUSTOM" value="CUSTOM">
-                <PlusOutlined /> Dodaj nowego kooperanta
-              </Option>
-            </Select>
+              </Select>
+            )}
           </Form.Item>
 
           {form.getFieldValue('kooperant') === 'CUSTOM' && (
@@ -235,15 +234,26 @@ export const ZKOCreatePage: React.FC = () => {
         </Form>
       </Card>
 
-      {/* Pomoc */}
+      {/* Informacje o kooperantach */}
       <Card style={{ marginTop: '24px' }} title="Informacje o kooperantach">
         <div style={{ color: '#666' }}>
           <p><strong>Główni kooperanci:</strong></p>
-          <ul>
-            <li><strong>Bomar</strong> - Główny partner produkcyjny</li>
-            <li><strong>Alpma Niziny</strong> - Oddział w Nizinach</li>
-            <li><strong>Alpma Szropy</strong> - Oddział w Szropach</li>
-          </ul>
+          {kooperanciProdukcja.length > 0 ? (
+            <ul>
+              {kooperanciProdukcja.slice(0, 3).map((k: any) => (
+                <li key={k.value}>
+                  <strong>{k.label}</strong> - {k.value}
+                  {k.ocena && (
+                    <span> (ocena: {Number(k.ocena).toFixed(1)}/5.0)</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Brak kooperantów w bazie danych</p>
+          )}
+
+          <Divider />
 
           <p><strong>Kolejne kroki po utworzeniu ZKO:</strong></p>
           <ul>
@@ -251,6 +261,15 @@ export const ZKOCreatePage: React.FC = () => {
             <li>Planowanie palet</li>
             <li>Rozpoczęcie cięcia</li>
             <li>Workflow przez produkcję</li>
+          </ul>
+
+          <Divider />
+
+          <p><strong>System ocen kooperantów:</strong></p>
+          <ul>
+            <li><Tag color="green">⭐ 4.5+</Tag> - Doskonała współpraca</li>
+            <li><Tag color="blue">⭐ 4.0-4.4</Tag> - Dobra współpraca</li>
+            <li><Tag color="orange">⭐ &lt;4.0</Tag> - Wymaga poprawy</li>
           </ul>
         </div>
       </Card>

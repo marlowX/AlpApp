@@ -12,13 +12,13 @@ import {
   Row, 
   Col, 
   Typography, 
-  Divider, 
   Progress,
   Table,
   Tabs,
   Badge,
   Popconfirm,
-  message
+  message,
+  Tooltip
 } from 'antd';
 import { 
   ArrowLeftOutlined, 
@@ -28,22 +28,23 @@ import {
   UserOutlined,
   PlusOutlined,
   BoxPlotOutlined,
-  AppstoreOutlined,
-  CalendarOutlined,
-  TeamOutlined,
   DeleteOutlined,
-  ClockCircleOutlined,
   DatabaseOutlined,
   DragOutlined,
-  ExperimentOutlined
+  ExperimentOutlined,
+  LockOutlined,
+  CheckCircleOutlined,
+  WarningOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
-import { useZKO } from '../hooks';
+import { useZKO, useNextSteps } from '../hooks';
 import { statusColors, statusLabels } from '../utils/constants';
 import { AddPozycjaModal } from '../components/AddPozycja';
 import { PaletyManager } from '../components/PaletyManager';
-import { PaletyZko } from '../components/PaletyZko'; // NOWY MODUŁ DRAG & DROP
+import { PaletyZko } from '../components/PaletyZko';
+import { StatusChangeButton } from '../components/StatusChangeButton';
+import { ZKOEditButton } from '../components/ZKOEditButton';
 import zkoApi from '../services/zkoApi';
 import '../styles/zko-details.css';
 
@@ -53,6 +54,7 @@ export const ZKODetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: zko, isLoading, error, refetch } = useZKO(Number(id));
+  const { data: nextSteps } = useNextSteps(Number(id));
   const [showAddPozycja, setShowAddPozycja] = useState(false);
   const [showEditPozycja, setShowEditPozycja] = useState(false);
   const [selectedPozycja, setSelectedPozycja] = useState<any>(null);
@@ -84,24 +86,32 @@ export const ZKODetailsPage: React.FC = () => {
 
   const getWorkflowStep = (status: string) => {
     const steps = [
-      { key: 'nowe', title: 'Nowe', description: 'Zlecenie utworzone' },
+      { key: 'NOWE', title: 'Nowe', description: 'Zlecenie utworzone' },
       { key: 'CIECIE', title: 'Cięcie', description: 'Piła formatowa' },
       { key: 'OKLEJANIE', title: 'Oklejanie', description: 'Okleiniarka' },
       { key: 'WIERCENIE', title: 'Wiercenie', description: 'Wiertarka' },
-      { key: 'PAKOWANIE_PALETY', title: 'Pakowanie', description: 'Przygotowanie do wysyłki' },
-      { key: 'ZAKONCZONY', title: 'Zakończony', description: 'Gotowe do odbioru' }
+      { key: 'PAKOWANIE', title: 'Pakowanie', description: 'Przygotowanie do wysyłki' },
+      { key: 'ZAKONCZONA', title: 'Zakończona', description: 'Gotowe do odbioru' }
     ];
 
-    const currentIndex = steps.findIndex(step => status?.includes(step.key.toUpperCase()) || status === step.key);
+    const currentIndex = steps.findIndex(step => 
+      status?.toUpperCase().includes(step.key) || status?.toUpperCase() === step.key
+    );
     return { steps, currentIndex: currentIndex === -1 ? 0 : currentIndex };
   };
 
   const { steps, currentIndex } = getWorkflowStep(zko.status);
   const progress = Math.round(((currentIndex + 1) / steps.length) * 100);
-  const priorityColor = zko.priorytet >= 4 ? 'red' : zko.priorytet >= 3 ? 'orange' : 'green';
-  const priorityText = zko.priorytet >= 4 ? 'Wysoki' : zko.priorytet >= 3 ? 'Średni' : 'Niski';
+  const priorityColor = zko.priorytet >= 8 ? 'red' : zko.priorytet >= 5 ? 'orange' : 'green';
+  const priorityText = zko.priorytet >= 8 ? 'Wysoki' : zko.priorytet >= 5 ? 'Normalny' : 'Niski';
 
   const pozycje = zko.pozycje || [];
+  const palety = zko.palety || [];
+  
+  // Sprawdź warunki blokujące
+  const hasNoPozycje = pozycje.length === 0;
+  const hasNoPalety = palety.length === 0;
+  const canChangeStatus = !hasNoPozycje && !hasNoPalety;
 
   const handlePozycjaAdded = () => {
     setShowAddPozycja(false);
@@ -221,21 +231,10 @@ export const ZKODetailsPage: React.FC = () => {
                 </Space>
               }
               onConfirm={() => handleDeletePozycja(record.id)}
-              onCancel={() => {
-                // Schowaj tooltip po anulowaniu
-                setTimeout(() => {
-                  const tooltips = document.querySelectorAll('.ant-tooltip');
-                  tooltips.forEach(el => {
-                    (el as HTMLElement).style.display = 'none';
-                  });
-                }, 100);
-              }}
               okText="Usuń pozycję"
               cancelText="Anuluj"
               okButtonProps={{ danger: true }}
               disabled={!canDelete || isDeleting}
-              placement="topRight"
-              showCancel={true}
             >
               <Button
                 type="text"
@@ -277,22 +276,55 @@ export const ZKODetailsPage: React.FC = () => {
         </Col>
         <Col>
           <Space>
-            <Button 
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/zko/${id}/edit`)}
-            >
-              Edytuj ZKO
-            </Button>
-            <Button 
-              type="primary" 
-              icon={<PlayCircleOutlined />}
-              onClick={() => navigate(`/zko/${id}/workflow`)}
-            >
-              Następny krok
-            </Button>
+            <ZKOEditButton 
+              zko={zko}
+              onEdited={refetch}
+            />
+            <StatusChangeButton
+              zkoId={Number(id)}
+              currentStatus={zko.status}
+              onStatusChanged={refetch}
+              nextSteps={nextSteps}
+              disabled={zko.status === 'ZAKONCZONA'}
+            />
           </Space>
         </Col>
       </Row>
+
+      {/* Ostrzeżenia o blokadach */}
+      {zko.status === 'NOWE' && (hasNoPozycje || hasNoPalety) && (
+        <Alert
+          message="Wymagania do spełnienia przed rozpoczęciem produkcji"
+          description={
+            <Space direction="vertical">
+              {hasNoPozycje && (
+                <Space>
+                  <LockOutlined style={{ color: '#ff4d4f' }} />
+                  <Text>Brak pozycji - dodaj przynajmniej jedną pozycję (rozkrój)</Text>
+                  <Button 
+                    size="small" 
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={() => setShowAddPozycja(true)}
+                  >
+                    Dodaj pozycję
+                  </Button>
+                </Space>
+              )}
+              {!hasNoPozycje && hasNoPalety && (
+                <Space>
+                  <LockOutlined style={{ color: '#ff4d4f' }} />
+                  <Text>Brak zaplanowanych palet - użyj "Planuj palety" dla każdej pozycji</Text>
+                </Space>
+              )}
+            </Space>
+          }
+          type="error"
+          showIcon
+          icon={<WarningOutlined />}
+          style={{ marginBottom: '24px' }}
+        />
+      )}
 
       {/* Progress */}
       <Card style={{ marginBottom: '24px' }}>
@@ -303,8 +335,8 @@ export const ZKODetailsPage: React.FC = () => {
           <Col span={16}>
             <Progress 
               percent={progress} 
-              status={zko.status === 'ZAKONCZONY' ? 'success' : 'active'}
-              strokeColor={zko.status === 'ZAKONCZONY' ? '#52c41a' : '#1890ff'}
+              status={zko.status === 'ZAKONCZONA' ? 'success' : 'active'}
+              strokeColor={zko.status === 'ZAKONCZONA' ? '#52c41a' : '#1890ff'}
             />
           </Col>
           <Col span={4}>
@@ -313,7 +345,7 @@ export const ZKODetailsPage: React.FC = () => {
         </Row>
       </Card>
 
-      {/* 1. INFORMACJE PODSTAWOWE - PEŁNA SZEROKOŚĆ */}
+      {/* Informacje podstawowe */}
       <Card 
         title={
           <Space>
@@ -354,21 +386,32 @@ export const ZKODetailsPage: React.FC = () => {
               <Descriptions.Item label="Data utworzenia">
                 {dayjs(zko.data_utworzenia).format('DD.MM.YYYY HH:mm')}
               </Descriptions.Item>
+              <Descriptions.Item label="Data planowana">
+                {zko.data_planowana ? dayjs(zko.data_planowana).format('DD.MM.YYYY') : '-'}
+              </Descriptions.Item>
+            </Descriptions>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Data otrzymania">
+                {zko.data_przyjecia_magazyn ? 
+                  dayjs(zko.data_przyjecia_magazyn).format('DD.MM.YYYY') : 
+                  <Text type="secondary">Nie otrzymano</Text>
+                }
+              </Descriptions.Item>
               <Descriptions.Item label="Utworzył">
                 {zko.utworzyl}
               </Descriptions.Item>
             </Descriptions>
           </Col>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            {zko.komentarz && (
-              <div>
-                <Text strong>Komentarz:</Text>
-                <br />
-                <Text>{zko.komentarz}</Text>
-              </div>
-            )}
-          </Col>
         </Row>
+        {zko.komentarz && (
+          <div style={{ marginTop: 16 }}>
+            <Text strong>Komentarz:</Text>
+            <br />
+            <Text>{zko.komentarz}</Text>
+          </div>
+        )}
       </Card>
 
       {/* Workflow Steps */}
@@ -382,7 +425,7 @@ export const ZKODetailsPage: React.FC = () => {
         />
       </Card>
 
-      {/* 2. SZCZEGÓŁY REALIZACJI - PEŁNA SZEROKOŚĆ, ŚRODEK STRONY */}
+      {/* Szczegóły realizacji */}
       <Card 
         title={
           <Space>
@@ -442,7 +485,6 @@ export const ZKODetailsPage: React.FC = () => {
             )}
           </Tabs.TabPane>
           
-          {/* NOWA ZAKŁADKA - Palety Drag & Drop */}
           <Tabs.TabPane 
             tab={
               <Space>
@@ -450,16 +492,7 @@ export const ZKODetailsPage: React.FC = () => {
                 <span style={{ color: '#1890ff', fontWeight: 500 }}>
                   Palety (Drag & Drop)
                 </span>
-                <Badge 
-                  count="NEW" 
-                  style={{ 
-                    backgroundColor: '#52c41a',
-                    fontSize: 10,
-                    height: 16,
-                    lineHeight: '16px',
-                    padding: '0 4px'
-                  }} 
-                />
+                <Badge count={palety.length} />
               </Space>
             } 
             key="palety-dnd"
@@ -470,7 +503,6 @@ export const ZKODetailsPage: React.FC = () => {
             />
           </Tabs.TabPane>
           
-          {/* STARA ZAKŁADKA - do testowania */}
           <Tabs.TabPane 
             tab={
               <Space>
@@ -484,7 +516,7 @@ export const ZKODetailsPage: React.FC = () => {
           >
             <Alert
               message="Wersja testowa"
-              description="To jest stara wersja modułu palet. Używaj nowej wersji z Drag & Drop dla lepszego doświadczenia."
+              description="To jest stara wersja modułu palet. Używaj nowej wersji z Drag & Drop."
               type="warning"
               showIcon
               style={{ marginBottom: 16 }}
@@ -497,19 +529,19 @@ export const ZKODetailsPage: React.FC = () => {
         </Tabs>
       </Card>
 
-      {/* 3. DODATKOWE INFORMACJE - na dole, można zostawić w kolumnach */}
+      {/* Daty i operatorzy */}
       <Row gutter={24}>
         <Col span={12}>
           <Card title="Daty realizacji" style={{ marginBottom: '24px' }}>
             <Descriptions column={1} size="small">
-              <Descriptions.Item label="Data planowana">
-                {zko.data_planowana ? dayjs(zko.data_planowana).format('DD.MM.YYYY') : '-'}
-              </Descriptions.Item>
               <Descriptions.Item label="Data rozpoczęcia">
                 {zko.data_rozpoczecia ? dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm') : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="Data zakończenia">
                 {zko.data_zakonczenia ? dayjs(zko.data_zakonczenia).format('DD.MM.YYYY HH:mm') : '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Data wysyłki">
+                {zko.data_wyslania ? dayjs(zko.data_wyslania).format('DD.MM.YYYY') : '-'}
               </Descriptions.Item>
             </Descriptions>
           </Card>

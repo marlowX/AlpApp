@@ -8,6 +8,7 @@ import pozycjeRoutes from './pozycje.routes';
 import statusRoutes from './status.routes';
 import completeRoutes from './complete.routes';
 import functionsRoutes from './functions.routes';
+import kooperanciRoutes from './kooperanci.routes';
 
 /**
  * Główny router ZKO - agreguje wszystkie pod-moduły
@@ -17,17 +18,25 @@ import functionsRoutes from './functions.routes';
  */
 const router = Router();
 
-// TYMCZASOWO: Wracamy do starej kolejności
-// Problem z routingiem trzeba rozwiązać inaczej
-router.use('/', listRoutes);        // GET /api/zko
-router.use('/', detailsRoutes);     // GET /api/zko/:id, /api/zko/:id/status
+// WAŻNE: Kolejność routerów ma znaczenie!
+// Bardziej specyficzne ścieżki muszą być przed ogólnymi
 
-// Pozycje PRZED create żeby /pozycje/:id działało
+// Kooperanci - musi być PRZED /:id bo inaczej 'kooperanci' zostanie potraktowane jako ID
+router.use('/', kooperanciRoutes);  // GET /api/zko/kooperanci
+
+// Pozycje - też przed /:id
 router.use('/', pozycjeRoutes);     // Operacje na pozycjach
 
-router.use('/', createRoutes);      // POST /api/zko/create, DELETE /api/zko/:id
-router.use('/', statusRoutes);      // POST /api/zko/status/change
+// Create, status, complete, functions - specyficzne ścieżki
+router.use('/', createRoutes);      // POST /api/zko/create, DELETE /api/zko/delete/:id
+router.use('/', statusRoutes);      // POST /api/zko/status/change, PUT /api/zko/:id/edit
 router.use('/', completeRoutes);    // POST /api/zko/:id/complete
 router.use('/', functionsRoutes);   // POST /api/zko/functions
+
+// Lista ZKO - GET /api/zko (bez parametrów)
+router.use('/', listRoutes);        // GET /api/zko
+
+// Details NA KOŃCU - bo przechwytuje wszystko z /:id
+router.use('/', detailsRoutes);     // GET /api/zko/:id, /api/zko/:id/status
 
 export default router;

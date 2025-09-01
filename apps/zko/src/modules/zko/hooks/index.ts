@@ -5,11 +5,40 @@ import { message } from 'antd';
 export { usePlyty, useKoloryPlyty } from './usePlyty';
 export { useRozkroje } from './useRozkroje';
 
-// 🆕 NOWY HOOK - Planowanie Modulariczne V2
+// 🆕 NOWY HOOK - Planowanie Modularyczne V2
 export { usePaletyModular } from './usePaletyModular';
 
 // 🆕 NOWY HOOK - Zarządzanie paletami
 export { usePaletyManager } from './usePaletyManager';
+
+// Hook do pobierania kooperantów
+export const useKooperanci = () => {
+  return useQuery({
+    queryKey: ['kooperanci'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/zko/kooperanci', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Kooperanci data:', data);
+        return data;
+      } catch (error) {
+        console.error('Error fetching kooperanci:', error);
+        throw error;
+      }
+    },
+    retry: 1,
+  });
+};
 
 // Hook do pobierania listy ZKO - POPRAWKA: zwracamy cały obiekt z data i total
 export const useZKOList = (params?: {
@@ -99,14 +128,14 @@ export const useZKO = (id: number) => {
   });
 };
 
-// Hook do tworzenia ZKO
+// Hook do tworzenia ZKO - POPRAWKA: używamy /api/zko/create
 export const useCreateZKO = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (dto: any) => {
-      // Używamy ZKO-SERVICE endpoint przez proxy
-      const response = await fetch('/api/zko', {
+      // POPRAWKA: Używamy właściwego endpointa /api/zko/create
+      const response = await fetch('/api/zko/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dto)
@@ -349,13 +378,13 @@ export const useCompleteZKO = () => {
   });
 };
 
-// Hook do usuwania ZKO
+// Hook do usuwania ZKO - POPRAWKA: używamy /api/zko/delete/:id
 export const useDeleteZKO = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (zkoId: number) => {
-      const response = await fetch(`/api/zko/${zkoId}`, {
+      const response = await fetch(`/api/zko/delete/${zkoId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
