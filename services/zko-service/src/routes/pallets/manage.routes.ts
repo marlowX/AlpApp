@@ -8,8 +8,81 @@ const router = Router();
 const logger = pino();
 
 /**
+ * POST /api/pallets/:id/update-formatki - Aktualizuj formatki na palecie
+ * UŻYWA FUNKCJI POSTGRESQL pal_edytuj
+ */
+router.post('/:id/update-formatki', async (req: Request, res: Response) => {
+  try {
+    const paletaId = parseInt(req.params.id);
+    const { formatki, przeznaczenie, uwagi } = req.body;
+    
+    if (isNaN(paletaId)) {
+      return res.status(400).json({
+        error: 'Nieprawidłowe ID palety'
+      });
+    }
+    
+    // Formatki mogą być puste (pusta paleta)
+    if (!Array.isArray(formatki)) {
+      return res.status(400).json({
+        error: 'Formatki muszą być tablicą'
+      });
+    }
+    
+    logger.info(`Updating pallet ${paletaId} using pal_edytuj function`, { 
+      formatki_count: formatki.length,
+      przeznaczenie 
+    });
+    
+    // Wywołaj funkcję PostgreSQL pal_edytuj
+    const result = await db.query(
+      `SELECT * FROM zko.pal_edytuj($1, $2::jsonb, $3, $4, $5)`,
+      [
+        paletaId,
+        JSON.stringify(formatki), // konwertuj tablicę na JSONB
+        przeznaczenie || null,
+        uwagi || null,
+        'user' // operator
+      ]
+    );
+    
+    const response = result.rows[0].pal_edytuj; // Funkcja zwraca obiekt w kolumnie pal_edytuj
+    
+    logger.info(`Function pal_edytuj returned:`, response);
+    
+    // Sprawdź sukces - może być string lub boolean
+    const isSuccess = response.sukces === true || response.sukces === 'true';
+    
+    if (isSuccess) {
+      // Emit WebSocket event
+      if (response.zko_id) {
+        emitZKOUpdate(response.zko_id, 'pallet:updated', {
+          paleta_id: paletaId,
+          numer_palety: response.numer_palety,
+          formatki_count: response.sztuk_total,
+          przeznaczenie: response.przeznaczenie
+        });
+      }
+      
+      logger.info(`Successfully updated pallet ${paletaId}`, response);
+      res.json(response);
+    } else {
+      logger.error(`Failed to update pallet ${paletaId}:`, response.komunikat);
+      res.status(400).json(response);
+    }
+    
+  } catch (error: any) {
+    logger.error('Error updating pallet:', error);
+    res.status(500).json({ 
+      error: 'Błąd aktualizacji palety',
+      message: error.message,
+      details: error.stack
+    });
+  }
+});
+
+/**
  * GET /api/pallets/:id - Pobieranie szczegółów pojedynczej palety
- * NOWY ENDPOINT dla edycji palety
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -69,7 +142,6 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 /**
  * DELETE /api/pallets/:id/clear-formatki - Wyczyść wszystkie formatki z palety
- * NOWY ENDPOINT dla edycji palety
  */
 router.delete('/:id/clear-formatki', async (req: Request, res: Response) => {
   try {
@@ -95,9 +167,10 @@ router.delete('/:id/clear-formatki', async (req: Request, res: Response) => {
       ]
     );
     
-    const response = result.rows[0];
+    const response = result.rows[0].pal_edytuj;
+    const isSuccess = response.sukces === true || response.sukces === 'true';
     
-    if (response.sukces) {
+    if (isSuccess) {
       logger.info(`Cleared formatki from pallet ${paletaId}`);
       res.json(response);
     } else {
@@ -114,77 +187,7 @@ router.delete('/:id/clear-formatki', async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/pallets/:id/update-formatki - Aktualizuj formatki na palecie
- * UŻYWA FUNKCJI POSTGRESQL pal_edytuj
- */
-router.post('/:id/update-formatki', async (req: Request, res: Response) => {
-  try {
-    const paletaId = parseInt(req.params.id);
-    const { formatki, przeznaczenie, uwagi } = req.body;
-    
-    if (isNaN(paletaId)) {
-      return res.status(400).json({
-        error: 'Nieprawidłowe ID palety'
-      });
-    }
-    
-    // Formatki mogą być puste (pusta paleta)
-    if (!Array.isArray(formatki)) {
-      return res.status(400).json({
-        error: 'Formatki muszą być tablicą'
-      });
-    }
-    
-    logger.info(`Updating pallet ${paletaId} using pal_edytuj function`, { 
-      formatki_count: formatki.length,
-      przeznaczenie 
-    });
-    
-    // Wywołaj funkcję PostgreSQL pal_edytuj
-    const result = await db.query(
-      `SELECT * FROM zko.pal_edytuj($1, $2::jsonb, $3, $4, $5)`,
-      [
-        paletaId,
-        JSON.stringify(formatki), // konwertuj tablicę na JSONB
-        przeznaczenie || null,
-        uwagi || null,
-        'user' // operator
-      ]
-    );
-    
-    const response = result.rows[0];
-    
-    if (response.sukces) {
-      // Emit WebSocket event
-      if (response.zko_id) {
-        emitZKOUpdate(response.zko_id, 'pallet:updated', {
-          paleta_id: paletaId,
-          numer_palety: response.numer_palety,
-          formatki_count: response.sztuk_total,
-          przeznaczenie: response.przeznaczenie
-        });
-      }
-      
-      logger.info(`Successfully updated pallet ${paletaId}`, response);
-      res.json(response);
-    } else {
-      logger.error(`Failed to update pallet ${paletaId}:`, response.komunikat);
-      res.status(400).json(response);
-    }
-    
-  } catch (error: any) {
-    logger.error('Error updating pallet:', error);
-    res.status(500).json({ 
-      error: 'Błąd aktualizacji palety',
-      message: error.message,
-      details: error.stack
-    });
-  }
-});
-
-/**
  * GET /api/pallets/zko/:zkoId - Pobieranie palet dla ZKO
- * Zwraca listę palet z formatkami
  */
 router.get('/zko/:zkoId', async (req: Request, res: Response) => {
   try {
@@ -433,7 +436,6 @@ router.delete('/zko/:zkoId/clear', async (req: Request, res: Response) => {
 
 /**
  * POST /api/pallets/:id/close - Zamknięcie palety
- * Wywołuje: zko.pal_zamknij
  */
 router.post('/:id/close', async (req: Request, res: Response) => {
   try {
@@ -479,7 +481,6 @@ router.post('/:id/close', async (req: Request, res: Response) => {
 
 /**
  * PUT /api/pallets/reorganize - Reorganizacja palet
- * Wywołuje: zko.pal_przesun_formatki
  */
 router.put('/reorganize', async (req: Request, res: Response) => {
   try {
@@ -533,7 +534,6 @@ router.put('/reorganize', async (req: Request, res: Response) => {
 
 /**
  * DELETE /api/pallets/empty/:pozycjaId - Usuwanie pustych palet
- * Wywołuje: zko.pal_wyczysc_puste
  */
 router.delete('/empty/:pozycjaId', async (req: Request, res: Response) => {
   try {
