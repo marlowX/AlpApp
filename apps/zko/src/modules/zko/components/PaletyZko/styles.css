@@ -10,6 +10,18 @@
   background: transparent;
 }
 
+/* ==================== KARTY - WYRÓWNANIE ==================== */
+.palety-zko .ant-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.palety-zko .ant-card-body {
+  flex: 1;
+  overflow: auto;
+}
+
 /* ==================== KARTY PALET - DRAG & DROP ==================== */
 .paleta-card {
   transition: all 0.3s ease;
@@ -17,6 +29,7 @@
   position: relative;
   overflow: visible;
   background: #ffffff !important;
+  height: auto !important;
 }
 
 .paleta-card .ant-card-body {
@@ -80,6 +93,7 @@
   user-select: none;
   position: relative;
   background: #ffffff !important;
+  margin-bottom: 8px;
 }
 
 .formatka-item .ant-card-body {
@@ -103,19 +117,17 @@
   background: linear-gradient(to right, #ffffff, rgba(24, 144, 255, 0.02)) !important;
 }
 
-/* Ikona drag */
-.formatka-item .drag-handle {
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #bfbfbf;
-  transition: color 0.2s ease;
+/* ==================== SELEKTOR FORMATEK - KOMPAKT ==================== */
+.formatka-selector-compact {
+  padding: 0;
 }
 
-.formatka-item:hover .drag-handle {
-  color: #1890ff;
-  transform: translateY(-50%) scale(1.2);
+.formatka-selector-compact .ant-input-affix-wrapper {
+  background: #ffffff;
+}
+
+.formatka-selector-compact .ant-select-selector {
+  background: #ffffff !important;
 }
 
 /* ==================== DROP INDICATOR ==================== */
@@ -209,103 +221,11 @@
   color: #8c8c8c;
 }
 
-/* Kolory progress barów z gradientem */
-.ant-progress-line.weight-progress .ant-progress-bg {
-  background: linear-gradient(to right, #52c41a, #faad14);
-}
-
-.ant-progress-line.height-progress .ant-progress-bg {
-  background: linear-gradient(to right, #1890ff, #722ed1);
-}
-
-/* ==================== DRAG GHOST IMAGE ==================== */
-.drag-ghost {
-  position: fixed;
-  pointer-events: none;
-  z-index: 9999;
-  opacity: 0.8;
-  transform: rotate(-5deg);
-  background: white;
-  padding: 8px;
-  border-radius: 4px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-}
-
-/* ==================== DROP ZONE EMPTY STATE ==================== */
-.drop-zone-empty {
-  border: 3px dashed #d9d9d9;
-  border-radius: 8px;
-  padding: 32px;
-  text-align: center;
-  transition: all 0.3s ease;
-  min-height: 250px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  background: repeating-linear-gradient(
-    45deg,
-    transparent,
-    transparent 10px,
-    rgba(0, 0, 0, 0.01) 10px,
-    rgba(0, 0, 0, 0.01) 20px
-  );
-}
-
-.drop-zone-empty.active {
-  border-color: #1890ff;
-  background-color: rgba(24, 144, 255, 0.05);
-  transform: scale(1.02);
-}
-
-.drop-zone-empty.reject {
-  border-color: #ff4d4f;
-  background-color: rgba(255, 77, 79, 0.05);
-  animation: shake 0.5s;
-}
-
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
-}
-
-/* ==================== ANIMACJE ==================== */
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(24, 144, 255, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
-  }
-}
-
-.pulse-animation {
-  animation: pulse 2s infinite;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.slide-in {
-  animation: slideIn 0.3s ease-out;
-}
-
 /* ==================== SIATKA PALET ==================== */
 .palety-grid {
   margin-top: 16px;
   background: transparent;
+  padding: 0 8px;
 }
 
 .palety-grid .ant-row {
@@ -335,29 +255,24 @@
   color: #262626;
 }
 
-/* ==================== DRAG PREVIEW ==================== */
-.drag-preview {
-  background: white;
-  padding: 8px 12px;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
+/* ==================== WYRÓWNANIE KOLUMN ==================== */
+.palety-zko .ant-row {
+  align-items: stretch;
 }
 
-.drag-preview-icon {
-  color: #1890ff;
+.palety-zko .ant-col {
+  display: flex;
+  flex-direction: column;
 }
 
-.drag-preview-count {
-  background: #52c41a;
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
+.palety-zko .ant-col > .ant-card {
+  flex: 1;
+}
+
+/* Stała wysokość dla obu kolumn */
+.palety-zko .ant-card-body {
+  max-height: 600px;
+  overflow-y: auto;
 }
 
 /* ==================== MODAL TWORZENIA ==================== */
@@ -375,39 +290,6 @@
   padding: 8px;
   margin-top: 8px;
   background: #ffffff;
-}
-
-.selected-formatka-item {
-  background: linear-gradient(to right, #f6ffed, #f0f9ff);
-  border: 1px solid #b7eb8f;
-  border-radius: 4px;
-  padding: 8px;
-  margin-bottom: 8px;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.selected-formatka-item::before {
-  content: '✓';
-  position: absolute;
-  left: -20px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #52c41a;
-  font-size: 16px;
-  font-weight: bold;
-  transition: left 0.3s ease;
-}
-
-.selected-formatka-item:hover::before {
-  left: 8px;
-}
-
-.selected-formatka-item:hover {
-  background: linear-gradient(to right, #f0f9ff, #e6f7ff);
-  border-color: #91d5ff;
-  padding-left: 32px;
 }
 
 /* ==================== TOOLTIPS ==================== */
@@ -433,6 +315,17 @@
   background: #ffffff !important;
 }
 
+/* ==================== PRZYCISKI ==================== */
+.palety-zko .ant-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.palety-zko .ant-space-compact {
+  display: flex;
+}
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
   .palety-grid .ant-col {
@@ -452,9 +345,8 @@
     font-size: 12px;
   }
 
-  .drop-zone-empty {
-    min-height: 150px;
-    padding: 16px;
+  .palety-zko .ant-card-body {
+    max-height: 400px;
   }
 }
 
@@ -465,10 +357,6 @@
 
   .paleta-card .ant-card-actions .anticon {
     font-size: 14px;
-  }
-
-  .drag-handle {
-    display: none;
   }
 }
 
