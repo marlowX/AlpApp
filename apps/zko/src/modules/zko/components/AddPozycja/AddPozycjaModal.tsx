@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Form, Button, Space, Steps, notification } from 'antd';
 import { 
   PlusOutlined, 
@@ -83,6 +83,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   const [form] = Form.useForm<ExtendedAddPozycjaFormData>();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [isClosing, setIsClosing] = useState(false);
   
   // Dane formularza
   const [kolorePlyty, setKolorePlyty] = useState<KolorPlyty[]>([{ 
@@ -110,6 +111,35 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     plyty,
     { validateOnMount: false }
   );
+
+  // Cleanup modal overlay on unmount
+  useEffect(() => {
+    return () => {
+      // Usuń wszystkie pozostałe overlaye modali
+      const modalRoots = document.querySelectorAll('.ant-modal-root');
+      modalRoots.forEach(root => {
+        if (root.parentNode) {
+          root.parentNode.removeChild(root);
+        }
+      });
+      
+      // Usuń również wrapy
+      const modalWraps = document.querySelectorAll('.ant-modal-wrap');
+      modalWraps.forEach(wrap => {
+        if (wrap.parentNode) {
+          wrap.parentNode.removeChild(wrap);
+        }
+      });
+      
+      // Usuń maski
+      const modalMasks = document.querySelectorAll('.ant-modal-mask');
+      modalMasks.forEach(mask => {
+        if (mask.parentNode) {
+          mask.parentNode.removeChild(mask);
+        }
+      });
+    };
+  }, []);
 
   // Załaduj dane do edycji
   useEffect(() => {
@@ -188,6 +218,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
             description: 'Musisz wybrać przynajmniej jedną płytę',
             duration: 4,
           });
+          setLoading(false);
           return;
         }
         
@@ -229,14 +260,17 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
             description: result.komunikat || 'Pozycja została zaktualizowana',
             duration: 3,
           });
-          resetForm();
-          onSuccess();
+          closeModal();
+          setTimeout(() => {
+            onSuccess();
+          }, 100);
         } else {
           notification.error({
             message: 'Błąd',
             description: result.komunikat || 'Nie udało się zaktualizować pozycji',
             duration: 5,
           });
+          setLoading(false);
         }
       } else {
         // Tryb dodawania
@@ -248,6 +282,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
             description: 'Musisz wybrać przynajmniej jedną płytę',
             duration: 4,
           });
+          setLoading(false);
           return;
         }
         
@@ -262,14 +297,17 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
         
         if (result.sukces) {
           PozycjaService.showSuccessNotification(result);
-          resetForm();
-          onSuccess();
+          closeModal();
+          setTimeout(() => {
+            onSuccess();
+          }, 100);
         } else {
           notification.error({
             message: 'Błąd',
             description: result.komunikat || 'Nie udało się dodać pozycji',
             duration: 5,
           });
+          setLoading(false);
         }
       }
     } catch (error: any) {
@@ -279,7 +317,6 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
         description: error.message || 'Wystąpił nieoczekiwany błąd',
         duration: 5,
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -290,6 +327,26 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     setSelectedRozkrojId(null);
     setCurrentStep(0);
     resetValidation();
+  };
+
+  const closeModal = () => {
+    setIsClosing(true);
+    resetForm();
+    setLoading(false);
+    
+    // Wymuś usunięcie overlaya
+    setTimeout(() => {
+      onCancel();
+      setIsClosing(false);
+      
+      // Dodatkowe czyszczenie
+      const modalRoots = document.querySelectorAll('.ant-modal-root');
+      modalRoots.forEach(root => {
+        if (root.parentNode) {
+          root.parentNode.removeChild(root);
+        }
+      });
+    }, 50);
   };
 
   const handleRozkrojChange = (rozkrojId: number) => {
@@ -357,6 +414,11 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     },
   ];
 
+  // Nie renderuj jeśli zamykamy
+  if (isClosing) {
+    return null;
+  }
+
   return (
     <Modal
       title={
@@ -366,14 +428,13 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
         </Space>
       }
       open={visible}
-      onCancel={() => {
-        resetForm();
-        onCancel();
-      }}
+      onCancel={closeModal}
       width="90%"
       style={{ maxWidth: '1400px' }}
       footer={null}
-      destroyOnClose
+      destroyOnClose={true}
+      maskClosable={false}
+      keyboard={false}
     >
       <Form form={form} layout="vertical">
         <div style={{ padding: '20px 0' }}>
@@ -398,10 +459,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
             </div>
             <div>
               <Space>
-                <Button onClick={() => {
-                  resetForm();
-                  onCancel();
-                }}>
+                <Button onClick={closeModal}>
                   Anuluj
                 </Button>
                 {currentStep < steps.length - 1 && (
