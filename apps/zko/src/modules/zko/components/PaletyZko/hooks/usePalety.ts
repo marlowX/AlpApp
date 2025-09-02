@@ -22,6 +22,7 @@ export const usePalety = (zkoId: number) => {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [closing, setClosing] = useState<number | null>(null);
 
   /**
    * Pobiera listę palet dla ZKO
@@ -234,17 +235,18 @@ export const usePalety = (zkoId: number) => {
     paletaId: number,
     uwagi?: string
   ): Promise<boolean> => {
+    setClosing(paletaId);
     try {
       const response = await axios.post<ApiResponse>(
         `${API_URL}/pallets/${paletaId}/close`,
         {
           operator: 'user',
-          uwagi: uwagi
+          uwagi: uwagi || 'Paleta zamknięta przez operatora'
         }
       );
       
       if (response.data.sukces) {
-        message.success('Paleta zamknięta');
+        message.success('Paleta zamknięta i gotowa do transportu');
         await fetchPalety();
         return true;
       } else {
@@ -255,8 +257,198 @@ export const usePalety = (zkoId: number) => {
       console.error('Błąd zamykania palety:', error);
       message.error('Nie udało się zamknąć palety');
       return false;
+    } finally {
+      setClosing(null);
     }
   }, [fetchPalety]);
+
+  /**
+   * Drukuje etykietę palety
+   */
+  const drukujEtykiete = useCallback(async (paletaId: number): Promise<void> => {
+    try {
+      // Pobierz szczegóły palety
+      const response = await axios.get(`${API_URL}/pallets/${paletaId}`);
+      const paleta = response.data;
+      
+      // Pobierz informacje o ZKO
+      const zkoResponse = await axios.get(`${API_URL}/zko/${paleta.zko_id}`);
+      const zko = zkoResponse.data;
+      
+      // Przygotuj dane do wydruku
+      const etykietaData = {
+        numerPalety: paleta.numer_palety,
+        numerZKO: zko.numer_zko,
+        dataUtworzenia: new Date(paleta.created_at).toLocaleDateString('pl-PL'),
+        dataZamkniecia: paleta.data_pakowania ? new Date(paleta.data_pakowania).toLocaleDateString('pl-PL') : '-',
+        przeznaczenie: paleta.przeznaczenie || 'MAGAZYN',
+        iloscFormatek: paleta.ilosc_formatek || 0,
+        wagaKg: (paleta.waga_kg || 0).toFixed(1),
+        wysokoscMm: paleta.wysokosc_stosu || 0,
+        kolory: paleta.kolory_na_palecie || '-',
+        operator: paleta.operator_pakujacy || 'user',
+        uwagi: paleta.uwagi || ''
+      };
+      
+      // Otwórz okno drukowania z etykietą
+      const printWindow = window.open('', '_blank', 'width=400,height=600');
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html lang="pl">
+          <head>
+            <meta charset="UTF-8">
+            <title>Etykieta palety ${etykietaData.numerPalety}</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: Arial, sans-serif; 
+                padding: 10mm;
+                width: 100mm;
+                background: white;
+              }
+              .label {
+                border: 2px solid #000;
+                padding: 5mm;
+                page-break-inside: avoid;
+              }
+              h1 { 
+                font-size: 20pt; 
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 5mm;
+                padding: 3mm;
+                background: #000;
+                color: white;
+              }
+              .field {
+                margin: 3mm 0;
+                display: flex;
+                justify-content: space-between;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 2mm;
+              }
+              .field-label {
+                font-weight: bold;
+                font-size: 10pt;
+              }
+              .field-value {
+                font-size: 11pt;
+                text-align: right;
+              }
+              .barcode {
+                text-align: center;
+                margin: 5mm 0;
+                padding: 5mm;
+                border: 1px solid #000;
+                font-family: 'Courier New', monospace;
+                font-size: 14pt;
+                letter-spacing: 2px;
+              }
+              .footer {
+                margin-top: 5mm;
+                text-align: center;
+                font-size: 8pt;
+                color: #666;
+              }
+              .important {
+                background: #ffeb3b;
+                padding: 2mm;
+                margin: 3mm 0;
+                font-weight: bold;
+                text-align: center;
+              }
+              @media print {
+                body { margin: 0; padding: 0; width: 100%; }
+                .label { border: 2px solid #000; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="label">
+              <h1>PALETA ${etykietaData.numerPalety}</h1>
+              
+              <div class="barcode">
+                ${etykietaData.numerPalety}
+              </div>
+              
+              <div class="field">
+                <span class="field-label">ZKO:</span>
+                <span class="field-value">${etykietaData.numerZKO}</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Przeznaczenie:</span>
+                <span class="field-value">${etykietaData.przeznaczenie}</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Ilość formatek:</span>
+                <span class="field-value">${etykietaData.iloscFormatek} szt.</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Waga:</span>
+                <span class="field-value">${etykietaData.wagaKg} kg</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Wysokość:</span>
+                <span class="field-value">${etykietaData.wysokoscMm} mm</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Kolory:</span>
+                <span class="field-value">${etykietaData.kolory}</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Data utworzenia:</span>
+                <span class="field-value">${etykietaData.dataUtworzenia}</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Data zamknięcia:</span>
+                <span class="field-value">${etykietaData.dataZamkniecia}</span>
+              </div>
+              
+              <div class="field">
+                <span class="field-label">Operator:</span>
+                <span class="field-value">${etykietaData.operator}</span>
+              </div>
+              
+              ${etykietaData.uwagi ? `
+                <div class="important">
+                  Uwagi: ${etykietaData.uwagi}
+                </div>
+              ` : ''}
+              
+              <div class="footer">
+                Wydrukowano: ${new Date().toLocaleString('pl-PL')}
+              </div>
+            </div>
+            
+            <script>
+              window.onload = function() {
+                window.print();
+                // Zamknij okno po wydrukowaniu lub anulowaniu
+                window.onafterprint = function() {
+                  window.close();
+                };
+              };
+            </script>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+      } else {
+        message.error('Nie udało się otworzyć okna drukowania');
+      }
+    } catch (error) {
+      console.error('Błąd drukowania etykiety:', error);
+      message.error('Nie udało się wydrukować etykiety');
+    }
+  }, []);
 
   /**
    * Tworzy palety dla wszystkich pozostałych formatek
@@ -366,6 +558,7 @@ export const usePalety = (zkoId: number) => {
     loading,
     creating,
     deleting,
+    closing,
     podsumowanie: obliczPodsumowanie(),
     fetchPalety,
     utworzPalete,
@@ -374,6 +567,7 @@ export const usePalety = (zkoId: number) => {
     usunWszystkiePalety,
     przenieFormatki,
     zamknijPalete,
+    drukujEtykiete,
     utworzPaletyDlaPozostalych
   };
 };

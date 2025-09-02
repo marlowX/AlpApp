@@ -16,9 +16,11 @@ interface PaletyGridDNDProps {
   onEdit?: (paleta: Paleta) => void;
   onDelete?: (id: number) => void;
   onClose?: (id: number) => void;
+  onPrint?: (id: number) => void;
   onShowDetails?: (id: number) => void;
   onDropFormatka?: (formatka: Formatka, ilosc: number, targetPaletaId: number) => void;
   deleting?: number | null;
+  closing?: number | null;
 }
 
 export const PaletyGridDND: React.FC<PaletyGridDNDProps> = ({
@@ -26,9 +28,11 @@ export const PaletyGridDND: React.FC<PaletyGridDNDProps> = ({
   onEdit,
   onDelete,
   onClose,
+  onPrint,
   onShowDetails,
   onDropFormatka,
-  deleting
+  deleting,
+  closing
 }) => {
   // Grupuj palety po przeznaczeniu
   const paletyByPrzeznaczenie = palety.reduce((acc, paleta) => {
@@ -92,9 +96,11 @@ export const PaletyGridDND: React.FC<PaletyGridDNDProps> = ({
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onClose={onClose}
+                    onPrint={onPrint}
                     onShowDetails={onShowDetails}
                     onDropFormatka={onDropFormatka}
                     deleting={deleting === paleta.id}
+                    closing={closing === paleta.id}
                   />
                 </Col>
               ))}

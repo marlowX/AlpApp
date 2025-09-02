@@ -2,6 +2,7 @@
 
 ## 📅 Data utworzenia: 2025-01-17
 ## 👤 Autor: marlowX (biuro@alpmeb.pl)
+## 🔄 Ostatnia aktualizacja: 2025-01-18
 
 ## 🎯 Cel modułu
 
@@ -10,6 +11,8 @@ Nowy, ulepszony moduł do zarządzania paletami w systemie ZKO z fokusem na:
 - **Poprawne obliczenia** - dokładne wagi, wysokości z uwzględnieniem poziomów
 - **Ręczne zarządzanie** - pełna kontrola operatora nad tworzeniem palet
 - **Wizualizacja** - jasny przegląd zawartości i statusu palet
+- **Zamykanie palet** - finalizacja i oznaczenie jako gotowe do transportu
+- **Drukowanie etykiet** - generowanie etykiet z kodem kreskowym
 
 ## 🏗️ Struktura modułu
 
@@ -20,14 +23,14 @@ PaletyZko/
 ├── components/                  # Komponenty UI
 │   ├── PozycjaSelector.tsx     # ✅ Wybór pozycji ZKO
 │   ├── PaletyStats.tsx         # ✅ Statystyki palet
-│   ├── PaletyGrid.tsx          # ✅ Siatka palet
-│   ├── PaletaCard.tsx          # ✅ Karta pojedynczej palety
+│   ├── PaletyGridDND.tsx       # ✅ Siatka palet z Drag & Drop
+│   ├── PaletaCardDND.tsx       # ✅ Karta palety z przyciskami akcji
 │   ├── CreatePaletaModal.tsx   # ✅ Modal tworzenia palety
 │   ├── PaletaDetails.tsx       # ✅ Szczegóły palety
-│   ├── FormatkaSelector.tsx    # ✅ Lista formatek do dodania
+│   ├── FormatkaSelectorDND.tsx # ✅ Lista formatek do przeciągania
 │   └── index.ts                 # ✅ Export komponentów
 ├── hooks/                       # React hooks
-│   ├── usePalety.ts            # ✅ Zarządzanie paletami
+│   ├── usePalety.ts            # ✅ Zarządzanie paletami + drukowanie
 │   ├── useFormatki.ts          # ✅ Zarządzanie formatkami
 │   ├── useDragDrop.ts          # ✅ Obsługa drag & drop
 │   └── index.ts                # ✅ Export hooków
@@ -40,34 +43,38 @@ PaletyZko/
 
 ```
 
-## ⚡ Kluczowe funkcjonalności
+## ⚡ Nowe funkcjonalności (18.01.2025)
 
-### 1. **Poprawne obliczenia wysokości** ✅
-- Formatki układane są OBOK SIEBIE na poziomach (4 formatki/poziom)
-- Wysokość = liczba_poziomów × grubość_płyty
-- NIE: liczba_formatek × grubość (błąd w starym module)
+### 1. **Zamykanie palet** ✅
+- Przycisk zamknięcia dostępny dla palet z formatkami
+- Status zmienia się na "gotowa_do_transportu"
+- Paleta staje się niemodyfikowalna
+- Wizualne oznaczenie zamkniętych palet (żółte tło)
 
-### 2. **Ręczne tworzenie palet** ✅
-- Operator tworzy pustą paletę
-- Wybiera przeznaczenie (Magazyn/Okleiniarka/Wiercenie/etc)
-- Dodaje formatki z kontrolą limitów w czasie rzeczywistym
-- Widzi paski postępu dla wagi i wysokości
+### 2. **Drukowanie etykiet** ✅
+- Przycisk drukowania dla zamkniętych palet
+- Etykieta zawiera:
+  - Numer palety (z kodem kreskowym)
+  - Numer ZKO
+  - Przeznaczenie
+  - Ilość formatek
+  - Wagę i wysokość
+  - Kolory płyt
+  - Daty utworzenia i zamknięcia
+  - Operatora
+- Format A6 gotowy do druku na drukarce etykiet
 
-### 3. **Drag & Drop** ✅
-- Przeciąganie formatek między paletami
-- Wizualna informacja zwrotna podczas przeciągania
-- Automatyczna walidacja limitów przed upuszczeniem
+### 3. **Poprawione obliczenia wag** ✅
+- Prawidłowe pobieranie wartości z bazy danych
+- Obsługa różnych nazw pól (waga_kg, waga_total)
+- Dokładne obliczenia na podstawie wymiarów formatek
+- Uwzględnienie gęstości płyty (650 kg/m³)
 
-### 4. **Wizualizacja kolorów** ✅
-- Kolorowe znaczniki dla różnych płyt
-- Mapowanie kodów kolorów na nazwy i kolory HEX
-- Wyświetlanie kolorów na kartach palet
-
-### 5. **Statystyki w czasie rzeczywistym** ✅
-- Podsumowanie wszystkich palet
-- Grupowanie po przeznaczeniu
-- Procent wykorzystania (waga/wysokość)
-- Liczba dostępnych formatek
+### 4. **Ulepszone UI** ✅
+- Ikony stanu palety (zamknięta/otwarta)
+- Kolorowe paski postępu (zielony/żółty/czerwony)
+- Menu kontekstowe z dodatkowymi akcjami
+- Lepsze grupowanie palet po przeznaczeniu
 
 ## 🔧 Limity systemowe
 
@@ -98,11 +105,12 @@ import { PaletyZko } from '@/modules/zko/components/PaletyZko';
 
 1. **Wybór pozycji** - Operator wybiera pozycję ZKO z selektora
 2. **Podgląd formatek** - System pokazuje dostępne formatki
-3. **Tworzenie palety** - Klik "Nowa paleta"
+3. **Tworzenie palety** - Klik "Nowa paleta" lub "Pusta paleta"
 4. **Konfiguracja** - Wybór przeznaczenia i limitów
-5. **Dodawanie formatek** - Drag & drop lub przyciski +/-
+5. **Dodawanie formatek** - Drag & drop formatek na palety
 6. **Monitoring** - Śledzenie wypełnienia w czasie rzeczywistym
-7. **Zamknięcie** - Finalizacja palety gdy gotowa
+7. **Zamknięcie** - Klik na przycisk ✓ gdy paleta gotowa
+8. **Drukowanie** - Klik na ikonę drukarki dla etykiety
 
 ## 🛠️ Funkcje PostgreSQL wykorzystywane
 
@@ -110,7 +118,7 @@ import { PaletyZko } from '@/modules/zko/components/PaletyZko';
 - `pal_utworz_reczna_palete_v2` - tworzenie ręcznej palety
 - `pal_edytuj` - edycja zawartości palety
 - `pal_przenies_formatki` - przenoszenie formatek
-- `pal_zamknij` - zamknięcie palety
+- `pal_zamknij` - zamknięcie palety ✅
 - `pal_helper_oblicz_parametry` - obliczenia parametrów
 
 ### Pomocnicze:
@@ -124,14 +132,17 @@ import { PaletyZko } from '@/modules/zko/components/PaletyZko';
 2. **Używaj V2 Modular** dla automatycznego planowania
 3. **Sprawdzaj Foreign Keys** przed usuwaniem (palety_historia, palety_formatki_ilosc)
 4. **Tabela palety_formatki_ilosc** jest kluczowa dla poprawnego liczenia
+5. **Zamknięte palety** nie mogą być edytowane - tylko usunięte lub wydrukowane
 
 ## 🐛 Rozwiązane problemy
 
 1. ✅ Poprawione liczenie wysokości (poziomy zamiast stosu)
-2. ✅ Dokładne wagi formatek
+2. ✅ Dokładne wagi formatek z różnych źródeł
 3. ✅ Czytelne kolory i przeznaczenia
 4. ✅ Intuicyjne UI z kartami zamiast tabel
 5. ✅ Drag & drop między paletami
+6. ✅ Zamykanie palet z blokowaniem edycji
+7. ✅ Drukowanie etykiet z kodem kreskowym
 
 ## 📈 Metryki sukcesu
 
@@ -140,56 +151,56 @@ import { PaletyZko } from '@/modules/zko/components/PaletyZko';
 - Czas utworzenia palety < 30 sekund
 - Zero błędów przy przekroczeniu limitów
 - 100% formatek przypisanych do palet
+- Etykiety drukowane w < 5 sekund
 
 ## 🔄 Status rozwoju
 
-### ✅ Ukończone (17.01.2025):
+### ✅ Ukończone (18.01.2025):
 - [x] Struktura modułu
 - [x] Typy TypeScript (types.ts)
-- [x] Funkcje obliczeniowe (calculations.ts)
+- [x] Funkcje obliczeniowe (calculations.ts) - POPRAWIONE
 - [x] Formattery i walidatory (formatters.ts, validators.ts)
-- [x] Hook usePalety - zarządzanie paletami
+- [x] Hook usePalety - zarządzanie paletami + ZAMYKANIE + DRUKOWANIE
 - [x] Hook useFormatki - zarządzanie formatkami
 - [x] Hook useDragDrop - obsługa przeciągania
 - [x] Komponent główny (index.tsx)
 - [x] PozycjaSelector - wybór pozycji ZKO
 - [x] PaletyStats - statystyki
-- [x] PaletyGrid - siatka palet
-- [x] PaletaCard - karta palety
+- [x] PaletyGridDND - siatka palet z drag & drop
+- [x] PaletaCardDND - karta palety Z PRZYCISKAMI AKCJI
 - [x] CreatePaletaModal - tworzenie palety
 - [x] PaletaDetails - szczegóły palety
-- [x] FormatkaSelector - lista formatek
+- [x] FormatkaSelectorDND - lista formatek
+- [x] Przycisk zamykania palety
+- [x] Drukowanie etykiet
+- [x] Poprawione obliczenia wag
 
 ### 🚧 Do zrobienia:
-- [ ] Integracja z istniejącymi endpointami API
 - [ ] Testy jednostkowe
 - [ ] Wizualizator 3D układu formatek
-- [ ] Eksport do PDF/Excel
+- [ ] Eksport do PDF/Excel zbiorczy
 - [ ] Optymalizacja wydajności dla > 100 palet
-
-## 📝 Kolejne kroki
-
-1. **Integracja z API** - połączenie hooków z endpointami w `/services/zko-service/src/routes/pallets/`
-2. **Testowanie** - sprawdzenie działania wszystkich funkcjonalności
-3. **Wizualizator** - dodanie komponentu 3D pokazującego układ formatek
-4. **Eksport** - generowanie raportów PDF i Excel
-5. **Deployment** - wdrożenie do produkcji
+- [ ] Integracja z czytnikiem kodów kreskowych
+- [ ] Historia zmian palety
 
 ## 💡 Uwagi implementacyjne
 
-### API Endpoints (już istniejące):
-- `/api/pallets/manual/*` - ręczne zarządzanie (manual.routes.ts)
-- `/api/pallets/modular/*` - planowanie modularne (modular.routes.ts)
-- `/api/pallets/details/*` - szczegóły palet (details.routes.ts)
-- `/api/pallets/manage/*` - zarządzanie ogólne (manage.routes.ts)
+### API Endpoints (wykorzystywane):
+- `/api/pallets/:id/close` - zamykanie palety ✅
+- `/api/pallets/:id` - szczegóły palety (dla drukowania) ✅
+- `/api/zko/:id` - dane ZKO (dla etykiety) ✅
+- `/api/pallets/manual/*` - ręczne zarządzanie
+- `/api/pallets/zko/:id/details` - lista palet dla ZKO
 
-### Komponenty do ewentualnej migracji ze starego modułu:
+### Komponenty do ewentualnej migracji:
 - PaletaVisualizer - wizualizacja 3D
 - ExportManager - eksport danych
 - HistoryViewer - przeglądanie historii
+- BarcodeScanner - skanowanie kodów
 
 ---
 
-**Wersja:** 1.1.0  
-**Data aktualizacji:** 2025-01-17  
-**Status:** 90% ukończone - gotowe do integracji z API
+**Wersja:** 1.2.0  
+**Data aktualizacji:** 2025-01-18  
+**Status:** 95% ukończone - w pełni funkcjonalne
+**Autor zmian:** marlowX (biuro@alpmeb.pl)

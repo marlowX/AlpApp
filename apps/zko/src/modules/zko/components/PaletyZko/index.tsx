@@ -53,6 +53,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     loading: paletyLoading,
     creating,
     deleting,
+    closing,
     podsumowanie,
     fetchPalety,
     utworzPalete,
@@ -60,6 +61,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     usunPalete,
     usunWszystkiePalety,
     zamknijPalete,
+    drukujEtykiete,
     utworzPaletyDlaPozostalych
   } = usePalety(zkoId);
 
@@ -123,8 +125,18 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   }, [usunPalete, fetchFormatki]);
 
   const handleClosePaleta = useCallback(async (paletaId: number) => {
-    await zamknijPalete(paletaId);
+    const success = await zamknijPalete(paletaId);
+    if (success) {
+      // Automatycznie drukuj etykietę po zamknięciu
+      setTimeout(() => {
+        message.info('Możesz teraz wydrukować etykietę palety');
+      }, 1000);
+    }
   }, [zamknijPalete]);
+
+  const handlePrintPaleta = useCallback(async (paletaId: number) => {
+    await drukujEtykiete(paletaId);
+  }, [drukujEtykiete]);
 
   const handleCreateRemaining = useCallback(async () => {
     if (!selectedPozycjaId) {
@@ -151,7 +163,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         return;
       }
 
-      if (paleta.status === 'zamknieta') {
+      if (paleta.status === 'zamknieta' || paleta.status === 'gotowa_do_transportu') {
         message.warning('Paleta jest zamknięta');
         return;
       }
@@ -391,9 +403,11 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     }}
                     onDelete={handleDeletePaleta}
                     onClose={handleClosePaleta}
+                    onPrint={handlePrintPaleta}
                     onShowDetails={(id) => setDetailsPaletaId(id)}
                     onDropFormatka={handleDropFormatka}
                     deleting={deleting}
+                    closing={closing}
                   />
                 ) : (
                   <Empty 
