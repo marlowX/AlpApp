@@ -353,7 +353,8 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
         resetForm();
         onCancel();
       }}
-      width={1200}
+      width="90%"  // Zwiększona szerokość modala
+      style={{ maxWidth: '1400px' }}  // Maksymalna szerokość
       footer={null}
       destroyOnClose
     >
