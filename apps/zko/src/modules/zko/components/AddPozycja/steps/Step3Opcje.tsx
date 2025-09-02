@@ -33,6 +33,8 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
 }) => {
   // Obliczenia
   const totalPlyty = kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
+  
+  // Oblicz całkowitą liczbę formatek
   const totalFormatki = selectedRozkroj ? 
     kolorePlyty.reduce((total, kolor) => {
       if (!kolor.kolor) return total;
@@ -40,6 +42,33 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
         (sum, formatka) => sum + (formatka.ilosc_sztuk * kolor.ilosc), 0
       );
     }, 0) : 0;
+
+  // Oblicz szacowaną wagę formatek
+  // Zakładamy gęstość płyty ~700 kg/m³ dla płyty 18mm
+  const obliczWageFormatek = () => {
+    if (!selectedRozkroj) return 0;
+    
+    let totalWaga = 0;
+    kolorePlyty.forEach(kolor => {
+      if (!kolor.kolor) return;
+      
+      const grubosc = kolor.grubosc || 18; // mm
+      const gestosc = 700; // kg/m³ dla płyty wiórowej
+      
+      selectedRozkroj.formatki.forEach(formatka => {
+        // Objętość formatki w m³
+        const objetosc = (formatka.dlugosc / 1000) * (formatka.szerokosc / 1000) * (grubosc / 1000);
+        // Waga formatki w kg
+        const wagaFormatki = objetosc * gestosc;
+        // Całkowita waga dla wszystkich sztuk
+        totalWaga += wagaFormatki * formatka.ilosc_sztuk * kolor.ilosc;
+      });
+    });
+    
+    return totalWaga;
+  };
+
+  const szacowanaWaga = obliczWageFormatek();
 
   return (
     <div>
@@ -171,7 +200,7 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
                 <Space direction="vertical" size={2} style={{ fontSize: '11px', width: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">Szacowana waga:</Text>
-                    <Text>~{(totalFormatki * 0.5).toFixed(1)} kg</Text>
+                    <Text>~{szacowanaWaga.toFixed(1)} kg</Text>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">Szacowany czas:</Text>

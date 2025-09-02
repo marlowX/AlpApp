@@ -51,6 +51,7 @@ import { PaletyManager } from '../components/PaletyManager';
 import { PaletyZko } from '../components/PaletyZko';
 import { StatusChangeButton } from '../components/StatusChangeButton';
 import { ZKOEditButton } from '../components/ZKOEditButton';
+import { ZKOHeaderCompact } from '../components/ZKOHeaderCompact';
 import zkoApi from '../services/zkoApi';
 import '../styles/zko-details.css';
 
@@ -108,8 +109,18 @@ export const ZKODetailsPage: React.FC = () => {
 
   const { steps, currentIndex } = getWorkflowStep(zko.status);
   const progress = Math.round(((currentIndex + 1) / steps.length) * 100);
-  const priorityColor = zko.priorytet >= 8 ? 'red' : zko.priorytet >= 5 ? 'orange' : 'green';
+  
+  // Przekształć priorytet na format label
   const priorityText = zko.priorytet >= 8 ? 'Wysoki' : zko.priorytet >= 5 ? 'Normalny' : 'Niski';
+  
+  // Przygotuj dane dla kompaktowego nagłówka
+  const zkoWithLabels = {
+    ...zko,
+    priorytet_label: priorityText,
+    status_label: statusLabels[zko.status] || zko.status,
+    kooperant_nazwa: zko.kooperant,
+    utworzyl: zko.utworzyl || 'system'
+  };
 
   const pozycje = zko.pozycje || [];
   const palety = zko.palety || [];
@@ -290,27 +301,28 @@ export const ZKODetailsPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: '24px' }} className="zko-details-page">
-      {/* Header */}
-      <Row justify="space-between" align="middle" style={{ marginBottom: '24px' }}>
+    <div style={{ padding: '12px' }} className="zko-details-page">
+      {/* Header - KOMPAKTOWY */}
+      <Row justify="space-between" align="middle" style={{ marginBottom: '12px' }}>
         <Col>
-          <Space>
+          <Space size="small">
             <Button 
+              size="small"
               icon={<ArrowLeftOutlined />} 
               onClick={() => navigate('/zko')}
             >
               Powrót
             </Button>
-            <Title level={2} style={{ margin: 0 }}>
+            <Title level={3} style={{ margin: 0, fontSize: '18px' }}>
               {zko.numer_zko}
             </Title>
-            <Tag color={statusColors[zko.status] || 'default'}>
+            <Tag color={statusColors[zko.status] || 'default'} style={{ fontSize: '11px' }}>
               {statusLabels[zko.status] || zko.status}
             </Tag>
           </Space>
         </Col>
         <Col>
-          <Space>
+          <Space size="small">
             <ZKOEditButton 
               zko={zko}
               onEdited={refetch}
@@ -325,6 +337,12 @@ export const ZKODetailsPage: React.FC = () => {
           </Space>
         </Col>
       </Row>
+
+      {/* KOMPAKTOWY NAGŁÓWEK Z INFORMACJAMI I POSTĘPEM */}
+      <ZKOHeaderCompact 
+        zko={zkoWithLabels}
+        postepRealizacji={progress}
+      />
 
       {/* Ostrzeżenia o blokadach */}
       {zko.status === 'NOWE' && (hasNoPozycje || hasNoPalety) && (
@@ -357,125 +375,27 @@ export const ZKODetailsPage: React.FC = () => {
           type="error"
           showIcon
           icon={<WarningOutlined />}
-          style={{ marginBottom: '24px' }}
+          style={{ marginBottom: '16px' }}
         />
       )}
-
-      {/* Progress */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row align="middle" gutter={16}>
-          <Col span={4}>
-            <Text strong>Postęp realizacji:</Text>
-          </Col>
-          <Col span={16}>
-            <Progress 
-              percent={progress} 
-              status={zko.status === 'ZAKONCZONA' ? 'success' : 'active'}
-              strokeColor={zko.status === 'ZAKONCZONA' ? '#52c41a' : '#1890ff'}
-            />
-          </Col>
-          <Col span={4}>
-            <Text strong>{progress}%</Text>
-          </Col>
-        </Row>
-      </Card>
-
-      {/* Informacje podstawowe */}
-      <Card 
-        title={
-          <Space>
-            <UserOutlined />
-            Informacje podstawowe
-          </Space>
-        }
-        style={{ marginBottom: '24px' }}
-      >
-        <Row gutter={[24, 16]}>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="Numer ZKO">
-                <Text strong>{zko.numer_zko}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label="Status">
-                <Tag color={statusColors[zko.status] || 'default'}>
-                  {statusLabels[zko.status] || zko.status}
-                </Tag>
-              </Descriptions.Item>
-            </Descriptions>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="Kooperant">
-                <Space>
-                  <UserOutlined />
-                  {zko.kooperant}
-                </Space>
-              </Descriptions.Item>
-              <Descriptions.Item label="Priorytet">
-                <Tag color={priorityColor}>{priorityText} ({zko.priorytet})</Tag>
-              </Descriptions.Item>
-            </Descriptions>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="Data utworzenia">
-                {dayjs(zko.data_utworzenia).format('DD.MM.YYYY HH:mm')}
-              </Descriptions.Item>
-              <Descriptions.Item label="Data planowana">
-                {zko.data_planowana ? dayjs(zko.data_planowana).format('DD.MM.YYYY') : '-'}
-              </Descriptions.Item>
-            </Descriptions>
-          </Col>
-          <Col xs={24} sm={12} md={8} lg={6}>
-            <Descriptions column={1} size="small">
-              <Descriptions.Item label="Data otrzymania">
-                {zko.data_przyjecia_magazyn ? 
-                  dayjs(zko.data_przyjecia_magazyn).format('DD.MM.YYYY') : 
-                  <Text type="secondary">Nie otrzymano</Text>
-                }
-              </Descriptions.Item>
-              <Descriptions.Item label="Utworzył">
-                {zko.utworzyl}
-              </Descriptions.Item>
-            </Descriptions>
-          </Col>
-        </Row>
-        {zko.komentarz && (
-          <div style={{ marginTop: 16 }}>
-            <Text strong>Komentarz:</Text>
-            <br />
-            <Text>{zko.komentarz}</Text>
-          </div>
-        )}
-      </Card>
-
-      {/* Workflow Steps */}
-      <Card title="Etapy realizacji" style={{ marginBottom: '24px' }}>
-        <Steps
-          current={currentIndex}
-          items={steps.map(step => ({
-            title: step.title,
-            description: step.description,
-          }))}
-        />
-      </Card>
 
       {/* Szczegóły realizacji - ULEPSZONE TABS */}
       <Card 
         title={
           <Space>
             <FileTextOutlined />
-            Szczegóły realizacji
+            <Text style={{ fontSize: '14px' }}>Szczegóły realizacji</Text>
             <Badge 
               count={pozycje.length + palety.length} 
               style={{ backgroundColor: '#1890ff' }} 
             />
           </Space>
         }
-        style={{ marginBottom: '24px' }}
+        style={{ marginBottom: '16px' }}
         extra={
           <Button 
             type="primary" 
+            size="small"
             icon={<PlusOutlined />} 
             onClick={() => setShowAddPozycja(true)}
           >
@@ -483,7 +403,7 @@ export const ZKODetailsPage: React.FC = () => {
           </Button>
         }
       >
-        <Tabs defaultActiveKey="pozycje" size="large">
+        <Tabs defaultActiveKey="pozycje" size="small">
           <Tabs.TabPane 
             tab={
               <Space>
@@ -531,6 +451,7 @@ export const ZKODetailsPage: React.FC = () => {
                 columns={pozycjeColumns}
                 dataSource={pozycje}
                 rowKey="id"
+                size="small"
                 pagination={pozycje.length > 10 ? { pageSize: 10, showSizeChanger: true } : false}
                 scroll={{ x: 1400 }}
               />
@@ -648,35 +569,55 @@ export const ZKODetailsPage: React.FC = () => {
         </Tabs>
       </Card>
 
-      {/* Daty i operatorzy */}
-      <Row gutter={24}>
+      {/* Daty i operatorzy - KOMPAKTOWE */}
+      <Row gutter={16}>
         <Col span={12}>
-          <Card title="Daty realizacji" style={{ marginBottom: '24px' }}>
+          <Card 
+            title={<Text style={{ fontSize: '13px' }}>Daty realizacji</Text>}
+            size="small"
+            styles={{ body: { padding: '8px 12px' } }}
+          >
             <Descriptions column={1} size="small">
-              <Descriptions.Item label="Data rozpoczęcia">
-                {zko.data_rozpoczecia ? dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm') : '-'}
+              <Descriptions.Item label="Data rozpoczęcia" labelStyle={{ fontSize: '11px' }}>
+                <Text style={{ fontSize: '11px' }}>
+                  {zko.data_rozpoczecia ? dayjs(zko.data_rozpoczecia).format('DD.MM.YYYY HH:mm') : '-'}
+                </Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Data zakończenia">
-                {zko.data_zakonczenia ? dayjs(zko.data_zakonczenia).format('DD.MM.YYYY HH:mm') : '-'}
+              <Descriptions.Item label="Data zakończenia" labelStyle={{ fontSize: '11px' }}>
+                <Text style={{ fontSize: '11px' }}>
+                  {zko.data_zakonczenia ? dayjs(zko.data_zakonczenia).format('DD.MM.YYYY HH:mm') : '-'}
+                </Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Data wysyłki">
-                {zko.data_wyslania ? dayjs(zko.data_wyslania).format('DD.MM.YYYY') : '-'}
+              <Descriptions.Item label="Data wysyłki" labelStyle={{ fontSize: '11px' }}>
+                <Text style={{ fontSize: '11px' }}>
+                  {zko.data_wyslania ? dayjs(zko.data_wyslania).format('DD.MM.YYYY') : '-'}
+                </Text>
               </Descriptions.Item>
             </Descriptions>
           </Card>
         </Col>
 
         <Col span={12}>
-          <Card title="Operatorzy" style={{ marginBottom: '24px' }}>
+          <Card 
+            title={<Text style={{ fontSize: '13px' }}>Operatorzy</Text>}
+            size="small"
+            styles={{ body: { padding: '8px 12px' } }}
+          >
             <Descriptions column={1} size="small">
-              <Descriptions.Item label="Operator piły">
-                {zko.operator_pily || <Text type="secondary">Nieprzypisany</Text>}
+              <Descriptions.Item label="Operator piły" labelStyle={{ fontSize: '11px' }}>
+                <Text style={{ fontSize: '11px' }}>
+                  {zko.operator_pily || 'Nieprzypisany'}
+                </Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Operator oklejarki">
-                {zko.operator_oklejarki || <Text type="secondary">Nieprzypisany</Text>}
+              <Descriptions.Item label="Operator oklejarki" labelStyle={{ fontSize: '11px' }}>
+                <Text style={{ fontSize: '11px' }}>
+                  {zko.operator_oklejarki || 'Nieprzypisany'}
+                </Text>
               </Descriptions.Item>
-              <Descriptions.Item label="Operator wiertarki">
-                {zko.operator_wiertarki || <Text type="secondary">Nieprzypisany</Text>}
+              <Descriptions.Item label="Operator wiertarki" labelStyle={{ fontSize: '11px' }}>
+                <Text style={{ fontSize: '11px' }}>
+                  {zko.operator_wiertarki || 'Nieprzypisany'}
+                </Text>
               </Descriptions.Item>
             </Descriptions>
           </Card>
