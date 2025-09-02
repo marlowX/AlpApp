@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Typography, Badge, Empty, Spin, Alert, message, Tooltip } from 'antd';
+import { Card, Row, Col, Typography, Badge, Empty, Spin, Alert, message, Tooltip, Space } from 'antd';
 import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { Rozkroj } from '../types';
 
