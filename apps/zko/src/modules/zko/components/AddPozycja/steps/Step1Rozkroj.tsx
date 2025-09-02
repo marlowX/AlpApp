@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Row, Col, Typography, Badge, Empty, Spin, Alert, message, Tooltip, Space, Button } from 'antd';
-import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined, ArrowRightOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined, ArrowRightOutlined, ArrowLeftOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import type { Rozkroj } from '../types';
 
 const { Text, Title } = Typography;
@@ -10,13 +10,17 @@ interface Step1RozkrojProps {
   loading: boolean;
   selectedRozkrojId: number | null;
   onChange: (value: number) => void;
+  onNext?: () => void;  // Dodajemy prop dla przycisku Dalej
+  onPrev?: () => void;  // Dodajemy prop dla przycisku Wstecz
 }
 
 const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({ 
   rozkroje,
   loading,
   selectedRozkrojId,
-  onChange
+  onChange,
+  onNext,
+  onPrev
 }) => {
   const handleSelect = (rozkrojId: number) => {
     const rozkroj = rozkroje.find(r => r.id === rozkrojId);
@@ -27,6 +31,16 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
     }
     
     onChange(rozkrojId);
+  };
+
+  const handleNext = () => {
+    if (!selectedRozkrojId) {
+      message.warning('Wybierz rozkrój przed przejściem dalej');
+      return;
+    }
+    if (onNext) {
+      onNext();
+    }
   };
 
   const rozkrojeZFormatkami = rozkroje.filter(r => r.formatki && r.formatki.length > 0);
@@ -52,7 +66,7 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
 
   return (
     <div>
-      {/* Kompaktowy nagłówek z wybranym rozkrojem */}
+      {/* Kompaktowy nagłówek z nawigacją */}
       <div style={{ 
         marginBottom: 16, 
         padding: '12px 16px', 
@@ -83,7 +97,6 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
             </>
           )}
           
-          {/* Mała ikona pomocy z tooltip */}
           <Tooltip 
             title={
               <div style={{ fontSize: '12px' }}>
@@ -97,19 +110,28 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
           </Tooltip>
         </div>
 
-        {/* Przycisk do następnego kroku - tylko gdy wybrany */}
-        {selectedRozkroj && (
+        {/* Przyciski nawigacji */}
+        <Space>
+          {onPrev && (
+            <Button 
+              icon={<ArrowLeftOutlined />}
+              onClick={onPrev}
+            >
+              Wstecz
+            </Button>
+          )}
           <Button 
             type="primary" 
             icon={<ArrowRightOutlined />}
-            onClick={() => message.success('Przejdź do następnego kroku')}
+            onClick={handleNext}
+            disabled={!selectedRozkroj}
           >
             Dalej
           </Button>
-        )}
+        </Space>
       </div>
       
-      {/* Kompaktowe ostrzeżenie - tylko jeśli są rozkroje bez formatek */}
+      {/* Kompaktowe ostrzeżenie */}
       {rozkrojeBezFormatek.length > 0 && (
         <div style={{ 
           marginBottom: 12, 
@@ -226,7 +248,7 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
         })}
       </Row>
 
-      {/* Rozkroje bez formatek - bardziej kompaktowe */}
+      {/* Rozkroje bez formatek */}
       {rozkrojeBezFormatek.length > 0 && (
         <>
           <Title level={5} style={{ marginTop: 24, marginBottom: 12, color: '#999', fontSize: '13px' }}>
@@ -263,6 +285,36 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
           </Row>
         </>
       )}
+      
+      {/* Dolna nawigacja - duplikat dla wygody */}
+      <div style={{ 
+        marginTop: 24, 
+        padding: '12px', 
+        background: '#f5f5f5', 
+        borderRadius: '4px',
+        display: 'flex',
+        justifyContent: 'space-between'
+      }}>
+        <div>
+          {onPrev && (
+            <Button 
+              icon={<ArrowLeftOutlined />}
+              onClick={onPrev}
+            >
+              Wstecz
+            </Button>
+          )}
+        </div>
+        <Button 
+          type="primary" 
+          icon={<ArrowRightOutlined />}
+          onClick={handleNext}
+          disabled={!selectedRozkroj}
+          size="large"
+        >
+          Przejdź dalej
+        </Button>
+      </div>
     </div>
   );
 };

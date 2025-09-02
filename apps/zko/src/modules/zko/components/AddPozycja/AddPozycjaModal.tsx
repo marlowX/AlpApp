@@ -296,7 +296,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     setKolorePlyty(newKolory);
   };
 
-  // Kroki wizarda
+  // Kroki wizarda - DODAJEMY onNext i onPrev
   const steps = [
     {
       title: 'Wybierz rozkrój',
@@ -306,6 +306,8 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           loading={rozkrojeLoading}
           selectedRozkrojId={selectedRozkrojId}
           onChange={handleRozkrojChange}
+          onNext={next}
+          onPrev={currentStep > 0 ? prev : undefined}
         />
       ),
     },
@@ -319,6 +321,8 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           plytyLoading={plytyLoading}
           onUpdateKolor={updateKolorPlyty}
           selectedRozkroj={selectedRozkroj}
+          onNext={next}
+          onPrev={prev}
         />
       ),
     },
@@ -329,6 +333,8 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           form={form}
           kolorePlyty={kolorePlyty}
           selectedRozkroj={selectedRozkroj}
+          onNext={handleSubmit}
+          onPrev={prev}
         />
       ),
     },
@@ -363,6 +369,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
             {steps[currentStep].content}
           </div>
           
+          {/* Stopka modalu z przyciskami nawigacji - zostawiamy jako backup */}
           <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
             <div>
               {currentStep > 0 && (
