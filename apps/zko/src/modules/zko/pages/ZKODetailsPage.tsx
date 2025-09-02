@@ -34,7 +34,11 @@ import {
   ExperimentOutlined,
   LockOutlined,
   CheckCircleOutlined,
-  WarningOutlined
+  WarningOutlined,
+  BgColorsOutlined,
+  AppstoreOutlined,
+  InboxOutlined,
+  PrinterOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -107,6 +111,11 @@ export const ZKODetailsPage: React.FC = () => {
 
   const pozycje = zko.pozycje || [];
   const palety = zko.palety || [];
+  
+  // Oblicz statystyki
+  const uniqueColors = [...new Set(pozycje.map(p => p.kolor_plyty).filter(Boolean))];
+  const zamknietePalety = palety.filter(p => p.status === 'gotowa_do_transportu' || p.status === 'zamknieta');
+  const otwartePalety = palety.filter(p => p.status !== 'gotowa_do_transportu' && p.status !== 'zamknieta');
   
   // Sprawdź warunki blokujące
   const hasNoPozycje = pozycje.length === 0;
@@ -425,13 +434,16 @@ export const ZKODetailsPage: React.FC = () => {
         />
       </Card>
 
-      {/* Szczegóły realizacji */}
+      {/* Szczegóły realizacji - ULEPSZONE TABS */}
       <Card 
         title={
           <Space>
             <FileTextOutlined />
             Szczegóły realizacji
-            <Badge count={pozycje.length} style={{ backgroundColor: '#52c41a' }} />
+            <Badge 
+              count={pozycje.length + palety.length} 
+              style={{ backgroundColor: '#1890ff' }} 
+            />
           </Space>
         }
         style={{ marginBottom: '24px' }}
@@ -450,7 +462,37 @@ export const ZKODetailsPage: React.FC = () => {
             tab={
               <Space>
                 <BoxPlotOutlined />
-                Pozycje ({pozycje.length})
+                <span>Pozycje</span>
+                <Badge 
+                  count={pozycje.length} 
+                  style={{ backgroundColor: '#52c41a' }}
+                  title={`${pozycje.length} pozycji`}
+                />
+                {uniqueColors.length > 0 && (
+                  <Space size={4} style={{ marginLeft: 8 }}>
+                    <BgColorsOutlined style={{ fontSize: 12, color: '#999' }} />
+                    {uniqueColors.slice(0, 3).map((color, idx) => (
+                      <Tag 
+                        key={idx} 
+                        color="blue" 
+                        style={{ 
+                          margin: 0, 
+                          fontSize: 10,
+                          padding: '0 4px',
+                          height: 18,
+                          lineHeight: '16px'
+                        }}
+                      >
+                        {color}
+                      </Tag>
+                    ))}
+                    {uniqueColors.length > 3 && (
+                      <Text type="secondary" style={{ fontSize: 10 }}>
+                        +{uniqueColors.length - 3}
+                      </Text>
+                    )}
+                  </Space>
+                )}
               </Space>
             } 
             key="pozycje"
@@ -492,7 +534,54 @@ export const ZKODetailsPage: React.FC = () => {
                 <span style={{ color: '#1890ff', fontWeight: 500 }}>
                   Palety (Drag & Drop)
                 </span>
-                <Badge count={palety.length} />
+                <Badge 
+                  count={palety.length} 
+                  style={{ backgroundColor: '#1890ff' }}
+                  title={`${palety.length} palet`}
+                />
+                {palety.length > 0 && (
+                  <Space size={4} style={{ marginLeft: 8 }}>
+                    {zamknietePalety.length > 0 && (
+                      <Tooltip title={`${zamknietePalety.length} zamkniętych palet`}>
+                        <span style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '2px 6px',
+                          backgroundColor: '#f6ffed',
+                          border: '1px solid #b7eb8f',
+                          borderRadius: 4,
+                          fontSize: 11
+                        }}>
+                          <LockOutlined style={{ color: '#52c41a', fontSize: 11 }} />
+                          <span style={{ color: '#52c41a' }}>{zamknietePalety.length}</span>
+                        </span>
+                      </Tooltip>
+                    )}
+                    {otwartePalety.length > 0 && (
+                      <Tooltip title={`${otwartePalety.length} otwartych palet`}>
+                        <span style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center',
+                          gap: 4,
+                          padding: '2px 6px',
+                          backgroundColor: '#fff7e6',
+                          border: '1px solid #ffd591',
+                          borderRadius: 4,
+                          fontSize: 11
+                        }}>
+                          <InboxOutlined style={{ color: '#faad14', fontSize: 11 }} />
+                          <span style={{ color: '#faad14' }}>{otwartePalety.length}</span>
+                        </span>
+                      </Tooltip>
+                    )}
+                    {zamknietePalety.length > 0 && (
+                      <Tooltip title="Możliwość drukowania etykiet">
+                        <PrinterOutlined style={{ color: '#1890ff', fontSize: 12 }} />
+                      </Tooltip>
+                    )}
+                  </Space>
+                )}
               </Space>
             } 
             key="palety-dnd"
@@ -513,6 +602,7 @@ export const ZKODetailsPage: React.FC = () => {
               </Space>
             } 
             key="palety-old"
+            disabled
           >
             <Alert
               message="Wersja testowa"
