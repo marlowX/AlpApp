@@ -179,10 +179,10 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       const values = await form.validateFields();
       
       if (editMode && pozycjaToEdit) {
-        // Tryb edycji
-        const pierwszyKolor = kolorePlyty.find(p => p.kolor) || kolorePlyty[0];
+        // Tryb edycji - OBSŁUGA WIELU PŁYT
+        const validKolory = kolorePlyty.filter(p => p.kolor);
         
-        if (!pierwszyKolor.kolor) {
+        if (validKolory.length === 0) {
           notification.error({
             message: 'Błąd',
             description: 'Musisz wybrać przynajmniej jedną płytę',
@@ -191,12 +191,29 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           return;
         }
         
-        // Przygotuj dane do edycji - WSZYSTKIE POLA + ŚCIEŻKA PRODUKCJI
+        // Jeśli mamy wiele kolorów, formatujemy je odpowiednio
+        let kolorPlytyStr = '';
+        let nazwaPlytyStr = '';
+        let iloscPlyt = 0;
+        
+        if (validKolory.length === 1) {
+          // Pojedyncza płyta
+          kolorPlytyStr = validKolory[0].kolor;
+          nazwaPlytyStr = validKolory[0].nazwa || validKolory[0].kolor;
+          iloscPlyt = validKolory[0].ilosc || 1;
+        } else {
+          // Wiele płyt - format "KOLOR1 x2, KOLOR2 x3"
+          kolorPlytyStr = validKolory.map(k => `${k.kolor} x${k.ilosc || 1}`).join(', ');
+          nazwaPlytyStr = validKolory.map(k => k.nazwa || k.kolor).join(', ');
+          iloscPlyt = validKolory.reduce((sum, k) => sum + (k.ilosc || 1), 0);
+        }
+        
+        // Przygotuj dane do edycji
         const editData = {
           rozkroj_id: selectedRozkrojId || pozycjaToEdit.rozkroj_id,
-          ilosc_plyt: pierwszyKolor.ilosc || 1,
-          kolor_plyty: pierwszyKolor.kolor,
-          nazwa_plyty: pierwszyKolor.nazwa || pierwszyKolor.kolor,
+          ilosc_plyt: iloscPlyt,
+          kolor_plyty: kolorPlytyStr,
+          nazwa_plyty: nazwaPlytyStr,
           kolejnosc: values.kolejnosc || pozycjaToEdit.kolejnosc || null,
           uwagi: values.uwagi || pozycjaToEdit.uwagi || null,
           sciezka_produkcji: values.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
@@ -296,7 +313,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     setKolorePlyty(newKolory);
   };
 
-  // Kroki wizarda - DODAJEMY onNext i onPrev
+  // Kroki wizarda
   const steps = [
     {
       title: 'Wybierz rozkrój',
@@ -353,8 +370,8 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
         resetForm();
         onCancel();
       }}
-      width="90%"  // Zwiększona szerokość modala
-      style={{ maxWidth: '1400px' }}  // Maksymalna szerokość
+      width="90%"
+      style={{ maxWidth: '1400px' }}
       footer={null}
       destroyOnClose
     >
@@ -370,7 +387,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
             {steps[currentStep].content}
           </div>
           
-          {/* Stopka modalu z przyciskami nawigacji - zostawiamy jako backup */}
+          {/* Stopka modalu z przyciskami nawigacji */}
           <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between' }}>
             <div>
               {currentStep > 0 && (
