@@ -7,7 +7,12 @@ import {
   FlagOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ScissorOutlined,
+  BgColorsOutlined,
+  ToolOutlined,
+  InboxOutlined,
+  CheckSquareOutlined
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -30,12 +35,12 @@ export const ZKOHeaderCompact: React.FC<ZKOHeaderCompactProps> = ({ zko, postepR
   };
 
   const etapy = [
-    { key: 'nowe', label: 'Nowe', icon: '📝' },
-    { key: 'ciecie', label: 'Cięcie', icon: '✂️' },
-    { key: 'oklejanie', label: 'Oklejanie', icon: '🎨' },
-    { key: 'wiercenie', label: 'Wiercenie', icon: '🔧' },
-    { key: 'pakowanie', label: 'Pakowanie', icon: '📦' },
-    { key: 'zakonczone', label: 'Zakończone', icon: '✅' }
+    { key: 'nowe', label: 'Nowe', icon: <FileTextOutlined style={{ fontSize: 12 }} /> },
+    { key: 'ciecie', label: 'Cięcie', icon: <ScissorOutlined style={{ fontSize: 12 }} /> },
+    { key: 'oklejanie', label: 'Oklejanie', icon: <BgColorsOutlined style={{ fontSize: 12 }} /> },
+    { key: 'wiercenie', label: 'Wiercenie', icon: <ToolOutlined style={{ fontSize: 12 }} /> },
+    { key: 'pakowanie', label: 'Pakowanie', icon: <InboxOutlined style={{ fontSize: 12 }} /> },
+    { key: 'zakonczone', label: 'Zakończone', icon: <CheckSquareOutlined style={{ fontSize: 12 }} /> }
   ];
 
   const aktywnyEtap = Math.floor((postepRealizacji / 100) * etapy.length);
@@ -132,15 +137,22 @@ export const ZKOHeaderCompact: React.FC<ZKOHeaderCompactProps> = ({ zko, postepR
             >
               <div
                 style={{
-                  padding: '2px 6px',
+                  padding: '4px 6px',
                   background: index <= aktywnyEtap ? '#1890ff' : '#f0f0f0',
                   borderRadius: '3px',
-                  fontSize: '12px',
                   cursor: 'pointer',
-                  opacity: index <= aktywnyEtap ? 1 : 0.5
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'all 0.3s'
                 }}
               >
-                {etap.icon}
+                <span style={{ 
+                  color: index <= aktywnyEtap ? 'white' : '#999',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  {etap.icon}
+                </span>
               </div>
             </Tooltip>
           ))}
