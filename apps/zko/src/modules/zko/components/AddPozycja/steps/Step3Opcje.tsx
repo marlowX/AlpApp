@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input, InputNumber, Card, Row, Col, Typography, Space, Tag, Divider, Badge, Tooltip } from 'antd';
+import { Form, Input, InputNumber, Card, Row, Col, Typography, Space, Tag, Divider, Badge } from 'antd';
 import { 
   ScissorOutlined,
   BgColorsOutlined,
@@ -7,7 +7,8 @@ import {
   FormatPainterOutlined,
   NumberOutlined,
   FileTextOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  ArrowRightOutlined
 } from '@ant-design/icons';
 import { SciezkaProdukcji } from '../SciezkaProdukcji';
 import type { KolorPlyty, Rozkroj } from '../types';
@@ -44,64 +45,74 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
     <div>
       {/* PODSUMOWANIE POZYCJI */}
       <Card 
+        size="small"
+        style={{ marginBottom: 16 }}
+        styles={{ 
+          header: { 
+            background: '#fafafa', 
+            padding: '8px 16px',
+            borderBottom: '2px solid #1890ff'
+          },
+          body: { padding: '16px' } 
+        }}
         title={
           <Space>
             <ThunderboltOutlined style={{ color: '#1890ff' }} />
             <Text strong>Podsumowanie pozycji</Text>
           </Space>
         }
-        style={{ marginBottom: 16 }}
-        styles={{ body: { padding: '16px' } }}
       >
-        <Row gutter={[24, 16]}>
+        <Row gutter={[16, 16]}>
           {/* Rozkrój */}
           <Col xs={24} md={8}>
-            <div style={{ 
-              padding: '12px',
-              background: '#f0f5ff',
-              borderRadius: '8px',
-              border: '1px solid #d6e4ff'
-            }}>
-              <Space direction="vertical" style={{ width: '100%' }}>
+            <Card 
+              size="small" 
+              bordered={false}
+              style={{ background: '#f0f5ff' }}
+              styles={{ body: { padding: '12px' } }}
+            >
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
                 <Space>
-                  <ScissorOutlined style={{ fontSize: 18, color: '#1890ff' }} />
+                  <ScissorOutlined style={{ fontSize: 16, color: '#1890ff' }} />
                   <Text strong>Rozkrój</Text>
                 </Space>
-                <Title level={5} style={{ margin: '4px 0', color: '#1890ff' }}>
-                  {selectedRozkroj?.kod_rozkroju}
-                </Title>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {selectedRozkroj?.rozmiar_plyty}
-                </Text>
+                
+                <div>
+                  <Text strong style={{ fontSize: '16px', color: '#1890ff' }}>
+                    {selectedRozkroj?.kod_rozkroju}
+                  </Text>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {selectedRozkroj?.rozmiar_plyty}
+                    </Text>
+                  </div>
+                </div>
+
                 <Divider style={{ margin: '8px 0' }} />
+                
                 <div style={{ fontSize: '11px' }}>
                   <Text type="secondary">Formatki ({selectedRozkroj?.formatki.length}):</Text>
-                  {selectedRozkroj?.formatki.slice(0, 2).map((f, idx) => (
-                    <div key={idx} style={{ marginLeft: 8 }}>
-                      • {f.dlugosc}×{f.szerokosc} - {f.ilosc_sztuk} szt.
+                  {selectedRozkroj?.formatki.map((f, idx) => (
+                    <div key={idx} style={{ marginLeft: 8, color: '#595959' }}>
+                      • {f.dlugosc}×{f.szerokosc} mm - {f.ilosc_sztuk} szt.
                     </div>
                   ))}
-                  {selectedRozkroj && selectedRozkroj.formatki.length > 2 && (
-                    <Text type="secondary" style={{ marginLeft: 8, fontSize: '10px' }}>
-                      ...+{selectedRozkroj.formatki.length - 2} więcej
-                    </Text>
-                  )}
                 </div>
               </Space>
-            </div>
+            </Card>
           </Col>
 
           {/* Płyty */}
           <Col xs={24} md={8}>
-            <div style={{ 
-              padding: '12px',
-              background: '#f6ffed',
-              borderRadius: '8px',
-              border: '1px solid #d9f7be'
-            }}>
-              <Space direction="vertical" style={{ width: '100%' }}>
+            <Card 
+              size="small" 
+              bordered={false}
+              style={{ background: '#f6ffed' }}
+              styles={{ body: { padding: '12px' } }}
+            >
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
                 <Space>
-                  <BgColorsOutlined style={{ fontSize: 18, color: '#52c41a' }} />
+                  <BgColorsOutlined style={{ fontSize: 16, color: '#52c41a' }} />
                   <Text strong>Płyty</Text>
                   <Badge count={totalPlyty} style={{ backgroundColor: '#52c41a' }} />
                 </Space>
@@ -111,36 +122,38 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
                     padding: '6px 8px',
                     background: 'white',
                     borderRadius: '4px',
-                    marginBottom: 4
+                    border: '1px solid #d9f7be'
                   }}>
-                    <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                      <Text strong style={{ fontSize: '12px' }}>
-                        {plyta.nazwa || plyta.kolor}
-                      </Text>
-                      <Tag color="green">{plyta.ilosc} szt.</Tag>
-                    </Space>
-                    {plyta.dlugosc && plyta.szerokosc && (
-                      <Text type="secondary" style={{ fontSize: '10px' }}>
-                        {plyta.dlugosc}×{plyta.szerokosc} mm
-                      </Text>
-                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <Text strong style={{ fontSize: '12px' }}>
+                          {plyta.nazwa || plyta.kolor}
+                        </Text>
+                        {plyta.dlugosc && plyta.szerokosc && (
+                          <Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>
+                            {plyta.dlugosc}×{plyta.szerokosc} mm
+                          </Text>
+                        )}
+                      </div>
+                      <Tag color="green" style={{ margin: 0 }}>{plyta.ilosc} szt.</Tag>
+                    </div>
                   </div>
                 ))}
               </Space>
-            </div>
+            </Card>
           </Col>
 
           {/* Produkcja */}
           <Col xs={24} md={8}>
-            <div style={{ 
-              padding: '12px',
-              background: '#fff7e6',
-              borderRadius: '8px',
-              border: '1px solid '#ffd591'
-            }}>
-              <Space direction="vertical" style={{ width: '100%' }}>
+            <Card 
+              size="small" 
+              bordered={false}
+              style={{ background: '#fff7e6' }}
+              styles={{ body: { padding: '12px' } }}
+            >
+              <Space direction="vertical" size="small" style={{ width: '100%' }}>
                 <Space>
-                  <FormatPainterOutlined style={{ fontSize: 18, color: '#fa8c16' }} />
+                  <FormatPainterOutlined style={{ fontSize: 16, color: '#fa8c16' }} />
                   <Text strong>Produkcja</Text>
                 </Space>
                 
@@ -148,36 +161,49 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
                   <Text type="secondary" style={{ fontSize: '11px' }}>
                     Formatek do produkcji:
                   </Text>
-                  <Title level={4} style={{ margin: '4px 0', color: '#fa8c16' }}>
+                  <Text strong style={{ fontSize: '24px', color: '#fa8c16', display: 'block' }}>
                     {totalFormatki} szt.
-                  </Title>
+                  </Text>
                 </div>
 
-                <div style={{ fontSize: '11px' }}>
-                  <Text type="secondary">Szacowana waga:</Text>
-                  <div>~{(totalFormatki * 0.5).toFixed(1)} kg</div>
-                </div>
+                <Divider style={{ margin: '8px 0' }} />
 
-                <div style={{ fontSize: '11px' }}>
-                  <Text type="secondary">Szacowany czas:</Text>
-                  <div>~{Math.ceil(totalFormatki / 60)} min</div>
-                </div>
+                <Space direction="vertical" size={2} style={{ fontSize: '11px', width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Text type="secondary">Szacowana waga:</Text>
+                    <Text>~{(totalFormatki * 0.5).toFixed(1)} kg</Text>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Text type="secondary">Szacowany czas:</Text>
+                    <Text>~{Math.ceil(totalFormatki / 60)} min</Text>
+                  </div>
+                </Space>
               </Space>
-            </div>
+            </Card>
           </Col>
         </Row>
       </Card>
 
       {/* ŚCIEŻKA PRODUKCJI */}
       <Card 
-        title="Ścieżka produkcji"
-        style={{ marginBottom: 16 }}
+        title={
+          <Space>
+            <ArrowRightOutlined />
+            <Text strong>Ścieżka produkcji</Text>
+          </Space>
+        }
         size="small"
+        style={{ marginBottom: 16 }}
+        styles={{ 
+          header: { background: '#fafafa', padding: '8px 16px' },
+          body: { padding: '12px' } 
+        }}
       >
         <Form.Item
           name="sciezka_produkcji"
           initialValue="CIECIE->OKLEJANIE->MAGAZYN"
           rules={[{ required: true, message: 'Wybierz ścieżkę produkcji' }]}
+          style={{ marginBottom: 8 }}
         >
           <SciezkaProdukcji
             formatki={[]}
@@ -186,27 +212,32 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
             }}
           />
         </Form.Item>
-        <Text type="secondary" style={{ fontSize: '11px' }}>
-          Ścieżka określa kolejność operacji technologicznych. Można ją zmienić później dla pojedynczych formatek na paletach.
+        <Text type="secondary" style={{ fontSize: '10px' }}>
+          Można zmienić później dla pojedynczych formatek
         </Text>
       </Card>
 
       {/* OPCJE DODATKOWE */}
       <Card 
-        title="Opcje dodatkowe"
+        title={
+          <Space>
+            <NumberOutlined />
+            <Text strong>Opcje dodatkowe</Text>
+          </Space>
+        }
         size="small"
+        styles={{ 
+          header: { background: '#fafafa', padding: '8px 16px' },
+          body: { padding: '12px' } 
+        }}
       >
         <Row gutter={16}>
           <Col xs={24} md={12}>
             <Form.Item
-              label={
-                <Space>
-                  <NumberOutlined />
-                  <span>Kolejność produkcji</span>
-                </Space>
-              }
+              label="Kolejność produkcji"
               name="kolejnosc"
               tooltip="Niższa wartość = wyższy priorytet"
+              style={{ marginBottom: 8 }}
             >
               <InputNumber 
                 min={1} 
@@ -219,64 +250,20 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           
           <Col xs={24} md={12}>
             <Form.Item
-              label={
-                <Space>
-                  <FileTextOutlined />
-                  <span>Uwagi</span>
-                </Space>
-              }
+              label="Uwagi"
               name="uwagi"
+              style={{ marginBottom: 8 }}
             >
               <TextArea 
                 rows={2} 
-                placeholder="Opcjonalne uwagi do pozycji..."
-                maxLength={500}
+                placeholder="Opcjonalne uwagi..."
+                maxLength={200}
                 showCount
+                style={{ fontSize: '12px' }}
               />
             </Form.Item>
           </Col>
         </Row>
-      </Card>
-
-      {/* WIZUALIZACJA PALET (placeholder) */}
-      <Card 
-        title={
-          <Space>
-            <AppstoreOutlined />
-            <Text>Palety zostaną utworzone automatycznie</Text>
-          </Space>
-        }
-        style={{ 
-          marginTop: 16,
-          background: '#fafafa',
-          borderStyle: 'dashed'
-        }}
-        size="small"
-      >
-        <Row gutter={[8, 8]}>
-          {[1, 2, 3].map(i => (
-            <Col key={i} xs={8} md={4}>
-              <div style={{
-                padding: '8px',
-                background: 'white',
-                border: '1px solid #d9d9d9',
-                borderRadius: '4px',
-                textAlign: 'center',
-                fontSize: '11px'
-              }}>
-                <AppstoreOutlined style={{ fontSize: 20, color: '#999' }} />
-                <div>Paleta {i}</div>
-                <Text type="secondary" style={{ fontSize: '10px' }}>
-                  ~{Math.ceil(totalFormatki / 3)} szt.
-                </Text>
-              </div>
-            </Col>
-          ))}
-        </Row>
-        <Text type="secondary" style={{ fontSize: '11px', marginTop: 8, display: 'block' }}>
-          System automatycznie rozdzieli formatki na palety po dodaniu pozycji. 
-          Później możesz zarządzać paletami przez drag & drop.
-        </Text>
       </Card>
     </div>
   );
