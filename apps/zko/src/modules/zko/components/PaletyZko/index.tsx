@@ -1,10 +1,10 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko - Z AUTOMATYCZNYM ODŚWIEŻANIEM FORMATEK
+ * @fileoverview Główny komponent modułu PaletyZko - Z AUTOMATYCZNYM TWORZENIEM PALET PRZEZ DRAG & DROP
  * @module PaletyZko
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Row, Col, Space, Typography, Button, Badge, message, Spin, Empty, Tooltip } from 'antd';
+import { Card, Row, Col, Space, Typography, Button, Badge, message, Spin, Empty, Tooltip, Popconfirm } from 'antd';
 import {
   AppstoreOutlined,
   PlusOutlined,
@@ -68,7 +68,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   const {
     formatki,
     loading: formatkiLoading,
-    fetchFormatki, // Dodajemy fetchFormatki do odświeżania
+    fetchFormatki,
     getFormatkiDostepne,
     obliczStatystyki
   } = useFormatki(selectedPozycjaId);
@@ -76,7 +76,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   // ========== HANDLERS ==========
   const handleRefresh = useCallback(() => {
     fetchPalety();
-    fetchFormatki(); // Odśwież też formatki
+    fetchFormatki();
     if (onRefresh) onRefresh();
   }, [fetchPalety, fetchFormatki, onRefresh]);
 
@@ -94,7 +94,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     if (paleta) {
       setCreateModalVisible(false);
       message.success('Paleta utworzona pomyślnie');
-      await fetchFormatki(); // Odśwież listę formatek po utworzeniu palety
+      await fetchFormatki();
     }
   }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
 
@@ -114,20 +114,20 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success('Utworzono pustą paletę');
+      await fetchFormatki();
     }
-  }, [selectedPozycjaId, utworzPalete]);
+  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
 
   const handleDeletePaleta = useCallback(async (paletaId: number) => {
     const success = await usunPalete(paletaId);
     if (success) {
-      await fetchFormatki(); // Odśwież listę formatek po usunięciu palety
+      await fetchFormatki();
     }
   }, [usunPalete, fetchFormatki]);
 
   const handleClosePaleta = useCallback(async (paletaId: number) => {
     const success = await zamknijPalete(paletaId);
     if (success) {
-      // Automatycznie drukuj etykietę po zamknięciu
       setTimeout(() => {
         message.info('Możesz teraz wydrukować etykietę palety');
       }, 1000);
@@ -146,11 +146,41 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
 
     const result = await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
     if (result) {
-      await fetchFormatki(); // Odśwież listę formatek po utworzeniu palet
+      await fetchFormatki();
     }
   }, [selectedPozycjaId, utworzPaletyDlaPozostalych, fetchFormatki]);
 
-  // DRAG & DROP - Handler dla upuszczenia formatki na paletę - Z ODŚWIEŻANIEM
+  // DRAG & DROP - Automatyczne tworzenie palety gdy nie ma żadnej
+  const handleDropFormatkaToEmptyArea = useCallback(async (
+    formatka: any,
+    ilosc: number
+  ) => {
+    if (!selectedPozycjaId) {
+      message.warning('Wybierz najpierw pozycję ZKO');
+      return;
+    }
+
+    // Automatycznie utwórz paletę z formatkami
+    const data: PaletaFormData = {
+      przeznaczenie: 'MAGAZYN',
+      formatki: [{
+        formatka_id: formatka.id,
+        ilosc: ilosc
+      }],
+      uwagi: 'Paleta utworzona automatycznie'
+    };
+
+    const paleta = await utworzPalete(selectedPozycjaId, data);
+    if (paleta) {
+      message.success('Automatycznie utworzono paletę z formatkami');
+      await Promise.all([
+        fetchPalety(),
+        fetchFormatki()
+      ]);
+    }
+  }, [selectedPozycjaId, utworzPalete, fetchPalety, fetchFormatki]);
+
+  // DRAG & DROP - Handler dla upuszczenia formatki na paletę
   const handleDropFormatka = useCallback(async (
     formatka: any,
     ilosc: number,
@@ -168,17 +198,8 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         return;
       }
 
-      // WAŻNE: Użyj właściwego ID formatki
       const formatkaId = formatka.id;
       
-      console.log('Dropping formatka:', { 
-        formatkaId, 
-        ilosc, 
-        targetPaletaId,
-        formatka 
-      });
-
-      // Przygotuj formatki do aktualizacji
       const currentFormatki = paleta.formatki_szczegoly || [];
       const existingFormatka = currentFormatki.find((f: any) => 
         (f.formatka_id === formatkaId) || (f.id === formatkaId)
@@ -186,7 +207,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       
       let updatedFormatki;
       if (existingFormatka) {
-        // Zwiększ ilość istniejącej formatki
         updatedFormatki = currentFormatki.map((f: any) => {
           const fId = f.formatka_id || f.id;
           if (fId === formatkaId) {
@@ -195,7 +215,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
           return { formatka_id: fId, ilosc: f.ilosc || 0 };
         });
       } else {
-        // Dodaj nową formatkę
         const currentFormatkiMapped = currentFormatki.map((f: any) => ({ 
           formatka_id: f.formatka_id || f.id, 
           ilosc: f.ilosc || 0 
@@ -206,11 +225,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         ];
       }
 
-      console.log('Sending to backend:', { 
-        paletaId: targetPaletaId,
-        formatki: updatedFormatki 
-      });
-
       const success = await edytujPalete(targetPaletaId, { 
         formatki: updatedFormatki,
         przeznaczenie: paleta.przeznaczenie
@@ -218,10 +232,9 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       
       if (success) {
         message.success(`Dodano ${ilosc} szt. formatki do palety`);
-        // Odśwież obie listy po przeciągnięciu
         await Promise.all([
           fetchPalety(),
-          fetchFormatki() // 🔥 WAŻNE: Odśwież listę formatek po dodaniu do palety
+          fetchFormatki()
         ]);
       }
     } catch (error) {
@@ -262,14 +275,22 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   Odśwież
                 </Button>
                 {palety.length > 0 && (
-                  <Button
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={usunWszystkiePalety}
-                    loading={loading}
+                  <Popconfirm
+                    title="Usuń wszystkie palety"
+                    description="Czy na pewno chcesz usunąć wszystkie palety?"
+                    onConfirm={usunWszystkiePalety}
+                    okText="Tak, usuń"
+                    cancelText="Anuluj"
+                    okButtonProps={{ danger: true }}
                   >
-                    Usuń wszystkie
-                  </Button>
+                    <Button
+                      danger
+                      icon={<DeleteOutlined />}
+                      loading={loading}
+                    >
+                      Usuń wszystkie
+                    </Button>
+                  </Popconfirm>
                 )}
               </Space>
             </div>
@@ -304,7 +325,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       title={
                         <div style={{ fontSize: '12px' }}>
                           <div>• Przeciągnij formatki na palety</div>
-                          <div>• Pokazane są tylko formatki nie przypisane w całości</div>
+                          <div>• Jeśli nie ma palet, paleta utworzy się automatycznie</div>
                           <div>• Liczba w nawiasie to dostępne sztuki</div>
                         </div>
                       }
@@ -341,6 +362,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     formatki={formatkiDostepne}
                     loading={formatkiLoading}
                     onSelectFormatka={() => {}}
+                    onDropToEmptyArea={palety.length === 0 ? handleDropFormatkaToEmptyArea : undefined}
                   />
                 ) : (
                   <Empty 
@@ -369,6 +391,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       icon={<InboxOutlined />}
                       onClick={handleCreateEmptyPaleta}
                       disabled={!selectedPozycjaId}
+                      style={{ display: palety.length > 0 ? 'inline-block' : 'none' }}
                     >
                       Pusta paleta
                     </Button>
@@ -378,7 +401,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       onClick={() => setCreateModalVisible(true)}
                       disabled={!selectedPozycjaId}
                     >
-                      Nowa paleta z formatkami
+                      Utwórz paletę z formatkami
                     </Button>
                   </Space>
                 }
@@ -398,7 +421,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   <PaletyGridDND
                     palety={palety}
                     onEdit={(paleta) => {
-                      // Pokaż modal edycji
                       setDetailsPaletaId(paleta.id);
                     }}
                     onDelete={handleDeletePaleta}
@@ -410,31 +432,59 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     closing={closing}
                   />
                 ) : (
-                  <Empty 
-                    image={<AppstoreOutlined style={{ fontSize: 48 }} />}
-                    description={
-                      <div>
-                        <p>Brak palet</p>
-                        {selectedPozycjaId && (
-                          <Space style={{ marginTop: 16 }}>
-                            <Button
-                              icon={<InboxOutlined />}
-                              onClick={handleCreateEmptyPaleta}
-                            >
-                              Utwórz pustą paletę
-                            </Button>
-                            <Button
-                              type="primary"
-                              icon={<PlusOutlined />}
-                              onClick={() => setCreateModalVisible(true)}
-                            >
-                              Utwórz paletę z formatkami
-                            </Button>
-                          </Space>
-                        )}
-                      </div>
-                    }
-                  />
+                  <div 
+                    style={{ 
+                      textAlign: 'center', 
+                      padding: '60px 20px',
+                      border: '2px dashed #d9d9d9',
+                      borderRadius: '8px',
+                      background: '#fafafa',
+                      minHeight: '400px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'center'
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      // Tu obsługa automatycznego tworzenia palety
+                      if (selectedPozycjaId) {
+                        message.info('Przeciągnij formatkę tutaj aby automatycznie utworzyć paletę');
+                      }
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                  >
+                    <AppstoreOutlined style={{ fontSize: 64, color: '#d9d9d9', marginBottom: 16 }} />
+                    <Title level={4} style={{ color: '#999', marginBottom: 8 }}>
+                      Brak palet
+                    </Title>
+                    <Text style={{ color: '#999', marginBottom: 24 }}>
+                      {selectedPozycjaId 
+                        ? 'Przeciągnij formatkę z lewej strony lub użyj przycisków poniżej'
+                        : 'Wybierz najpierw pozycję ZKO'
+                      }
+                    </Text>
+                    
+                    {selectedPozycjaId && (
+                      <Space direction="vertical" size="middle">
+                        <Button
+                          icon={<InboxOutlined />}
+                          onClick={handleCreateEmptyPaleta}
+                          size="large"
+                        >
+                          Utwórz pustą paletę
+                        </Button>
+                        <Button
+                          type="primary"
+                          icon={<PlusOutlined />}
+                          onClick={() => setCreateModalVisible(true)}
+                          size="large"
+                        >
+                          Utwórz paletę z formatkami
+                        </Button>
+                      </Space>
+                    )}
+                  </div>
                 )}
               </Card>
             </Col>
