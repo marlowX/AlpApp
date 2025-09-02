@@ -161,11 +161,26 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       console.log('Parsed kolory:', parsedKolory);
       setKolorePlyty(parsedKolory);
       
+      // Pobierz ścieżkę produkcji - POPRAWKA: sprawdź także w formatkach
+      let sciezkaProdukcji = pozycjaToEdit.sciezka_produkcji;
+      
+      // Jeśli nie ma ścieżki w pozycji, pobierz z formatek
+      if (!sciezkaProdukcji && pozycjaToEdit.formatki && pozycjaToEdit.formatki.length > 0) {
+        sciezkaProdukcji = pozycjaToEdit.formatki[0].sciezka_produkcji;
+      }
+      
+      // Ustaw domyślną ścieżkę jeśli brak
+      if (!sciezkaProdukcji) {
+        sciezkaProdukcji = 'CIECIE->OKLEJANIE->MAGAZYN';
+      }
+      
+      console.log('Setting sciezka_produkcji:', sciezkaProdukcji);
+      
       // Ustaw opcje dodatkowe wraz ze ścieżką produkcji
       form.setFieldsValue({
         kolejnosc: pozycjaToEdit.kolejnosc,
         uwagi: pozycjaToEdit.uwagi,
-        sciezka_produkcji: pozycjaToEdit.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
+        sciezka_produkcji: sciezkaProdukcji
       });
     } else if (!editMode && visible) {
       // Reset dla trybu dodawania
@@ -208,6 +223,9 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       
       const values = await form.validateFields();
       
+      console.log('Form values before submit:', values);
+      console.log('Current sciezka_produkcji:', values.sciezka_produkcji);
+      
       if (editMode && pozycjaToEdit) {
         // Tryb edycji - OBSŁUGA WIELU PŁYT
         const validKolory = kolorePlyty.filter(p => p.kolor);
@@ -239,18 +257,19 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           iloscPlyt = validKolory.reduce((sum, k) => sum + (k.ilosc || 1), 0);
         }
         
-        // Przygotuj dane do edycji
+        // Przygotuj dane do edycji - WAŻNE: zawsze przekaż ścieżkę produkcji
         const editData = {
           rozkroj_id: selectedRozkrojId || pozycjaToEdit.rozkroj_id,
           ilosc_plyt: iloscPlyt,
           kolor_plyty: kolorPlytyStr,
           nazwa_plyty: nazwaPlytyStr,
-          kolejnosc: values.kolejnosc || pozycjaToEdit.kolejnosc || null,
-          uwagi: values.uwagi || pozycjaToEdit.uwagi || null,
+          kolejnosc: values.kolejnosc !== undefined ? values.kolejnosc : pozycjaToEdit.kolejnosc,
+          uwagi: values.uwagi !== undefined ? values.uwagi : pozycjaToEdit.uwagi,
           sciezka_produkcji: values.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
         };
         
-        console.log('Sending edit data:', editData);
+        console.log('Sending edit data to API:', editData);
+        console.log('Sciezka produkcji being sent:', editData.sciezka_produkcji);
         
         const result = await zkoApi.editPozycja(pozycjaToEdit.id, editData);
         
