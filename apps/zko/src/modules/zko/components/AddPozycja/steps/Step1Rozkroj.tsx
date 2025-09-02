@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Typography, Badge, Empty, Spin, Alert, message, Button, Space, Tooltip } from 'antd';
-import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined, SaveOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Typography, Badge, Empty, Spin, Alert, message, Tooltip } from 'antd';
+import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { Rozkroj } from '../types';
 
 const { Text, Title } = Typography;
@@ -18,18 +18,6 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
   selectedRozkrojId,
   onChange
 }) => {
-  const [selectedRozkroj, setSelectedRozkroj] = useState<Rozkroj | null>(null);
-
-  useEffect(() => {
-    // Znajdź wybrany rozkrój
-    if (selectedRozkrojId && rozkroje.length > 0) {
-      const found = rozkroje.find(r => r.id === selectedRozkrojId);
-      setSelectedRozkroj(found || null);
-    } else {
-      setSelectedRozkroj(null);
-    }
-  }, [selectedRozkrojId, rozkroje]);
-
   const handleSelect = (rozkrojId: number) => {
     const rozkroj = rozkroje.find(r => r.id === rozkrojId);
     
@@ -40,15 +28,6 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
     }
     
     onChange(rozkrojId);
-  };
-
-  const handleSaveAndNext = () => {
-    if (!selectedRozkrojId) {
-      message.warning('Wybierz rozkrój przed przejściem dalej');
-      return;
-    }
-    // Nie ma już onNext, więc tylko zapisujemy
-    message.success('Rozkrój wybrany - przejdź do następnego kroku');
   };
 
   // Podziel rozkroje na te z formatkami i bez
@@ -74,92 +53,17 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
 
   return (
     <div>
-      {/* Sekcja z wybranym rozkrojem - ZAWSZE NA GÓRZE */}
-      {selectedRozkroj && (
-        <Card 
-          style={{ 
-            marginBottom: 16, 
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none'
-          }}
-          styles={{
-            body: { padding: '16px' }
-          }}
-        >
-          <Row gutter={[16, 16]} align="middle">
-            <Col flex="auto">
-              <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                <Text style={{ color: 'white', fontSize: '12px', opacity: 0.9 }}>
-                  WYBRANY ROZKRÓJ
-                </Text>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a' }} />
-                  <div>
-                    <Title level={4} style={{ margin: 0, color: 'white' }}>
-                      {selectedRozkroj.kod_rozkroju}
-                    </Title>
-                    <Text style={{ color: 'white', opacity: 0.9 }}>
-                      {selectedRozkroj.rozmiar_plyty} • {selectedRozkroj.formatki?.length || 0} formatek
-                    </Text>
-                  </div>
-                </div>
-                {selectedRozkroj.formatki && selectedRozkroj.formatki.length > 0 && (
-                  <div style={{ 
-                    marginTop: 8, 
-                    padding: '8px', 
-                    background: 'rgba(255,255,255,0.1)', 
-                    borderRadius: '4px' 
-                  }}>
-                    <Text style={{ color: 'white', fontSize: '12px' }}>
-                      Formatki: {selectedRozkroj.formatki.map(f => 
-                        `${f.wymiary} (${f.ilosc_sztuk} szt.)`
-                      ).join(' • ')}
-                    </Text>
-                  </div>
-                )}
-              </Space>
-            </Col>
-            <Col>
-              <Space>
-                <Button
-                  size="large"
-                  onClick={() => onChange(null as any)}
-                  style={{ minWidth: 100 }}
-                >
-                  Zmień
-                </Button>
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<SaveOutlined />}
-                  onClick={handleSaveAndNext}
-                  style={{ 
-                    minWidth: 150,
-                    background: '#52c41a',
-                    borderColor: '#52c41a'
-                  }}
-                >
-                  Zapisz i dalej
-                </Button>
-              </Space>
-            </Col>
-          </Row>
-        </Card>
-      )}
-
       {/* Alert informacyjny */}
-      {!selectedRozkrojId && (
-        <Alert
-          message="Wybierz rozkrój"
-          description="Rozkrój określa jak będą pocięte płyty. Rozkroje z zieloną ikoną mają zdefiniowane formatki."
-          type="info"
-          showIcon
-          icon={<InfoCircleOutlined />}
-          style={{ marginBottom: 16 }}
-        />
-      )}
+      <Alert
+        message="Krok 1: Wybór rozkroju"
+        description="Wybierz rozkrój, który określa jak będą pocięte płyty. Rozkroje z zieloną ikoną mają zdefiniowane formatki."
+        type="info"
+        showIcon
+        icon={<InfoCircleOutlined />}
+        style={{ marginBottom: 16 }}
+      />
       
-      {/* Ostrzeżenie o rozkrojach bez formatek */}
+      {/* Ostrzeżenie o rozkrojach bez formatek - tylko jeśli są */}
       {rozkrojeBezFormatek.length > 0 && (
         <Alert
           message={`Uwaga: ${rozkrojeBezFormatek.length} rozkrojów nie ma zdefiniowanych formatek`}
@@ -190,72 +94,87 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
                   background: isSelected ? '#e6f7ff' : '#fff',
                   cursor: 'pointer',
                   height: '100%',
-                  transition: 'all 0.3s'
+                  transition: 'all 0.3s',
+                  position: 'relative'
                 }}
                 styles={{
                   body: { padding: '12px' }
                 }}
               >
-                <div style={{ position: 'relative' }}>
-                  {isSelected && (
-                    <CheckCircleOutlined 
+                {/* Ptaszek wyboru - w prawym górnym rogu */}
+                {isSelected && (
+                  <CheckCircleOutlined 
+                    style={{ 
+                      position: 'absolute', 
+                      top: 8, 
+                      right: 8, 
+                      fontSize: 20, 
+                      color: '#1890ff',
+                      zIndex: 10
+                    }} 
+                  />
+                )}
+                
+                <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                  {/* Nagłówek z nazwą i badge */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: '16px' }}>
+                      {rozkroj.kod_rozkroju}
+                    </Text>
+                    <Badge 
+                      count={`${formatCount} formatek`} 
                       style={{ 
-                        position: 'absolute', 
-                        top: -5, 
-                        right: -5, 
-                        fontSize: 20, 
-                        color: '#1890ff' 
+                        backgroundColor: '#52c41a',
+                        fontSize: '10px',
+                        height: '18px',
+                        lineHeight: '18px',
+                        padding: '0 6px'
                       }} 
                     />
+                  </div>
+                  
+                  {/* Rozmiar płyty */}
+                  <Text type="secondary" style={{ fontSize: '14px' }}>
+                    {rozkroj.rozmiar_plyty}
+                  </Text>
+                  
+                  {/* Opis rozkroju - PRZYWRÓCONE */}
+                  {rozkroj.opis && (
+                    <Text style={{ fontSize: '12px', color: '#666' }}>
+                      {rozkroj.opis}
+                    </Text>
                   )}
                   
-                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text strong style={{ fontSize: '16px' }}>
-                        {rozkroj.kod_rozkroju}
+                  {/* Lista formatek */}
+                  {rozkroj.formatki && rozkroj.formatki.length > 0 && (
+                    <div style={{ 
+                      marginTop: 8, 
+                      padding: '6px', 
+                      background: '#f5f5f5', 
+                      borderRadius: '4px',
+                      fontSize: '11px'
+                    }}>
+                      <Text strong style={{ fontSize: '11px', color: '#595959' }}>
+                        Formatki:
                       </Text>
-                      <Badge 
-                        count={`${formatCount} formatek`} 
-                        style={{ 
-                          backgroundColor: '#52c41a',
-                          fontSize: '10px',
-                          height: '18px',
-                          lineHeight: '18px',
-                          padding: '0 6px'
-                        }} 
-                      />
-                    </div>
-                    
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {rozkroj.rozmiar_plyty}
-                    </Text>
-                    
-                    {rozkroj.formatki && rozkroj.formatki.length > 0 && (
-                      <div style={{ 
-                        marginTop: 8, 
-                        padding: '4px 8px', 
-                        background: '#f0f0f0', 
-                        borderRadius: '4px' 
-                      }}>
-                        <Text style={{ fontSize: '11px', color: '#666' }}>
-                          Formatki:
-                        </Text>
-                        {rozkroj.formatki.slice(0, 3).map((f, idx) => (
-                          <div key={idx}>
-                            <Text style={{ fontSize: '10px' }}>
-                              • {f.wymiary} - {f.ilosc_sztuk} szt.
+                      {rozkroj.formatki.slice(0, 4).map((f, idx) => {
+                        const wymiary = `${f.dlugosc}×${f.szerokosc}`;
+                        return (
+                          <div key={idx} style={{ marginLeft: 8 }}>
+                            <Text style={{ fontSize: '11px', color: '#595959' }}>
+                              • {wymiary} - {f.ilosc_sztuk} szt.
                             </Text>
                           </div>
-                        ))}
-                        {rozkroj.formatki.length > 3 && (
-                          <Text style={{ fontSize: '10px', fontStyle: 'italic' }}>
-                            ...i {rozkroj.formatki.length - 3} więcej
-                          </Text>
-                        )}
-                      </div>
-                    )}
-                  </Space>
-                </div>
+                        );
+                      })}
+                      {rozkroj.formatki.length > 4 && (
+                        <Text style={{ fontSize: '10px', fontStyle: 'italic', color: '#999', marginLeft: 8 }}>
+                          ...i {rozkroj.formatki.length - 4} więcej
+                        </Text>
+                      )}
+                    </div>
+                  )}
+                </Space>
               </Card>
             </Col>
           );
@@ -311,6 +230,12 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
                         {rozkroj.rozmiar_plyty}
                       </Text>
                       
+                      {rozkroj.opis && (
+                        <Text style={{ fontSize: '12px', color: '#999' }}>
+                          {rozkroj.opis}
+                        </Text>
+                      )}
+                      
                       <div style={{ 
                         marginTop: 8, 
                         padding: '4px 8px', 
@@ -329,27 +254,6 @@ const Step1Rozkroj: React.FC<Step1RozkrojProps> = ({
             ))}
           </Row>
         </>
-      )}
-
-      {/* Dolny przycisk zapisz - tylko gdy jest wybrany rozkrój */}
-      {selectedRozkrojId && (
-        <div style={{ 
-          marginTop: 32, 
-          padding: '16px', 
-          background: '#f5f5f5', 
-          borderRadius: '8px',
-          textAlign: 'center' 
-        }}>
-          <Button
-            type="primary"
-            size="large"
-            icon={<SaveOutlined />}
-            onClick={handleSaveAndNext}
-            style={{ minWidth: 200 }}
-          >
-            Zapisz i przejdź dalej
-          </Button>
-        </div>
       )}
     </div>
   );
