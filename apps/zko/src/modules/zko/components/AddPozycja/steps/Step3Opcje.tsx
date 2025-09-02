@@ -43,7 +43,7 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
   const selectedColors = kolorePlyty.filter(k => k.kolor);
 
   return (
-    <div>
+    <Form form={form} layout="vertical">
       <Alert
         message="Krok 3: Ścieżka produkcji i opcje dodatkowe"
         description="Wybierz ścieżkę produkcji formatek oraz opcjonalnie dodaj uwagi lub ustaw priorytet"
@@ -137,6 +137,6 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           showIcon
         />
       </Card>
-    </div>
+    </Form>
   );
 };
