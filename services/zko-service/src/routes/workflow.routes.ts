@@ -61,4 +61,24 @@ router.get('/statuses', async (req, res) => {
   }
 });
 
+// GET /api/workflow/next-steps/:id - Następne kroki dla ZKO (uproszczona wersja)
+router.get('/next-steps/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    logger.info(`Fetching next steps for ZKO ID: ${id}`);
+    
+    // Używamy uproszczonej funkcji która zwraca tylko bezpośrednie następne kroki
+    const result = await db.query(
+      `SELECT * FROM zko.pobierz_nastepne_kroki_simple($1)`,
+      [id]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    logger.error('Error fetching next steps:', error);
+    res.status(500).json({ error: 'Failed to fetch next steps' });
+  }
+});
+
 export default router;
