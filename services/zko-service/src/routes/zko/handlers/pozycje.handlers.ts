@@ -18,6 +18,7 @@ const AddPozycjaSchema = z.object({
   })),
   kolejnosc: z.number().optional().nullable(),
   uwagi: z.string().optional().nullable(),
+  sciezka_produkcji: z.string().optional().nullable(),
 });
 
 /**
@@ -52,15 +53,16 @@ export const handleAddPozycja = async (req: Request, res: Response) => {
     
     logger.info('Calling PostgreSQL function zko.dodaj_pozycje_do_zko');
     
-    // Wywołaj funkcję PostgreSQL
+    // Wywołaj funkcję PostgreSQL z dodatkowym parametrem sciezka_produkcji
     const result = await db.query(`
-      SELECT * FROM zko.dodaj_pozycje_do_zko($1, $2, $3::jsonb, $4, $5)
+      SELECT * FROM zko.dodaj_pozycje_do_zko($1, $2, $3::jsonb, $4, $5, $6)
     `, [
       data.zko_id,
       data.rozkroj_id,
       koloryPlytyJson,
       data.kolejnosc || null,
-      data.uwagi || null
+      data.uwagi || null,
+      data.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
     ]);
     
     const response = result.rows[0];
@@ -167,6 +169,8 @@ export const handleDeletePozycja = async (req: Request, res: Response) => {
 
 /**
  * Handler edycji pozycji - używa funkcji zwracającej JSONB
+ * UWAGA: Aktualnie funkcja edytuj_pozycje_zko NIE obsługuje sciezka_produkcji
+ * Dlatego pomijamy ten parametr dopóki funkcja PostgreSQL nie zostanie zaktualizowana
  */
 export const handleEditPozycja = async (req: Request, res: Response) => {
   try {
@@ -187,34 +191,60 @@ export const handleEditPozycja = async (req: Request, res: Response) => {
       });
     }
     
+    // WAŻNE: Pomijamy sciezka_produkcji dopóki funkcja PostgreSQL nie zostanie zaktualizowana
+    // Usuń sciezka_produkcji z danych jeśli istnieje
+    const { sciezka_produkcji, ...dataWithoutSciezka } = data;
+    
+    if (sciezka_produkcji) {
+      logger.warn(`Parametr sciezka_produkcji (${sciezka_produkcji}) zostanie pominięty - funkcja edytuj_pozycje_zko nie obsługuje tego parametru`);
+    }
+    
     // Logowanie parametrów dla funkcji PostgreSQL
     logger.info(`Calling zko.edytuj_pozycje_zko with params:`, {
       pozycja_id: pozycjaId,
-      rozkroj_id: data.rozkroj_id,
-      ilosc_plyt: data.ilosc_plyt,
-      kolor_plyty: data.kolor_plyty,
-      nazwa_plyty: data.nazwa_plyty,
-      kolejnosc: data.kolejnosc,
-      uwagi: data.uwagi
+      rozkroj_id: dataWithoutSciezka.rozkroj_id,
+      ilosc_plyt: dataWithoutSciezka.ilosc_plyt,
+      kolor_plyty: dataWithoutSciezka.kolor_plyty,
+      nazwa_plyty: dataWithoutSciezka.nazwa_plyty,
+      kolejnosc: dataWithoutSciezka.kolejnosc,
+      uwagi: dataWithoutSciezka.uwagi
     });
     
     // Wywołaj funkcję PostgreSQL - zwraca JSONB
+    // UWAGA: Tylko 7 parametrów, bez sciezka_produkcji
     const result = await db.query(
       `SELECT zko.edytuj_pozycje_zko($1, $2, $3, $4, $5, $6, $7) as result`,
       [
         pozycjaId,
-        data.rozkroj_id || null,
-        data.ilosc_plyt || null,
-        data.kolor_plyty || null,
-        data.nazwa_plyty || null,
-        data.kolejnosc || null,
-        data.uwagi || null
+        dataWithoutSciezka.rozkroj_id || null,
+        dataWithoutSciezka.ilosc_plyt || null,
+        dataWithoutSciezka.kolor_plyty || null,
+        dataWithoutSciezka.nazwa_plyty || null,
+        dataWithoutSciezka.kolejnosc || null,
+        dataWithoutSciezka.uwagi || null
       ]
     );
     
     // Rozpakuj JSONB
     const response = result.rows[0].result;
     logger.info('Edit result:', response);
+    
+    // Jeśli sukces i mamy sciezka_produkcji, zaktualizuj formatki osobno
+    if (response.sukces && sciezka_produkcji) {
+      try {
+        logger.info(`Updating sciezka_produkcji for formatki of pozycja ${pozycjaId}`);
+        await db.query(
+          `UPDATE zko.pozycje_formatki 
+           SET sciezka_produkcji = $1, updated_at = NOW()
+           WHERE pozycja_id = $2`,
+          [sciezka_produkcji, pozycjaId]
+        );
+        logger.info(`Updated sciezka_produkcji to ${sciezka_produkcji} for pozycja ${pozycjaId}`);
+      } catch (updateError) {
+        logger.error('Error updating sciezka_produkcji:', updateError);
+        // Nie przerywamy operacji - główna edycja się powiodła
+      }
+    }
     
     if (response.sukces) {
       // Pobierz ZKO ID dla WebSocket
@@ -281,6 +311,7 @@ export const handleGetPozycjaFormatki = async (req: Request, res: Response) => {
         18 as grubosc,  -- Domyślna grubość płyty
         p.kolor_plyty as kolor,
         pf.ilosc_planowana,
+        pf.sciezka_produkcji,
         -- Oblicz wagę teoretyczną (dł × szer × grub × gęstość) / konwersja na kg
         (pf.dlugosc * pf.szerokosc * 18 * 0.8) / 1000000000.0 as waga_sztuka,
         pf.typ_formatki,
