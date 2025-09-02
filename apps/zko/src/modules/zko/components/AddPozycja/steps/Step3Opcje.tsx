@@ -1,12 +1,14 @@
 import React from 'react';
-import { Alert, Card, Space, Typography, Divider, Tag } from 'antd';
+import { Alert, Card, Space, Typography, Divider, Tag, Form } from 'antd';
 import { 
   SettingOutlined,
   InfoCircleOutlined,
-  CheckCircleOutlined 
+  CheckCircleOutlined,
+  ForkOutlined 
 } from '@ant-design/icons';
 import { PozycjaAdditionalOptions } from '../PozycjaAdditionalOptions';
 import { PozycjaStatistics } from '../PozycjaStatistics';
+import { SciezkaProdukcji } from '../SciezkaProdukcji';
 import type { KolorPlyty, Rozkroj } from '../types';
 import type { FormInstance } from 'antd';
 
@@ -43,13 +45,34 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
   return (
     <div>
       <Alert
-        message="Krok 3: Podsumowanie i opcje dodatkowe"
-        description="Sprawdź podsumowanie i opcjonalnie dodaj uwagi lub ustaw priorytet"
+        message="Krok 3: Ścieżka produkcji i opcje dodatkowe"
+        description="Wybierz ścieżkę produkcji formatek oraz opcjonalnie dodaj uwagi lub ustaw priorytet"
         type="info"
         showIcon
         icon={<SettingOutlined />}
         style={{ marginBottom: 24 }}
       />
+
+      {/* Ścieżka produkcji */}
+      <Card 
+        title={
+          <Space>
+            <ForkOutlined style={{ color: '#1890ff' }} />
+            Ścieżka produkcji
+          </Space>
+        }
+        style={{ marginBottom: 16, borderColor: '#1890ff' }}
+      >
+        <Form.Item 
+          name="sciezka_produkcji"
+          initialValue="CIECIE->OKLEJANIE->MAGAZYN"
+          rules={[
+            { required: true, message: 'Wybierz ścieżkę produkcji' }
+          ]}
+        >
+          <SciezkaProdukcji showInfo={true} />
+        </Form.Item>
+      </Card>
 
       {/* Podsumowanie */}
       <Card 

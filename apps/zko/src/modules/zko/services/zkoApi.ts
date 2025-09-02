@@ -21,6 +21,7 @@ export interface EditPozycjaData {
   nazwa_plyty?: string;
   kolejnosc?: number;
   uwagi?: string;
+  sciezka_produkcji?: string;
 }
 
 export interface EditPozycjaResult {
@@ -77,12 +78,18 @@ export class ZKOApiService {
     data: EditPozycjaData
   ): Promise<EditPozycjaResult> {
     try {
+      // Dodaj domyślną ścieżkę produkcji jeśli nie podano
+      const requestData = {
+        ...data,
+        sciezka_produkcji: data.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
+      };
+      
       const response = await fetch(`${API_BASE_URL}/zko/pozycje/${pozycjaId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {

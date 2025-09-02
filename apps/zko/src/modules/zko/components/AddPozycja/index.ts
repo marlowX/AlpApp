@@ -4,6 +4,7 @@ export { KolorePlytyTable } from './KolorePlytyTable';
 export { PlytySelectorV2 } from './PlytySelectorV2';
 export { RozkrojSelector } from './RozkrojSelector';
 export { FormatkiPreview } from './FormatkiPreview';
+export { SciezkaProdukcji, SciezkaDisplay, useSciezkaProdukcji, SCIEZKI_PRODUKCJI } from './SciezkaProdukcji';
 
 // Komponenty pomocnicze
 export { PozycjaStatistics } from './PozycjaStatistics';
@@ -24,3 +25,5 @@ export type {
   WymiaryGrupa,
   WymiaryAnaliza
 } from './types';
+
+export type { SciezkaProdukcjiProps } from './SciezkaProdukcji';

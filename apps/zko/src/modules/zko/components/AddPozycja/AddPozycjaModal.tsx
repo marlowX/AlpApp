@@ -35,6 +35,10 @@ interface ExtendedAddPozycjaModalProps extends AddPozycjaModalProps {
   pozycjaToEdit?: any;
 }
 
+interface ExtendedAddPozycjaFormData extends AddPozycjaFormData {
+  sciezka_produkcji?: string;
+}
+
 // Funkcja pomocnicza do parsowania kolorów
 const parseKoloryPlyty = (kolorString: string, nazwaString: string, defaultIlosc: number = 1): KolorPlyty[] => {
   const result: KolorPlyty[] = [];
@@ -76,7 +80,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
   editMode = false,
   pozycjaToEdit = null
 }) => {
-  const [form] = Form.useForm<AddPozycjaFormData>();
+  const [form] = Form.useForm<ExtendedAddPozycjaFormData>();
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   
@@ -127,10 +131,11 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       console.log('Parsed kolory:', parsedKolory);
       setKolorePlyty(parsedKolory);
       
-      // Ustaw opcje dodatkowe
+      // Ustaw opcje dodatkowe wraz ze ścieżką produkcji
       form.setFieldsValue({
         kolejnosc: pozycjaToEdit.kolejnosc,
-        uwagi: pozycjaToEdit.uwagi
+        uwagi: pozycjaToEdit.uwagi,
+        sciezka_produkcji: pozycjaToEdit.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
       });
     } else if (!editMode && visible) {
       // Reset dla trybu dodawania
@@ -186,14 +191,15 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           return;
         }
         
-        // Przygotuj dane do edycji - WSZYSTKIE POLA
+        // Przygotuj dane do edycji - WSZYSTKIE POLA + ŚCIEŻKA PRODUKCJI
         const editData = {
           rozkroj_id: selectedRozkrojId || pozycjaToEdit.rozkroj_id,
           ilosc_plyt: pierwszyKolor.ilosc || 1,
           kolor_plyty: pierwszyKolor.kolor,
           nazwa_plyty: pierwszyKolor.nazwa || pierwszyKolor.kolor,
           kolejnosc: values.kolejnosc || pozycjaToEdit.kolejnosc || null,
-          uwagi: values.uwagi || pozycjaToEdit.uwagi || null
+          uwagi: values.uwagi || pozycjaToEdit.uwagi || null,
+          sciezka_produkcji: values.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
         };
         
         console.log('Sending edit data:', editData);
@@ -234,6 +240,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
           kolory_plyty: validKolory,
           kolejnosc: values.kolejnosc || null,
           uwagi: values.uwagi || null,
+          sciezka_produkcji: values.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
         });
         
         if (result.sukces) {
@@ -316,7 +323,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       ),
     },
     {
-      title: 'Opcje dodatkowe',
+      title: 'Ścieżka i opcje',
       content: (
         <Step3Opcje
           form={form}

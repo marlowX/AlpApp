@@ -38,13 +38,15 @@ import {
   BgColorsOutlined,
   AppstoreOutlined,
   InboxOutlined,
-  PrinterOutlined
+  PrinterOutlined,
+  ForkOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { useZKO, useNextSteps } from '../hooks';
 import { statusColors, statusLabels } from '../utils/constants';
 import { AddPozycjaModal } from '../components/AddPozycja';
+import { SciezkaDisplay } from '../components/AddPozycja/SciezkaProdukcji';
 import { PaletyManager } from '../components/PaletyManager';
 import { PaletyZko } from '../components/PaletyZko';
 import { StatusChangeButton } from '../components/StatusChangeButton';
@@ -153,6 +155,10 @@ export const ZKODetailsPage: React.FC = () => {
   };
 
   const handleEditPozycja = (pozycja: any) => {
+    // Pobierz ścieżkę produkcji z formatek jeśli nie ma w pozycji
+    if (!pozycja.sciezka_produkcji && pozycja.formatki && pozycja.formatki.length > 0) {
+      pozycja.sciezka_produkcji = pozycja.formatki[0].sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN';
+    }
     setSelectedPozycja(pozycja);
     setShowEditPozycja(true);
   };
@@ -181,6 +187,26 @@ export const ZKODetailsPage: React.FC = () => {
       dataIndex: 'ilosc_plyt', 
       key: 'ilosc_plyt',
       align: 'center' as const,
+    },
+    {
+      title: 'Ścieżka produkcji',
+      dataIndex: 'sciezka_produkcji',
+      key: 'sciezka_produkcji',
+      width: 280,
+      render: (sciezka: string, record: any) => {
+        // Sprawdź czy formatki mają ścieżkę
+        const formatkiSciezka = record.formatki && record.formatki.length > 0 
+          ? record.formatki[0].sciezka_produkcji 
+          : null;
+        
+        const finalSciezka = sciezka || formatkiSciezka || 'CIECIE->OKLEJANIE->MAGAZYN';
+        
+        return (
+          <Tooltip title="Ścieżka produkcji formatek">
+            <SciezkaDisplay sciezka={finalSciezka} />
+          </Tooltip>
+        );
+      }
     },
     {
       title: 'Status',
@@ -493,6 +519,9 @@ export const ZKODetailsPage: React.FC = () => {
                     )}
                   </Space>
                 )}
+                <Tooltip title="Pozycje mogą mieć różne ścieżki produkcji">
+                  <ForkOutlined style={{ fontSize: 12, color: '#1890ff', marginLeft: 8 }} />
+                </Tooltip>
               </Space>
             } 
             key="pozycje"
@@ -503,7 +532,7 @@ export const ZKODetailsPage: React.FC = () => {
                 dataSource={pozycje}
                 rowKey="id"
                 pagination={pozycje.length > 10 ? { pageSize: 10, showSizeChanger: true } : false}
-                scroll={{ x: 1200 }}
+                scroll={{ x: 1400 }}
               />
             ) : (
               <Alert

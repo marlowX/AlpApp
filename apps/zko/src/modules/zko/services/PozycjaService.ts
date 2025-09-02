@@ -7,6 +7,7 @@ interface AddPozycjaRequest {
   kolory_plyty: KolorPlyty[];
   kolejnosc?: number | null;
   uwagi?: string | null;
+  sciezka_produkcji?: string;
 }
 
 interface AddPozycjaResponse {
@@ -23,10 +24,16 @@ export class PozycjaService {
     try {
       console.log('📤 Wysyłanie danych:', data);
       
+      // Dodaj domyślną ścieżkę produkcji jeśli nie podano
+      const requestData = {
+        ...data,
+        sciezka_produkcji: data.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN'
+      };
+      
       const response = await fetch('/api/zko/pozycje/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestData),
       });
       
       const result = await response.json();
