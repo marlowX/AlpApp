@@ -1,0 +1,90 @@
+/* ZKOListStats.css */
+
+.zko-stats-bar {
+  margin-bottom: 16px;
+  animation: slideIn 0.4s ease-out;
+}
+
+.stat-card {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  border: 1px solid #f0f0f0;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Specific stat card colors */
+.stat-card.stat-new {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
+  border-color: #91d5ff;
+}
+
+.stat-card.stat-progress {
+  background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%);
+  border-color: #ffc069;
+}
+
+.stat-card.stat-done {
+  background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+  border-color: #95de64;
+}
+
+.stat-card.stat-priority {
+  background: linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%);
+  border-color: #ff7875;
+}
+
+/* Statistic overrides */
+.stat-card .ant-statistic-title {
+  font-size: 11px;
+  color: #8c8c8c;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.stat-card .ant-statistic-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-card .ant-statistic-content-prefix {
+  font-size: 18px;
+}
+
+.stat-card .ant-statistic-content-value {
+  font-weight: 600;
+}
+
+/* Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .zko-stats-bar .ant-col {
+    margin-bottom: 8px;
+  }
+  
+  .stat-card .ant-statistic-title {
+    font-size: 10px;
+  }
+  
+  .stat-card .ant-statistic-content-value {
+    font-size: 16px !important;
+  }
+}

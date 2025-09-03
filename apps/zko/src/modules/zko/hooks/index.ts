@@ -11,6 +11,9 @@ export { usePaletyModular } from './usePaletyModular';
 // 🆕 NOWY HOOK - Zarządzanie paletami
 export { usePaletyManager } from './usePaletyManager';
 
+// 🆕 NOWY HOOK - Statystyki ZKO
+export { useZKOStats, useZKOSummary, useZKOListWithStats } from './useZKOStats';
+
 // Hook do pobierania kooperantów
 export const useKooperanci = () => {
   return useQuery({
@@ -47,6 +50,7 @@ export const useZKOList = (params?: {
   priorytet?: number;
   page?: number;
   limit?: number;
+  search?: string;
 }) => {
   return useQuery({
     queryKey: ['zko', 'list', params],

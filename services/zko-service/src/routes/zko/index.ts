@@ -9,6 +9,7 @@ import statusRoutes from './status.routes';
 import completeRoutes from './complete.routes';
 import functionsRoutes from './functions.routes';
 import kooperanciRoutes from './kooperanci.routes';
+import statsRoutes from './stats.routes';
 
 /**
  * Główny router ZKO - agreguje wszystkie pod-moduły
@@ -23,6 +24,9 @@ const router = Router();
 
 // Kooperanci - musi być PRZED /:id bo inaczej 'kooperanci' zostanie potraktowane jako ID
 router.use('/', kooperanciRoutes);  // GET /api/zko/kooperanci
+
+// Stats - nowe endpointy do statystyk
+router.use('/', statsRoutes);       // GET /api/zko/summary, /api/zko/list-with-stats, /api/zko/:id/stats
 
 // Pozycje - też przed /:id
 router.use('/', pozycjeRoutes);     // Operacje na pozycjach

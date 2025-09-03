@@ -12,16 +12,39 @@ zko/
 ├── schemas.ts                # Schematy walidacji Zod
 ├── list.routes.ts           # GET /api/zko - lista ZKO
 ├── details.routes.ts        # GET /api/zko/:id - szczegóły
+├── stats.routes.ts          # GET /api/zko/stats - statystyki ZKO 🆕
 ├── create.routes.ts         # POST /api/zko/create - tworzenie
 ├── pozycje.routes.ts        # Operacje na pozycjach (add, delete, edit)
 ├── status.routes.ts         # Zmiana statusu i workflow
 ├── complete.routes.ts       # Zakończenie zlecenia
 ├── functions.routes.ts      # Wywołanie funkcji PostgreSQL
+├── kooperanci.routes.ts     # Lista kooperantów
 └── utils/
     ├── error-handler.ts     # Obsługa błędów
     └── logger.ts            # Logowanie
-
 ```
+
+### 📊 Nowe endpointy statystyk (stats.routes.ts)
+
+#### GET /api/zko/summary
+Zwraca podsumowanie wszystkich ZKO:
+- Liczba ZKO (wszystkie, nowe, zakończone, pilne)
+- Suma pozycji, palet, formatek
+- Całkowita waga i ilość płyt
+
+#### GET /api/zko/:id/stats
+Szczegółowe statystyki pojedynczego ZKO:
+- Dane podstawowe ZKO
+- Liczba pozycji, palet, formatek
+- Procent realizacji
+- Podsumowanie pozycji i palet
+
+#### GET /api/zko/list-with-stats
+Lista ZKO wzbogacona o statystyki:
+- Wszystkie dane z listy podstawowej
+- Dodatkowe pola: pozycje_count, palety_count, formatki_total
+- Obliczony procent_realizacji
+- Waga całkowita i ilość płyt
 
 ### 📏 Limity kodu
 - **Każdy plik**: maksymalnie 300 linii
@@ -72,10 +95,12 @@ router.post('/pozycje/add', ...);
 | schemas.ts | 120 | ✅ OK |
 | list.routes.ts | 95 | ✅ OK |
 | details.routes.ts | 85 | ✅ OK |
+| stats.routes.ts | 195 | ✅ OK 🆕 |
 | create.routes.ts | 75 | ✅ OK |
 | pozycje.routes.ts | 280 | ✅ OK |
 | status.routes.ts | 150 | ✅ OK |
 | complete.routes.ts | 65 | ✅ OK |
+| kooperanci.routes.ts | 45 | ✅ OK |
 
 ### 🔍 Monitorowanie
 
