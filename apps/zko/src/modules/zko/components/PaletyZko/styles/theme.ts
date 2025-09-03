@@ -1,177 +1,192 @@
 /**
- * @fileoverview Globalne ustawienia wyglądu i stylów dla modułu PaletyZko
+ * @fileoverview Globalne ustawienia wyglądu - styl ERP minimalistyczny
  * @module PaletyZko/styles/theme
  */
 
-// ========== KOLORY ==========
+// ========== KOLORY ERP - Szaro-czarno-biały ==========
 export const colors = {
-  primary: '#1890ff',
-  success: '#52c41a',
-  warning: '#faad14',
-  error: '#f5222d',
-  info: '#1890ff',
+  // Kolory główne - minimalistyczne
+  primary: '#1890ff',      // Niebieski - informacje
+  success: '#52c41a',      // Zielony - progres/sukces  
+  warning: '#faad14',      // Pomarańczowy - ostrzeżenia (opcjonalnie)
+  error: '#ff4d4f',        // Czerwony - błędy/braki
+  info: '#1890ff',         // Niebieski - informacje
   
-  // Kolory tła
-  bgPrimary: '#ffffff',
-  bgSecondary: '#fafafa',
-  bgTertiary: '#f0f2f5',
-  bgHover: '#e6f7ff',
+  // Kolory tła - odcienie szarości
+  bgPrimary: '#ffffff',    // Białe tło główne
+  bgSecondary: '#fafafa',  // Bardzo jasny szary
+  bgTertiary: '#f5f5f5',   // Jasny szary
+  bgHover: '#f0f0f0',      // Szary przy hover
   
-  // Kolory tekstu
-  textPrimary: '#262626',
-  textSecondary: '#8c8c8c',
-  textDisabled: '#bfbfbf',
-  textWhite: '#ffffff',
+  // Kolory tekstu - czarno-szare
+  textPrimary: '#262626',   // Prawie czarny
+  textSecondary: '#8c8c8c', // Średni szary
+  textTertiary: '#bfbfbf',  // Jasny szary
+  textDisabled: '#d9d9d9',  // Bardzo jasny szary
+  textWhite: '#ffffff',      // Biały
   
-  // Kolory granic
-  borderBase: '#d9d9d9',
-  borderLight: '#e8e8e8',
-  borderDark: '#bfbfbf',
+  // Kolory granic - subtelne
+  borderBase: '#f0f0f0',    // Bardzo jasna granica
+  borderLight: '#fafafa',   // Prawie niewidoczna
+  borderDark: '#d9d9d9',    // Jasnoszara
+  borderHover: '#bfbfbf',   // Szara przy hover
   
-  // Kolory statusów palet
-  paletaOpen: '#52c41a',
-  paletaClosed: '#faad14',
-  paletaReady: '#1890ff',
-  paletaEmpty: '#d9d9d9',
+  // Kolory statusów - tylko funkcjonalne
+  statusGreen: '#52c41a',   // Zielony - OK/postęp
+  statusRed: '#ff4d4f',     // Czerwony - błąd/brak
+  statusBlue: '#1890ff',    // Niebieski - info
+  statusGray: '#d9d9d9',    // Szary - nieaktywny
 };
 
-// ========== WYMIARY ==========
+// ========== WYMIARY - Kompaktowe ==========
 export const dimensions = {
-  // Przyciski
-  buttonHeightSmall: 24,
-  buttonHeightBase: 28,
-  buttonHeightLarge: 32,
-  buttonPaddingHorizontal: 12,
-  buttonBorderRadius: 4,
+  // Przyciski - niskie
+  buttonHeightSmall: 22,
+  buttonHeightBase: 26,
+  buttonHeightLarge: 30,
+  buttonPaddingHorizontal: 10,
+  buttonBorderRadius: 3,
   
-  // Karty i kontenery
-  cardPadding: 12,
-  cardBorderRadius: 8,
-  cardShadow: '0 1px 2px rgba(0, 0, 0, 0.08)',
-  cardHoverShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
+  // Karty i kontenery - minimalistyczne
+  cardPadding: 10,
+  cardBorderRadius: 6,
+  cardShadow: 'none',  // Bez cieni dla czystego wyglądu
+  cardBorder: '1px solid #f0f0f0',
   
-  // Odstępy
+  // Odstępy - zmniejszone
   spacingXs: 4,
-  spacingSm: 8,
-  spacingMd: 12,
-  spacingLg: 16,
-  spacingXl: 24,
+  spacingSm: 6,
+  spacingMd: 10,
+  spacingLg: 14,
+  spacingXl: 20,
   
-  // Ikony
-  iconSizeSmall: 14,
-  iconSizeBase: 16,
-  iconSizeLarge: 20,
-  iconSizeXLarge: 24,
+  // Ikony - małe
+  iconSizeSmall: 12,
+  iconSizeBase: 14,
+  iconSizeLarge: 16,
+  iconSizeXLarge: 20,
   
-  // Fonty
-  fontSizeSmall: 12,
-  fontSizeBase: 14,
-  fontSizeLarge: 16,
-  fontSizeTitle: 18,
+  // Fonty - kompaktowe
+  fontSizeSmall: 11,
+  fontSizeBase: 12,
+  fontSizeLarge: 14,
+  fontSizeTitle: 16,
   fontWeightNormal: 400,
   fontWeightMedium: 500,
   fontWeightBold: 600,
   
-  // Wysokości nagłówków
-  headerHeightSmall: 32,
-  headerHeightBase: 40,
-  headerHeightLarge: 48,
+  // Wysokości nagłówków - niskie
+  headerHeightSmall: 28,
+  headerHeightBase: 32,
+  headerHeightLarge: 40,
 };
 
 // ========== STYLE KOMPONENTÓW ==========
 export const componentStyles = {
-  // Style dla przycisków
+  // Style dla przycisków - płaskie, bez cieni
   button: {
     base: {
       height: dimensions.buttonHeightBase,
       padding: `0 ${dimensions.buttonPaddingHorizontal}px`,
       borderRadius: dimensions.buttonBorderRadius,
       fontSize: dimensions.fontSizeBase,
-      fontWeight: dimensions.fontWeightMedium,
-      transition: 'all 0.2s ease',
+      fontWeight: dimensions.fontWeightNormal,
+      transition: 'all 0.15s ease',
+      border: '1px solid #d9d9d9',
+      background: '#ffffff',
+      color: '#595959',
+      boxShadow: 'none',
     },
     small: {
       height: dimensions.buttonHeightSmall,
       padding: `0 ${dimensions.spacingSm}px`,
       fontSize: dimensions.fontSizeSmall,
     },
-    large: {
-      height: dimensions.buttonHeightLarge,
-      padding: `0 ${dimensions.spacingLg}px`,
-      fontSize: dimensions.fontSizeLarge,
+    primary: {
+      background: colors.primary,
+      borderColor: colors.primary,
+      color: colors.textWhite,
     },
-    icon: {
-      width: dimensions.buttonHeightBase,
-      padding: 0,
+    success: {
+      background: colors.success,
+      borderColor: colors.success,
+      color: colors.textWhite,
+    },
+    danger: {
+      background: colors.error,
+      borderColor: colors.error,
+      color: colors.textWhite,
     }
   },
   
-  // Style dla kart
+  // Style dla kart - płaskie, z subtelnymi granicami
   card: {
     base: {
       borderRadius: dimensions.cardBorderRadius,
-      boxShadow: dimensions.cardShadow,
       backgroundColor: colors.bgPrimary,
-      border: `1px solid ${colors.borderLight}`,
+      border: dimensions.cardBorder,
+      boxShadow: 'none',
       overflow: 'hidden',
     },
     compact: {
       padding: dimensions.cardPadding,
     },
     hover: {
-      boxShadow: dimensions.cardHoverShadow,
-      borderColor: colors.primary,
+      borderColor: colors.borderHover,
     }
   },
   
-  // Style dla kafelków pozycji
+  // Style dla kafelków pozycji - z ramkami
   positionTile: {
     base: {
       padding: dimensions.spacingMd,
       borderRadius: dimensions.cardBorderRadius,
-      border: `1px solid ${colors.borderBase}`,
+      border: '1px solid #e8e8e8',
       backgroundColor: colors.bgPrimary,
       cursor: 'pointer',
-      transition: 'all 0.2s ease',
-      minHeight: 80,
+      transition: 'all 0.15s ease',
+      minHeight: 70,
       display: 'flex',
       flexDirection: 'column' as const,
       gap: dimensions.spacingXs,
+      boxShadow: 'none',
     },
     selected: {
       borderColor: colors.primary,
-      backgroundColor: colors.bgHover,
-      boxShadow: `0 0 0 2px ${colors.primary}20`,
+      backgroundColor: '#f0f9ff',
+      borderWidth: '2px',
     },
     hover: {
-      borderColor: colors.primary,
-      boxShadow: dimensions.cardHoverShadow,
+      borderColor: colors.borderHover,
+      backgroundColor: colors.bgHover,
     }
   },
   
-  // Style dla palet
+  // Style dla palet - wyraźne ramki
   paleta: {
     base: {
       borderRadius: dimensions.cardBorderRadius,
       padding: dimensions.cardPadding,
       backgroundColor: colors.bgPrimary,
-      border: `2px solid ${colors.borderBase}`,
-      minHeight: 120,
-      transition: 'all 0.2s ease',
+      border: '1px solid #e8e8e8',
+      minHeight: 100,
+      transition: 'all 0.15s ease',
+      boxShadow: 'none',
     },
     empty: {
       borderStyle: 'dashed',
       backgroundColor: colors.bgSecondary,
-      borderColor: colors.borderLight,
+      borderColor: colors.borderDark,
     },
     dragOver: {
       borderColor: colors.primary,
-      backgroundColor: colors.bgHover,
-      boxShadow: `0 0 0 3px ${colors.primary}30`,
+      backgroundColor: '#f0f9ff',
+      borderWidth: '2px',
     },
     closed: {
-      opacity: 0.8,
+      opacity: 0.9,
       borderColor: colors.warning,
+      backgroundColor: '#fffbe6',
     }
   },
   
@@ -180,14 +195,14 @@ export const componentStyles = {
     base: {
       padding: `${dimensions.spacingSm}px ${dimensions.spacingMd}px`,
       borderRadius: dimensions.buttonBorderRadius,
-      border: `1px solid ${colors.borderBase}`,
+      border: '1px solid #e8e8e8',
       backgroundColor: colors.bgPrimary,
       cursor: 'grab',
-      transition: 'all 0.2s ease',
+      transition: 'all 0.15s ease',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      minHeight: 36,
+      minHeight: 32,
       fontSize: dimensions.fontSizeBase,
     },
     dragging: {
@@ -195,12 +210,12 @@ export const componentStyles = {
       cursor: 'grabbing',
     },
     hover: {
-      borderColor: colors.primary,
+      borderColor: colors.borderHover,
       backgroundColor: colors.bgHover,
     }
   },
   
-  // Style dla nagłówków
+  // Style dla nagłówków - kompaktowe
   header: {
     base: {
       height: dimensions.headerHeightBase,
@@ -208,12 +223,14 @@ export const componentStyles = {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: `0 ${dimensions.spacingMd}px`,
-      borderBottom: `1px solid ${colors.borderLight}`,
+      borderBottom: '1px solid #f0f0f0',
       backgroundColor: colors.bgSecondary,
+      fontSize: dimensions.fontSizeBase,
     },
     compact: {
       height: dimensions.headerHeightSmall,
       padding: `0 ${dimensions.spacingSm}px`,
+      fontSize: dimensions.fontSizeSmall,
     }
   },
   
@@ -221,27 +238,29 @@ export const componentStyles = {
   tag: {
     base: {
       padding: `0 ${dimensions.spacingSm}px`,
-      height: 20,
-      lineHeight: '20px',
+      height: 18,
+      lineHeight: '18px',
       fontSize: dimensions.fontSizeSmall,
       borderRadius: 2,
-      border: 'none',
-      fontWeight: dimensions.fontWeightMedium,
+      border: '1px solid #e8e8e8',
+      fontWeight: dimensions.fontWeightNormal,
+      background: '#fafafa',
+      color: '#595959',
     }
   },
   
-  // Style dla progress barów
+  // Style dla progress barów - funkcjonalne kolory
   progress: {
     base: {
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.borderLight,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: '#f0f0f0',
       overflow: 'hidden',
     },
     bar: {
       height: '100%',
       transition: 'width 0.3s ease',
-      borderRadius: 4,
+      borderRadius: 3,
     }
   },
   
@@ -253,8 +272,8 @@ export const componentStyles = {
       color: colors.textSecondary,
     },
     icon: {
-      fontSize: 48,
-      color: colors.borderBase,
+      fontSize: 40,
+      color: colors.borderDark,
       marginBottom: dimensions.spacingMd,
     }
   }
@@ -262,31 +281,29 @@ export const componentStyles = {
 
 // ========== FUNKCJE POMOCNICZE ==========
 export const styleHelpers = {
-  // Funkcja do obliczania procentu wypełnienia
+  // Funkcja do obliczania koloru postępu - tylko zielony/szary/czerwony
   getCompletionColor: (percent: number): string => {
-    if (percent >= 100) return colors.success;
-    if (percent >= 75) return colors.warning;
-    if (percent >= 50) return colors.info;
-    return colors.borderBase;
+    if (percent >= 100) return colors.statusGreen;
+    if (percent >= 75) return colors.statusGreen;
+    if (percent >= 50) return colors.primary;
+    if (percent > 0) return colors.borderDark;
+    return colors.statusRed;
   },
   
   // Funkcja do określania koloru statusu
   getStatusColor: (status: string): string => {
     switch(status) {
-      case 'otwarta': return colors.paletaOpen;
-      case 'zamknieta': return colors.paletaClosed;
-      case 'gotowa_do_transportu': return colors.paletaReady;
-      default: return colors.borderBase;
+      case 'otwarta': return colors.statusGreen;
+      case 'zamknieta': return colors.warning;
+      case 'gotowa_do_transportu': return colors.primary;
+      case 'error': return colors.statusRed;
+      default: return colors.statusGray;
     }
   },
   
-  // Funkcja do tworzenia cienia
-  createShadow: (level: 'low' | 'medium' | 'high'): string => {
-    switch(level) {
-      case 'low': return '0 1px 2px rgba(0, 0, 0, 0.08)';
-      case 'medium': return '0 2px 8px rgba(0, 0, 0, 0.12)';
-      case 'high': return '0 4px 16px rgba(0, 0, 0, 0.16)';
-    }
+  // Brak cieni - płaski design
+  createShadow: (): string => {
+    return 'none';
   }
 };
 
