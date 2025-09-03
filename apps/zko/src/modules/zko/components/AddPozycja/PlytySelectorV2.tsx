@@ -50,7 +50,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
       return plyty
         .filter(p => p.aktywna !== false && p.stan_magazynowy > 0)
         .sort((a, b) => b.stan_magazynowy - a.stan_magazynowy)
-        .slice(0, 15);
+        .slice(0, 10); // Zmniejszone z 15 na 10
     }
 
     // Rozbij frazę wyszukiwania na słowa
@@ -81,7 +81,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
       return b.stan_magazynowy - a.stan_magazynowy;
     });
 
-    return sortedFiltered.slice(0, 30); // Max 30 wyników
+    return sortedFiltered.slice(0, 20); // Zmniejszone z 30 na 20
   }, [plyty, searchText]);
 
   const handleSelectPlyta = (plyta: Plyta) => {
@@ -147,38 +147,36 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
             <div style={{ flex: 1 }}>
               <Space>
                 <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                <Text strong style={{ color: '#52c41a' }}>
+                <Text strong style={{ color: '#52c41a', fontSize: '13px' }}>
                   {selectedPlyta.kolor_nazwa}
                 </Text>
                 {selectedPlyta.struktura === 1 && (
-                  <Tag color="gold">STRUKTURA</Tag>
+                  <Tag color="gold" style={{ fontSize: '10px', padding: '0 4px', height: '16px', lineHeight: '16px' }}>
+                    STRUKTURA
+                  </Tag>
                 )}
               </Space>
-              <div style={{ marginTop: 4 }}>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {selectedPlyta.nazwa} • {selectedPlyta.grubosc}mm
-                </Text>
-              </div>
               <div style={{ marginTop: 2 }}>
-                <Text style={{ fontSize: '11px', color: '#666' }}>
-                  {selectedPlyta.opis}
+                <Text type="secondary" style={{ fontSize: '11px' }}>
+                  {selectedPlyta.nazwa} • {selectedPlyta.grubosc}mm • {selectedPlyta.dlugosc}×{selectedPlyta.szerokosc}mm
                 </Text>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Tooltip title={getStockStatus(selectedPlyta.stan_magazynowy)}>
                 <Badge
                   count={selectedPlyta.stan_magazynowy}
                   overflowCount={999}
                   style={{
-                    backgroundColor: getStockColor(selectedPlyta.stan_magazynowy)
+                    backgroundColor: getStockColor(selectedPlyta.stan_magazynowy),
+                    fontSize: '10px'
                   }}
                 />
               </Tooltip>
-              <Button size="small" onClick={() => setIsExpanded(true)} disabled={disabled}>
+              <Button size="small" onClick={() => setIsExpanded(true)} disabled={disabled} style={{ fontSize: '11px', height: '22px' }}>
                 Zmień
               </Button>
-              <Button size="small" onClick={handleClear} disabled={disabled}>
+              <Button size="small" onClick={handleClear} disabled={disabled} style={{ fontSize: '11px', height: '22px' }}>
                 Usuń
               </Button>
             </div>
@@ -191,7 +189,7 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
         <Button
           block
           onClick={() => setIsExpanded(true)}
-          style={{ height: 40, textAlign: 'left' }}
+          style={{ height: 32, textAlign: 'left' }}
           disabled={disabled}
         >
           <Space>
@@ -201,52 +199,48 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
         </Button>
       )}
 
-      {/* Rozwinięty widok z wyszukiwaniem */}
+      {/* Rozwinięty widok z wyszukiwaniem - ZMNIEJSZONA WYSOKOŚĆ */}
       {isExpanded && (
         <Card size="small" style={{ marginTop: selectedPlyta ? 8 : 0 }}>
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 8 }}>
             <Search
-              placeholder="Wpisz część nazwy, koloru lub opisu (np: 'biał 18' znajdzie 'BIAŁY 18mm')"
+              placeholder="Wpisz część nazwy, koloru lub opisu (np: 'biał 18')"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
               autoFocus
-              size="large"
+              size="middle"
+              style={{ fontSize: '12px' }}
             />
-            <div style={{ marginTop: 4 }}>
-              <Text type="secondary" style={{ fontSize: '11px' }}>
-                💡 Wskazówka: Możesz wpisać wiele słów - zostaną wyszukane wszystkie pasujące płyty
+            <div style={{ marginTop: 2 }}>
+              <Text type="secondary" style={{ fontSize: '10px' }}>
+                💡 Możesz wpisać wiele słów - zostaną wyszukane wszystkie pasujące płyty
               </Text>
             </div>
           </div>
 
           {searchText && (
-            <Alert
-              message={`Szukam: "${searchText}" - znaleziono ${filteredPlyty.length} płyt`}
-              type="info"
-              icon={<SearchOutlined />}
-              style={{ marginBottom: 8 }}
-              closable={false}
-            />
+            <div style={{ marginBottom: 6, padding: '4px 8px', background: '#e6f7ff', borderRadius: '3px' }}>
+              <Text style={{ fontSize: '11px', color: '#1890ff' }}>
+                Szukam: "{searchText}" - znaleziono {filteredPlyty.length} płyt
+              </Text>
+            </div>
           )}
 
-          <div style={{ maxHeight: 450, overflowY: 'auto', paddingRight: 4 }}>
+          {/* ZMNIEJSZONA WYSOKOŚĆ LISTY z 450px na 280px */}
+          <div style={{ maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
             {filteredPlyty.length === 0 ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
+                imageStyle={{ height: 40 }}
                 description={
-                  <Space direction="vertical">
-                    <Text>Brak płyt spełniających kryteria</Text>
-                    {searchText && (
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Spróbuj użyć innych słów kluczowych
-                      </Text>
-                    )}
-                  </Space>
+                  <Text style={{ fontSize: '12px' }}>
+                    Brak płyt spełniających kryteria
+                  </Text>
                 }
               />
             ) : (
-              <Space direction="vertical" style={{ width: '100%' }} size="small">
+              <Space direction="vertical" style={{ width: '100%' }} size={2}>
                 {filteredPlyty.map(plyta => (
                   <Card
                     key={plyta.id}
@@ -258,74 +252,64 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
                       border: plyta.kolor_nazwa === value ? '2px solid #52c41a' : '1px solid #d9d9d9',
                       opacity: plyta.stan_magazynowy === 0 ? 0.6 : 1
                     }}
+                    styles={{
+                      body: { padding: '6px 10px' }
+                    }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ flex: 1 }}>
-                        <div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <Text strong style={{
                             color: plyta.stan_magazynowy > 0 ? '#1890ff' : '#999',
-                            fontSize: '14px'
+                            fontSize: '12px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                           }}>
                             {plyta.kolor_nazwa}
                           </Text>
                           {plyta.struktura === 1 && (
-                            <Tag color="gold" style={{ marginLeft: 4 }}>
-                              STRUKTURA
+                            <Tag color="gold" style={{ 
+                              fontSize: '9px', 
+                              padding: '0 3px', 
+                              height: '14px', 
+                              lineHeight: '14px',
+                              margin: 0
+                            }}>
+                              STR
                             </Tag>
                           )}
                           {plyta.stan_magazynowy === 0 && (
-                            <Tag color="error" style={{ marginLeft: 4 }}>
+                            <Tag color="error" style={{ 
+                              fontSize: '9px', 
+                              padding: '0 3px', 
+                              height: '14px', 
+                              lineHeight: '14px',
+                              margin: 0
+                            }}>
                               BRAK
                             </Tag>
                           )}
                         </div>
-                        <div style={{ marginTop: 2 }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            {plyta.nazwa} • {plyta.grubosc}mm
-                            {plyta.dlugosc && plyta.szerokosc &&
-                              ` • ${plyta.dlugosc}x${plyta.szerokosc}mm`
-                            }
+                        <div style={{ marginTop: 1 }}>
+                          <Text type="secondary" style={{ fontSize: '10px' }}>
+                            {plyta.grubosc}mm • {plyta.dlugosc}×{plyta.szerokosc}mm
+                            {plyta.cena_za_plyte && ` • ${formatPrice(plyta.cena_za_plyte)} zł`}
                           </Text>
                         </div>
-                        <div style={{ marginTop: 2 }}>
-                          <Paragraph
-                            ellipsis={{ rows: 1 }}
-                            style={{
-                              fontSize: '11px',
-                              color: '#666',
-                              margin: 0
-                            }}
-                          >
-                            {plyta.opis}
-                          </Paragraph>
-                        </div>
-                        {plyta.cena_za_plyte !== undefined && plyta.cena_za_plyte !== null && (
-                          <div style={{ marginTop: 2 }}>
-                            <Text style={{ fontSize: '10px', color: '#999' }}>
-                              Cena: {formatPrice(plyta.cena_za_plyte)} zł/płyta
-                              {plyta.cena_za_m2 !== undefined && plyta.cena_za_m2 !== null &&
-                                ` | ${formatPrice(plyta.cena_za_m2)} zł/m²`
-                              }
-                            </Text>
-                          </div>
-                        )}
                       </div>
-                      <div style={{ textAlign: 'right', minWidth: '80px' }}>
-                        <Tooltip title={getStockStatus(plyta.stan_magazynowy)}>
-                          <Badge
-                            count={plyta.stan_magazynowy}
-                            overflowCount={999}
-                            style={{
-                              backgroundColor: getStockColor(plyta.stan_magazynowy)
-                            }}
-                          />
-                        </Tooltip>
-                        <div style={{ fontSize: '10px', color: '#666', marginTop: 2 }}>
-                          {getStockStatus(plyta.stan_magazynowy)}
+                      <div style={{ textAlign: 'right', minWidth: '60px' }}>
+                        <Badge
+                          count={plyta.stan_magazynowy}
+                          overflowCount={999}
+                          style={{
+                            backgroundColor: getStockColor(plyta.stan_magazynowy),
+                            fontSize: '10px'
+                          }}
+                        />
+                        <div style={{ fontSize: '9px', color: '#666', marginTop: 1 }}>
+                          {plyta.stan_magazynowy > 0 ? 'szt.' : 'brak'}
                         </div>
-                        {plyta.stan_magazynowy === 0 && (
-                          <WarningOutlined style={{ color: '#ff4d4f', marginTop: 4 }} />
-                        )}
                       </div>
                     </div>
                   </Card>
@@ -335,18 +319,17 @@ export const PlytySelectorV2: React.FC<PlytySelectorV2Props> = ({
           </div>
 
           <div style={{
-            marginTop: 12,
-            paddingTop: 8,
+            marginTop: 8,
+            paddingTop: 6,
             borderTop: '1px solid #f0f0f0',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
+            <Text type="secondary" style={{ fontSize: '11px' }}>
               <InfoCircleOutlined /> Wyświetlono {filteredPlyty.length} z {plyty.length} płyt
-              {!searchText && ' (pokazuję tylko płyty dostępne na magazynie)'}
             </Text>
-            <Button size="small" onClick={() => setIsExpanded(false)}>
+            <Button size="small" onClick={() => setIsExpanded(false)} style={{ fontSize: '11px', height: '22px' }}>
               Zamknij
             </Button>
           </div>
