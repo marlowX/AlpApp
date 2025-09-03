@@ -33,7 +33,7 @@ export const SCIEZKI_PRODUKCJI = [
   },
   {
     id: 'CIECIE->OKLEJANIE->MAGAZYN',
-    label: 'Cięcie + Oklejanie  (Standardowa ścieżka z oklejaniem)',
+    label: 'Cięcie + Oklejanie',
     kroki: ['CIECIE', 'OKLEJANIE', 'MAGAZYN'],
     opis: 'Standardowa ścieżka z oklejaniem',
     ikona: <ToolOutlined />,
@@ -97,6 +97,8 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
   const selectedSciezka = SCIEZKI_PRODUKCJI.find(s => s.id === value) || SCIEZKI_PRODUKCJI[1];
 
   const handleChange = (newValue: string) => {
+    console.log('SciezkaProdukcji - changing from:', value, 'to:', newValue);
+    
     if (onChange) {
       onChange(newValue);
     }
@@ -131,9 +133,10 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
         <div>
           <Space style={{ marginBottom: 4 }}>
             <Text strong style={{ fontSize: 13 }}>Ścieżka produkcji:</Text>
-            <Tooltip title="Określa kolejność etapów przez które przejdą formatki">
-              <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help', fontSize: 12 }} />
-            </Tooltip>
+            <InfoCircleOutlined 
+              style={{ color: '#1890ff', cursor: 'help', fontSize: 12 }} 
+              title="Określa kolejność etapów przez które przejdą formatki"
+            />
           </Space>
           
           <Select
@@ -149,6 +152,9 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
                 <Space>
                   {sciezka.ikona}
                   <span style={{ fontSize: 12 }}>{sciezka.label}</span>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    ({sciezka.opis})
+                  </Text>
                 </Space>
               </Option>
             ))}
@@ -175,7 +181,7 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
   );
 };
 
-// Komponent do wyświetlania ścieżki (read-only)
+// Komponent do wyświetlania ścieżki (read-only) - bez Tooltip który powoduje warning
 export const SciezkaDisplay: React.FC<{ sciezka: string }> = ({ sciezka }) => {
   const sciezkaObj = SCIEZKI_PRODUKCJI.find(s => s.id === sciezka);
   
@@ -206,24 +212,22 @@ export const SciezkaDisplay: React.FC<{ sciezka: string }> = ({ sciezka }) => {
   }
 
   return (
-    <Tooltip title={sciezkaObj.opis}>
-      <Space size={4}>
-        {sciezkaObj.kroki.map((krok, index) => (
-          <React.Fragment key={index}>
-            <Tag 
-              icon={getEtapIcon(krok)} 
-              color={getEtapColor(krok)}
-              style={{ margin: 0, fontSize: 11 }}
-            >
-              {krok}
-            </Tag>
-            {index < sciezkaObj.kroki.length - 1 && (
-              <ArrowRightOutlined style={{ color: '#999', fontSize: 10 }} />
-            )}
-          </React.Fragment>
-        ))}
-      </Space>
-    </Tooltip>
+    <Space size={4} title={sciezkaObj.opis}>
+      {sciezkaObj.kroki.map((krok, index) => (
+        <React.Fragment key={index}>
+          <Tag 
+            icon={getEtapIcon(krok)} 
+            color={getEtapColor(krok)}
+            style={{ margin: 0, fontSize: 11 }}
+          >
+            {krok}
+          </Tag>
+          {index < sciezkaObj.kroki.length - 1 && (
+            <ArrowRightOutlined style={{ color: '#999', fontSize: 10 }} />
+          )}
+        </React.Fragment>
+      ))}
+    </Space>
   );
 };
 
