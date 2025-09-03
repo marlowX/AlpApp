@@ -33,7 +33,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
   onRemoveKolor,
   maxPlytNaPozycje = 5
 }) => {
-  // Stan do przełączania między selektorami
+  // Stan do przełączania między selektorami - DOMYŚLNIE 'simple'
   const [selectorType, setSelectorType] = React.useState<'select' | 'custom' | 'simple'>('simple');
 
   const totalPlyty = kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
@@ -144,7 +144,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
               loading={plytyLoading}
               value={kolorePlyty[index]?.kolor}
               onChange={(plyta) => handlePlytaChange(index, plyta)}
-              placeholder={`Wpisz nazwę płyty...`}
+              placeholder={`Wpisz nazwę koloru płyty...`}
             />
           );
         }
@@ -237,20 +237,22 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
           )}
         </Space>
         
-        {/* Przełącznik między selektorami */}
-        <Space style={{ fontSize: '11px' }}>
-          <Text type="secondary">Typ selektora:</Text>
-          <Radio.Group 
-            value={selectorType} 
-            onChange={(e) => setSelectorType(e.target.value)}
-            size="small"
-            buttonStyle="solid"
-          >
-            <Radio.Button value="simple">Prosty</Radio.Button>
-            <Radio.Button value="select">Select</Radio.Button>
-            <Radio.Button value="custom">Custom</Radio.Button>
-          </Radio.Group>
-        </Space>
+        {/* Przełącznik między selektorami - tylko w trybie dev */}
+        {process.env.NODE_ENV === 'development' && (
+          <Space style={{ fontSize: '11px' }}>
+            <Text type="secondary">Typ selektora:</Text>
+            <Radio.Group 
+              value={selectorType} 
+              onChange={(e) => setSelectorType(e.target.value)}
+              size="small"
+              buttonStyle="solid"
+            >
+              <Radio.Button value="simple">✅ Wyszukiwarka</Radio.Button>
+              <Radio.Button value="select">🔧 Select</Radio.Button>
+              <Radio.Button value="custom">📦 Custom</Radio.Button>
+            </Radio.Group>
+          </Space>
+        )}
       </div>
       
       <Table
