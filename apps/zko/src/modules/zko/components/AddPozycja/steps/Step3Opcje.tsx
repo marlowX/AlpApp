@@ -44,7 +44,6 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
     }, 0) : 0;
 
   // Oblicz szacowaną wagę formatek
-  // Zakładamy gęstość płyty ~700 kg/m³ dla płyty 18mm
   const obliczWageFormatek = () => {
     if (!selectedRozkroj) return 0;
     
@@ -52,15 +51,12 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
     kolorePlyty.forEach(kolor => {
       if (!kolor.kolor) return;
       
-      const grubosc = kolor.grubosc || 18; // mm
-      const gestosc = 700; // kg/m³ dla płyty wiórowej
+      const grubosc = kolor.grubosc || 18;
+      const gestosc = 700;
       
       selectedRozkroj.formatki.forEach(formatka => {
-        // Objętość formatki w m³
         const objetosc = (formatka.dlugosc / 1000) * (formatka.szerokosc / 1000) * (grubosc / 1000);
-        // Waga formatki w kg
         const wagaFormatki = objetosc * gestosc;
-        // Całkowita waga dla wszystkich sztuk
         totalWaga += wagaFormatki * formatka.ilosc_sztuk * kolor.ilosc;
       });
     });
@@ -213,7 +209,7 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
         </Row>
       </Card>
 
-      {/* ŚCIEŻKA PRODUKCJI */}
+      {/* ŚCIEŻKA PRODUKCJI - UPROSZCZONE */}
       <Card 
         title={
           <Space>
@@ -235,14 +231,13 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           style={{ marginBottom: 8 }}
         >
           <SciezkaProdukcji
-            formatki={[]}
             onSciezkaChange={(sciezka) => {
               form.setFieldsValue({ sciezka_produkcji: sciezka });
             }}
           />
         </Form.Item>
-        <Text type="secondary" style={{ fontSize: '10px' }}>
-          Można zmienić później dla pojedynczych formatek
+        <Text type="secondary" style={{ fontSize: '11px' }}>
+          Można zmienić później dla pojedynczych formatek na palecie
         </Text>
       </Card>
 

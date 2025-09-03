@@ -1,5 +1,5 @@
 import React from 'react';
-import { Select, Space, Tag, Typography, Alert, Tooltip, Button } from 'antd';
+import { Select, Space, Tag, Typography, Tooltip } from 'antd';
 import { 
   ArrowRightOutlined, 
   ScissorOutlined,
@@ -17,7 +17,8 @@ export interface SciezkaProdukcjiProps {
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;
-  showInfo?: boolean;
+  formatki?: any[];
+  onSciezkaChange?: (value: string) => void;
 }
 
 // Predefiniowane ścieżki produkcji
@@ -32,7 +33,7 @@ export const SCIEZKI_PRODUKCJI = [
   },
   {
     id: 'CIECIE->OKLEJANIE->MAGAZYN',
-    label: 'Cięcie + Oklejanie',
+    label: 'Cięcie + Oklejanie  (Standardowa ścieżka z oklejaniem)',
     kroki: ['CIECIE', 'OKLEJANIE', 'MAGAZYN'],
     opis: 'Standardowa ścieżka z oklejaniem',
     ikona: <ToolOutlined />,
@@ -87,27 +88,37 @@ const getEtapColor = (etap: string) => {
 };
 
 export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
-  value,
+  value = 'CIECIE->OKLEJANIE->MAGAZYN',
   onChange,
+  onSciezkaChange,
   disabled = false,
-  showInfo = true
+  formatki
 }) => {
-  const selectedSciezka = SCIEZKI_PRODUKCJI.find(s => s.id === value);
+  const selectedSciezka = SCIEZKI_PRODUKCJI.find(s => s.id === value) || SCIEZKI_PRODUKCJI[1];
+
+  const handleChange = (newValue: string) => {
+    if (onChange) {
+      onChange(newValue);
+    }
+    if (onSciezkaChange) {
+      onSciezkaChange(newValue);
+    }
+  };
 
   // Funkcja do renderowania wizualizacji ścieżki
   const renderSciezkaVisualization = (sciezka: typeof SCIEZKI_PRODUKCJI[0]) => (
-    <Space size={4} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+    <Space size={4} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
       {sciezka.kroki.map((krok, index) => (
         <React.Fragment key={index}>
           <Tag 
             icon={getEtapIcon(krok)} 
             color={getEtapColor(krok)}
-            style={{ margin: 0 }}
+            style={{ margin: 0, fontSize: 11 }}
           >
             {krok}
           </Tag>
           {index < sciezka.kroki.length - 1 && (
-            <ArrowRightOutlined style={{ color: '#999', fontSize: 12 }} />
+            <ArrowRightOutlined style={{ color: '#999', fontSize: 10 }} />
           )}
         </React.Fragment>
       ))}
@@ -116,31 +127,28 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
 
   return (
     <div>
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space direction="vertical" style={{ width: '100%' }} size="small">
         <div>
-          <Space style={{ marginBottom: 8 }}>
-            <Text strong>Ścieżka produkcji:</Text>
+          <Space style={{ marginBottom: 4 }}>
+            <Text strong style={{ fontSize: 13 }}>Ścieżka produkcji:</Text>
             <Tooltip title="Określa kolejność etapów przez które przejdą formatki">
-              <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help' }} />
+              <InfoCircleOutlined style={{ color: '#1890ff', cursor: 'help', fontSize: 12 }} />
             </Tooltip>
           </Space>
           
           <Select
             value={value}
-            onChange={onChange}
+            onChange={handleChange}
             disabled={disabled}
             placeholder="Wybierz ścieżkę produkcji"
             style={{ width: '100%' }}
-            size="large"
+            size="middle"
           >
             {SCIEZKI_PRODUKCJI.map(sciezka => (
               <Option key={sciezka.id} value={sciezka.id}>
                 <Space>
                   {sciezka.ikona}
-                  <span>{sciezka.label}</span>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    ({sciezka.opis})
-                  </Text>
+                  <span style={{ fontSize: 12 }}>{sciezka.label}</span>
                 </Space>
               </Option>
             ))}
@@ -150,38 +158,17 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
         {/* Wizualizacja wybranej ścieżki */}
         {selectedSciezka && (
           <div style={{ 
-            padding: 12, 
-            background: '#f5f5f5', 
-            borderRadius: 8,
-            border: '1px solid #d9d9d9'
+            padding: 8, 
+            background: '#fafafa', 
+            borderRadius: 4,
+            border: '1px solid #f0f0f0'
           }}>
-            <Space direction="vertical" style={{ width: '100%' }} size="small">
-              <Text strong>{selectedSciezka.label}</Text>
-              {renderSciezkaVisualization(selectedSciezka)}
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {selectedSciezka.opis}
-              </Text>
-            </Space>
+            <Text strong style={{ fontSize: 12 }}>{selectedSciezka.label}</Text>
+            {renderSciezkaVisualization(selectedSciezka)}
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+              {selectedSciezka.opis}
+            </Text>
           </div>
-        )}
-
-        {/* Informacja dodatkowa */}
-        {showInfo && (
-          <Alert
-            message="Ścieżka produkcji"
-            description={
-              <Space direction="vertical" size="small">
-                <Text>Ścieżka określa kolejność operacji technologicznych dla formatek.</Text>
-                <Text>Można ją zmienić później dla pojedynczych formatek na palecie.</Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  Domyślnie: CIECIE → OKLEJANIE → MAGAZYN
-                </Text>
-              </Space>
-            }
-            type="info"
-            showIcon
-            closable
-          />
         )}
       </Space>
     </div>
