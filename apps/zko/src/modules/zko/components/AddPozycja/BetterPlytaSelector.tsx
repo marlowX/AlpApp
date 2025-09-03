@@ -1,10 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Typography, Empty, Spin, Input } from 'antd';
+import { Typography, Empty, Spin } from 'antd';
 import { 
   SearchOutlined, 
   CheckCircleOutlined, 
-  FireOutlined,
-  CloseOutlined
+  FireOutlined
 } from '@ant-design/icons';
 import type { Plyta } from './types';
 
@@ -15,7 +14,9 @@ interface BetterPlytaSelectorProps {
   loading?: boolean;
   value?: string;
   onChange?: (plyta: Plyta | null) => void;
+  onAddPlyta?: (plyta: Plyta) => void; // Nowy prop dla dodawania
   placeholder?: string;
+  selectedPlyty?: string[]; // Lista już wybranych płyt
 }
 
 export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
@@ -23,14 +24,11 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
   loading = false,
   value,
   onChange,
-  placeholder = "Filtruj płyty..."
+  onAddPlyta,
+  placeholder = "Filtruj płyty...",
+  selectedPlyty = []
 }) => {
   const [search, setSearch] = useState('');
-
-  const selectedPlyta = useMemo(() => 
-    plyty.find(p => p.kolor_nazwa === value) || null,
-    [plyty, value]
-  );
 
   // Sortuj płyty według popularności i stanu magazynowego
   const sortedPlyty = useMemo(() => {
@@ -63,11 +61,9 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
   }, [sortedPlyty, search]);
 
   const handleSelect = (plyta: Plyta) => {
-    if (selectedPlyta?.id === plyta.id) {
-      // Odznacz jeśli klikamy na już wybraną
-      onChange?.(null);
-    } else {
-      onChange?.(plyta);
+    // Jeśli płyta już jest wybrana, pomiń
+    if (!selectedPlyty.includes(plyta.kolor_nazwa)) {
+      onAddPlyta?.(plyta);
     }
   };
 
@@ -86,31 +82,63 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
       borderRadius: 6,
       overflow: 'hidden'
     }}>
-      {/* Wyszukiwarka */}
-      <div style={{ 
-        padding: '8px',
-        borderBottom: '1px solid #f0f0f0',
-        backgroundColor: '#fafafa'
-      }}>
-        <Input
-          placeholder={placeholder}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          allowClear
-          size="small"
-          prefix={<SearchOutlined style={{ color: '#999' }} />}
-          style={{ 
-            border: '1px solid #e8e8e8',
-            borderRadius: 4
-          }}
-        />
+      {/* Wyszukiwarka - POPRAWIONA */}
+      <div style={{ padding: '8px' }}>
+        <div style={{ position: 'relative' }}>
+          <SearchOutlined style={{ 
+            position: 'absolute',
+            left: 10,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: '#bfbfbf',
+            fontSize: 14
+          }} />
+          <input
+            type="text"
+            placeholder={placeholder}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '4px 30px 4px 32px',
+              border: '1px solid #d9d9d9',
+              borderRadius: 4,
+              fontSize: 12,
+              outline: 'none',
+              transition: 'border-color 0.3s'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#40a9ff';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#d9d9d9';
+            }}
+          />
+          {search && (
+            <span
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute',
+                right: 10,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                cursor: 'pointer',
+                color: '#bfbfbf',
+                fontSize: 12
+              }}
+            >
+              ✕
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Lista płyt */}
       <div style={{ 
         height: 240,
         overflowY: 'auto',
-        overflowX: 'hidden'
+        overflowX: 'hidden',
+        borderTop: '1px solid #f0f0f0'
       }}>
         {filteredPlyty.length === 0 ? (
           <div style={{ padding: '60px 20px', textAlign: 'center' }}>
@@ -123,38 +151,38 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
         ) : (
           <div>
             {filteredPlyty.map((plyta) => {
-              const isSelected = selectedPlyta?.id === plyta.id;
+              const isAlreadySelected = selectedPlyty.includes(plyta.kolor_nazwa);
               const popularity = (plyta as any).popularnosc || 1;
               
               return (
                 <div
                   key={plyta.id}
-                  onClick={() => handleSelect(plyta)}
+                  onClick={() => !isAlreadySelected && handleSelect(plyta)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     padding: '6px 12px',
-                    cursor: 'pointer',
-                    backgroundColor: isSelected ? '#e6f7ff' : '#fff',
-                    borderLeft: isSelected ? '3px solid #1890ff' : '3px solid transparent',
+                    cursor: isAlreadySelected ? 'not-allowed' : 'pointer',
+                    backgroundColor: isAlreadySelected ? '#f5f5f5' : '#fff',
+                    opacity: isAlreadySelected ? 0.6 : 1,
                     transition: 'all 0.2s',
                     borderBottom: '1px solid #fafafa'
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = '#f5f5f5';
+                    if (!isAlreadySelected) {
+                      e.currentTarget.style.backgroundColor = '#e6f7ff';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected) {
+                    if (!isAlreadySelected) {
                       e.currentTarget.style.backgroundColor = '#fff';
                     }
                   }}
                 >
                   {/* Ikona */}
                   <div style={{ width: 24, marginRight: 8 }}>
-                    {isSelected ? (
-                      <CheckCircleOutlined style={{ color: '#1890ff', fontSize: 14 }} />
+                    {isAlreadySelected ? (
+                      <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 14 }} />
                     ) : popularity >= 4 ? (
                       <FireOutlined style={{ color: '#ff4d4f', fontSize: 12 }} />
                     ) : null}
@@ -162,7 +190,10 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
                   
                   {/* Nazwa */}
                   <div style={{ flex: 1 }}>
-                    <Text strong={isSelected} style={{ fontSize: 12 }}>
+                    <Text style={{ 
+                      fontSize: 12,
+                      color: isAlreadySelected ? '#999' : '#000'
+                    }}>
                       {plyta.kolor_nazwa}
                     </Text>
                     {plyta.struktura === 1 && (
@@ -212,36 +243,17 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
         )}
       </div>
 
-      {/* Info o wybranej płycie */}
-      {selectedPlyta && (
-        <div style={{ 
-          padding: '6px 12px',
-          backgroundColor: '#e6f7ff',
-          borderTop: '1px solid #91d5ff',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <CheckCircleOutlined style={{ color: '#1890ff', fontSize: 12 }} />
-            <Text style={{ fontSize: 11 }}>
-              Wybrano: <strong>{selectedPlyta.kolor_nazwa}</strong> {selectedPlyta.grubosc}mm • {selectedPlyta.dlugosc}×{selectedPlyta.szerokosc}mm
-            </Text>
-          </div>
-          <CloseOutlined 
-            style={{ 
-              fontSize: 10, 
-              color: '#999',
-              cursor: 'pointer',
-              padding: 4
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange?.(null);
-            }}
-          />
-        </div>
-      )}
+      {/* Podpowiedź */}
+      <div style={{ 
+        padding: '6px 12px',
+        backgroundColor: '#fafafa',
+        borderTop: '1px solid #f0f0f0',
+        fontSize: 11,
+        color: '#999',
+        textAlign: 'center'
+      }}>
+        Kliknij na płytę aby dodać ją do rozkroju
+      </div>
     </div>
   );
 };
