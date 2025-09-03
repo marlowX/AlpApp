@@ -24,65 +24,139 @@ interface StatusChangeButtonProps {
   disabled?: boolean;
 }
 
-// Fallback - mapowanie statusów na możliwe następne kroki
-const FALLBACK_NEXT_STEPS: Record<string, Array<{kod_etapu: string, nazwa_etapu: string}>> = {
+// Mapowanie statusów na możliwe następne kroki zgodnie z v_instrukcja_workflow
+const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu: string}>> = {
+  // Start produkcji
   'NOWE': [
-    { kod_etapu: 'CIECIE', nazwa_etapu: 'Rozpocznij cięcie' },
-    { kod_etapu: 'BUFOR_PILA', nazwa_etapu: 'Przekaż do bufora piły' }
+    { kod_etapu: 'CIECIE_START', nazwa_etapu: 'Rozpocznij cięcie' },
+    { kod_etapu: 'ANULOWANE', nazwa_etapu: 'Anuluj zlecenie' }
   ],
-  'BUFOR_PILA': [
-    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
-    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Przekaż do bufora okleiniarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
-  ],
-  'CIECIE': [
-    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
-    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Przekaż do bufora okleiniarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
-  ],
+  
+  // Cięcie
   'CIECIE_START': [
-    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
-    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Przekaż do bufora okleiniarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+    { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' },
+    { kod_etapu: 'CIECIE_STOP', nazwa_etapu: 'Zakończ cięcie' }
   ],
-  'OKLEJANIE': [
-    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' },
-    { kod_etapu: 'BUFOR_WIERCENIE', nazwa_etapu: 'Przekaż do bufora wiertarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  'CIECIE_STOP': [
+    { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' }
   ],
-  'OKLEJANIE_START': [
-    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' },
-    { kod_etapu: 'BUFOR_WIERCENIE', nazwa_etapu: 'Przekaż do bufora wiertarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  
+  // Pakowanie na palety
+  'OTWARCIE_PALETY': [
+    { kod_etapu: 'PAKOWANIE_PALETY', nazwa_etapu: 'Pakuj na paletę' }
   ],
-  'WIERCENIE': [
-    { kod_etapu: 'PAKOWANIE', nazwa_etapu: 'Rozpocznij pakowanie' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  'PAKOWANIE_PALETY': [
+    { kod_etapu: 'ZAMKNIECIE_PALETY', nazwa_etapu: 'Zamknij paletę' }
   ],
-  'PAKOWANIE': [
-    { kod_etapu: 'TRANSPORT', nazwa_etapu: 'Przygotuj do transportu' },
-    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij do klienta' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' },
-    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
+  'ZAMKNIECIE_PALETY': [
+    { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz kolejną paletę' },
+    { kod_etapu: 'BUFOR_PILA', nazwa_etapu: 'Do bufora piły' }
   ],
-  'PAKOWANIE_STOP': [
-    { kod_etapu: 'TRANSPORT', nazwa_etapu: 'Przygotuj do transportu' },
-    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij do klienta' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' },
-    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
-  ],
-  'TRANSPORT': [
-    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Potwierdź odbiór i zakończ' }
+  
+  // Bufor piła i transport
+  'BUFOR_PILA': [
+    { kod_etapu: 'TRANSPORT_1', nazwa_etapu: 'Transport do następnego etapu' },
+    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
+    { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
   ],
   'TRANSPORT_1': [
-    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Potwierdź odbiór i zakończ' }
+    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
+    { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+  ],
+  
+  // Oklejanie
+  'BUFOR_OKLEINIARKA': [
+    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' }
+  ],
+  'OKLEJANIE_START': [
+    { kod_etapu: 'OKLEJANIE_STOP', nazwa_etapu: 'Zakończ oklejanie' }
+  ],
+  'OKLEJANIE_STOP': [
+    { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
+    { kod_etapu: 'BUFOR_KOMPLETOWANIE', nazwa_etapu: 'Do kompletowania' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+  ],
+  
+  // Wiercenie
+  'BUFOR_WIERTARKA': [
+    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' }
+  ],
+  'WIERCENIE_START': [
+    { kod_etapu: 'WIERCENIE_STOP', nazwa_etapu: 'Zakończ wiercenie' }
+  ],
+  'WIERCENIE_STOP': [
+    { kod_etapu: 'BUFOR_KOMPLETOWANIE', nazwa_etapu: 'Do kompletowania' },
+    { kod_etapu: 'BUFOR_PAKOWANIE', nazwa_etapu: 'Do pakowania' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+  ],
+  
+  // Kompletowanie
+  'BUFOR_KOMPLETOWANIE': [
+    { kod_etapu: 'KOMPLETOWANIE_START', nazwa_etapu: 'Rozpocznij kompletowanie' }
+  ],
+  'KOMPLETOWANIE_START': [
+    { kod_etapu: 'KOMPLETOWANIE_STOP', nazwa_etapu: 'Zakończ kompletowanie' }
+  ],
+  'KOMPLETOWANIE_STOP': [
+    { kod_etapu: 'BUFOR_PAKOWANIE', nazwa_etapu: 'Do pakowania' },
+    { kod_etapu: 'BUFOR_WYSYLKA', nazwa_etapu: 'Do wysyłki' }
+  ],
+  
+  // Pakowanie finalne
+  'BUFOR_PAKOWANIE': [
+    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' }
+  ],
+  'PAKOWANIE_START': [
+    { kod_etapu: 'PAKOWANIE_STOP', nazwa_etapu: 'Zakończ pakowanie' }
+  ],
+  'PAKOWANIE_STOP': [
+    { kod_etapu: 'BUFOR_WYSYLKA', nazwa_etapu: 'Do wysyłki' },
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij' }
+  ],
+  
+  // Wysyłka
+  'BUFOR_WYSYLKA': [
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij do klienta' }
   ],
   'WYSYLKA': [
-    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Potwierdź odbiór i zakończ' }
+    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' }
   ],
+  
+  // Magazyn
   'MAGAZYN': [
+    { kod_etapu: 'BUFOR_WYSYLKA', nazwa_etapu: 'Do wysyłki' },
     { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij z magazynu' },
-    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
+    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' }
+  ],
+  
+  // Stany końcowe
+  'ZAKONCZONE': [],
+  'ZAKONCZONA': [],
+  'ANULOWANE': [],
+  
+  // Fallback dla starych statusów
+  'CIECIE': [
+    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+  ],
+  'OKLEJANIE': [
+    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
+    { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+  ],
+  'WIERCENIE': [
+    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+  ],
+  'PAKOWANIE': [
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+  ],
+  'TRANSPORT': [
+    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' }
   ]
 };
 
@@ -112,25 +186,28 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
         const data = await response.json();
         console.log('Next steps from API:', data);
         
-        // Jeśli API zwróciło puste dane, użyj fallback
+        // Jeśli API zwróciło puste dane, użyj lokalnej mapy workflow
         if (!data || data.length === 0) {
-          console.warn('API returned empty steps, using fallback for status:', currentStatus);
-          const fallbackSteps = FALLBACK_NEXT_STEPS[currentStatus.toUpperCase()] || [];
-          setAvailableSteps(fallbackSteps);
+          console.warn('API returned empty steps, using workflow map for status:', currentStatus);
+          const workflowSteps = WORKFLOW_TRANSITIONS[currentStatus.toUpperCase()] || 
+                               WORKFLOW_TRANSITIONS[currentStatus] || [];
+          setAvailableSteps(workflowSteps);
           setUseFallback(true);
         } else {
           setAvailableSteps(data);
         }
       } else {
-        console.error('Failed to fetch next steps, using fallback');
-        const fallbackSteps = FALLBACK_NEXT_STEPS[currentStatus.toUpperCase()] || [];
-        setAvailableSteps(fallbackSteps);
+        console.error('Failed to fetch next steps, using workflow map');
+        const workflowSteps = WORKFLOW_TRANSITIONS[currentStatus.toUpperCase()] || 
+                             WORKFLOW_TRANSITIONS[currentStatus] || [];
+        setAvailableSteps(workflowSteps);
         setUseFallback(true);
       }
     } catch (error) {
-      console.error('Error fetching next steps, using fallback:', error);
-      const fallbackSteps = FALLBACK_NEXT_STEPS[currentStatus.toUpperCase()] || [];
-      setAvailableSteps(fallbackSteps);
+      console.error('Error fetching next steps, using workflow map:', error);
+      const workflowSteps = WORKFLOW_TRANSITIONS[currentStatus.toUpperCase()] || 
+                           WORKFLOW_TRANSITIONS[currentStatus] || [];
+      setAvailableSteps(workflowSteps);
       setUseFallback(true);
     } finally {
       setLoadingSteps(false);
@@ -231,22 +308,88 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
     }
   };
 
-  // Mapowanie kodów etapów na czytelne nazwy
+  // Mapowanie kodów etapów na czytelne nazwy z emoji
   const getStepLabel = (kod: string) => {
     const labels: Record<string, string> = {
-      'CIECIE': '🔪 Rozpocznij cięcie',
-      'BUFOR_PILA': '📦 Bufor piły',
-      'OKLEJANIE': '🎨 Rozpocznij oklejanie',
-      'BUFOR_OKLEINIARKA': '📦 Bufor okleiniarki',
-      'WIERCENIE': '🔩 Rozpocznij wiercenie',
-      'BUFOR_WIERCENIE': '📦 Bufor wiertarki',
-      'PAKOWANIE': '📦 Rozpocznij pakowanie',
-      'TRANSPORT': '🚚 Wyślij transport',
+      // Cięcie
+      'CIECIE_START': '🔪 Rozpocznij cięcie',
+      'CIECIE_STOP': '🔪 Zakończ cięcie',
+      'CIECIE': '🔪 Cięcie',
+      
+      // Palety
+      'OTWARCIE_PALETY': '📦 Otwórz paletę',
+      'PAKOWANIE_PALETY': '📦 Pakuj na paletę',
+      'ZAMKNIECIE_PALETY': '🔒 Zamknij paletę',
+      
+      // Bufory
+      'BUFOR_PILA': '⏸️ Bufor piły',
+      'BUFOR_OKLEINIARKA': '⏸️ Bufor okleiniarki',
+      'BUFOR_WIERTARKA': '⏸️ Bufor wiertarki',
+      'BUFOR_KOMPLETOWANIE': '⏸️ Bufor kompletowania',
+      'BUFOR_PAKOWANIE': '⏸️ Bufor pakowania',
+      'BUFOR_WYSYLKA': '⏸️ Bufor wysyłki',
+      
+      // Oklejanie
+      'OKLEJANIE_START': '🎨 Rozpocznij oklejanie',
+      'OKLEJANIE_STOP': '🎨 Zakończ oklejanie',
+      'OKLEJANIE': '🎨 Oklejanie',
+      
+      // Wiercenie
+      'WIERCENIE_START': '🔩 Rozpocznij wiercenie',
+      'WIERCENIE_STOP': '🔩 Zakończ wiercenie',
+      'WIERCENIE': '🔩 Wiercenie',
+      
+      // Kompletowanie
+      'KOMPLETOWANIE_START': '📋 Rozpocznij kompletowanie',
+      'KOMPLETOWANIE_STOP': '📋 Zakończ kompletowanie',
+      
+      // Pakowanie
+      'PAKOWANIE_START': '📦 Rozpocznij pakowanie',
+      'PAKOWANIE_STOP': '📦 Zakończ pakowanie',
+      'PAKOWANIE': '📦 Pakowanie',
+      
+      // Transport i wysyłka
+      'TRANSPORT_1': '🚚 Transport',
+      'TRANSPORT': '🚚 Transport',
+      'WYSYLKA': '📮 Wyślij do klienta',
+      
+      // Inne
+      'MAGAZYN': '🏭 Na magazyn',
+      'ZAKONCZONE': '✅ Zakończ zlecenie',
       'ZAKONCZONA': '✅ Zakończ zlecenie',
-      'MAGAZYN': '🏭 Przekaż na magazyn',
-      'WYSYLKA': '📮 Wyślij do klienta'
+      'ANULOWANE': '❌ Anuluj zlecenie'
     };
     return labels[kod] || kod;
+  };
+
+  // Określ opis statusu
+  const getStatusDescription = (status: string) => {
+    const descriptions: Record<string, string> = {
+      'NOWE': 'Zlecenie oczekuje na rozpoczęcie produkcji',
+      'CIECIE_START': 'Trwa cięcie formatek na pile',
+      'OTWARCIE_PALETY': 'Paleta otwarta, gotowa do pakowania',
+      'PAKOWANIE_PALETY': 'Trwa pakowanie formatek na paletę',
+      'ZAMKNIECIE_PALETY': 'Paleta zamknięta',
+      'BUFOR_PILA': 'Formatki w buforze piły',
+      'TRANSPORT_1': 'Transport do następnego stanowiska',
+      'BUFOR_OKLEINIARKA': 'Formatki czekają na oklejanie',
+      'OKLEJANIE_START': 'Trwa oklejanie krawędzi',
+      'OKLEJANIE_STOP': 'Oklejanie zakończone',
+      'BUFOR_WIERTARKA': 'Formatki czekają na wiercenie',
+      'WIERCENIE_START': 'Trwa wiercenie otworów',
+      'WIERCENIE_STOP': 'Wiercenie zakończone',
+      'BUFOR_KOMPLETOWANIE': 'Czeka na kompletowanie',
+      'KOMPLETOWANIE_START': 'Trwa kompletowanie zamówienia',
+      'BUFOR_PAKOWANIE': 'Czeka na pakowanie finalne',
+      'PAKOWANIE_START': 'Trwa pakowanie do wysyłki',
+      'PAKOWANIE_STOP': 'Pakowanie zakończone',
+      'BUFOR_WYSYLKA': 'Czeka na wysyłkę',
+      'WYSYLKA': 'Wysłane do klienta',
+      'MAGAZYN': 'Na magazynie',
+      'ZAKONCZONE': 'Zlecenie zakończone',
+      'ANULOWANE': 'Zlecenie anulowane'
+    };
+    return descriptions[status] || 'Status: ' + status;
   };
 
   // Określ ikonę dla przycisku
@@ -257,6 +400,9 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
     if (currentStatus === 'NOWE') {
       return <RocketOutlined />;
     }
+    if (currentStatus === 'ANULOWANE') {
+      return <LockOutlined />;
+    }
     return <SendOutlined />;
   };
 
@@ -264,6 +410,9 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
   const getButtonText = () => {
     if (currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE') {
       return 'Zlecenie zakończone';
+    }
+    if (currentStatus === 'ANULOWANE') {
+      return 'Zlecenie anulowane';
     }
     if (currentStatus === 'NOWE') {
       return 'Rozpocznij produkcję';
@@ -274,16 +423,18 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
   // Określ kolor przycisku
   const getButtonType = () => {
     if (currentStatus === 'NOWE') return 'primary';
-    if (currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE') return 'default';
+    if (currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE' || currentStatus === 'ANULOWANE') return 'default';
     return 'primary';
   };
+
+  const isStatusFinal = currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE' || currentStatus === 'ANULOWANE';
 
   return (
     <>
       <Tooltip 
         title={
-          currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE' 
-            ? 'Zlecenie zakończone' 
+          isStatusFinal
+            ? 'Status końcowy' 
             : 'Zmień status zlecenia'
         }
       >
@@ -291,7 +442,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
           type={getButtonType() as any}
           icon={getButtonIcon()}
           onClick={handleOpenModal}
-          disabled={disabled || currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE'}
+          disabled={disabled || isStatusFinal}
         >
           {getButtonText()}
         </Button>
@@ -303,8 +454,8 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
             <SendOutlined />
             <span>Zmiana statusu ZKO</span>
             {useFallback && (
-              <Tooltip title="Używam lokalnej mapy przejść statusów, ponieważ serwer nie zwrócił danych">
-                <ExclamationCircleOutlined style={{ color: '#faad14' }} />
+              <Tooltip title="Używam lokalnej mapy workflow z instrukcji systemowej">
+                <InfoCircleOutlined style={{ color: '#1890ff' }} />
               </Tooltip>
             )}
           </Space>
@@ -312,7 +463,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={null}
-        width={600}
+        width={650}
       >
         {loadingSteps ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
@@ -324,14 +475,14 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
             layout="vertical"
             onFinish={handleSubmit}
           >
-            {/* Alert o używaniu fallback */}
+            {/* Alert o używaniu lokalnego workflow */}
             {useFallback && (
               <Alert
-                message="Tryb awaryjny"
-                description="Używam lokalnej mapy przejść statusów. Skontaktuj się z administratorem, aby zaktualizować funkcję w bazie danych."
-                type="warning"
+                message="Tryb lokalny"
+                description="Używam mapy workflow z instrukcji systemowej (zko.v_instrukcja_workflow)"
+                type="info"
                 showIcon
-                icon={<ExclamationCircleOutlined />}
+                icon={<InfoCircleOutlined />}
                 style={{ marginBottom: 16 }}
               />
             )}
@@ -340,16 +491,11 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
             <Alert
               message="Aktualny status"
               description={
-                <Space>
-                  <strong>{currentStatus}</strong>
-                  {currentStatus === 'NOWE' && '- Zlecenie oczekuje na rozpoczęcie produkcji'}
-                  {currentStatus === 'CIECIE' && '- Trwa cięcie formatek'}
-                  {currentStatus === 'BUFOR_PILA' && '- Formatki w buforze piły'}
-                  {currentStatus === 'OKLEJANIE' && '- Trwa oklejanie krawędzi'}
-                  {currentStatus === 'WIERCENIE' && '- Trwa wiercenie otworów'}
-                  {currentStatus === 'PAKOWANIE' && '- Trwa pakowanie'}
-                  {currentStatus === 'TRANSPORT' && '- W transporcie'}
-                  {currentStatus === 'WYSYLKA' && '- Wysłane do klienta'}
+                <Space direction="vertical" size="small">
+                  <Space>
+                    <strong style={{ fontSize: '16px' }}>{currentStatus}</strong>
+                  </Space>
+                  <Text type="secondary">{getStatusDescription(currentStatus)}</Text>
                 </Space>
               }
               type="info"
@@ -374,15 +520,14 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
                       <Space>
                         {step.kod_etapu.includes('BUFOR') ? (
                           <InfoCircleOutlined style={{ color: '#faad14' }} />
-                        ) : (
+                        ) : step.kod_etapu.includes('STOP') ? (
                           <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                        ) : step.kod_etapu === 'ANULOWANE' ? (
+                          <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                        ) : (
+                          <PlayCircleOutlined style={{ color: '#1890ff' }} />
                         )}
                         <span>{getStepLabel(step.kod_etapu)}</span>
-                        {step.nazwa_etapu && (
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            ({step.nazwa_etapu})
-                          </Text>
-                        )}
                       </Space>
                     </Option>
                   ))}
@@ -390,8 +535,12 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
               ) : (
                 <Alert
                   message="Brak dostępnych kroków"
-                  description="Nie znaleziono następnych kroków dla tego zlecenia. Status może być końcowy lub nieobsługiwany."
-                  type="warning"
+                  description={
+                    isStatusFinal 
+                      ? "To jest status końcowy - zlecenie zostało zakończone lub anulowane."
+                      : "Nie znaleziono następnych kroków dla tego statusu. Skontaktuj się z administratorem."
+                  }
+                  type={isStatusFinal ? "info" : "warning"}
                   showIcon
                 />
               )}
@@ -400,38 +549,8 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
             {/* Informacja o wybranym kroku */}
             {selectedStep && (
               <Alert
-                message="Informacja o kroku"
-                description={
-                  <div>
-                    {selectedStep.includes('BUFOR') && (
-                      <p>📦 Bufor jest opcjonalnym etapem pośrednim. Służy do tymczasowego składowania formatek.</p>
-                    )}
-                    {selectedStep === 'CIECIE' && (
-                      <p>🔪 Rozpoczęcie cięcia formatek na pile formatowej.</p>
-                    )}
-                    {selectedStep === 'OKLEJANIE' && (
-                      <p>🎨 Rozpoczęcie oklejania krawędzi na okleiniarce.</p>
-                    )}
-                    {selectedStep === 'WIERCENIE' && (
-                      <p>🔩 Rozpoczęcie wiercenia otworów na wiertarce.</p>
-                    )}
-                    {selectedStep === 'PAKOWANIE' && (
-                      <p>📦 Rozpoczęcie pakowania gotowych formatek.</p>
-                    )}
-                    {selectedStep === 'TRANSPORT' && (
-                      <p>🚚 Przygotowanie do transportu.</p>
-                    )}
-                    {selectedStep === 'WYSYLKA' && (
-                      <p>📮 Wysyłka do klienta.</p>
-                    )}
-                    {selectedStep === 'MAGAZYN' && (
-                      <p>🏭 Przekazanie na magazyn.</p>
-                    )}
-                    {selectedStep === 'ZAKONCZONA' && (
-                      <p>✅ Zakończenie zlecenia - wszystkie formatki zostały wyprodukowane.</p>
-                    )}
-                  </div>
-                }
+                message="Informacja o wybranym kroku"
+                description={getStatusDescription(selectedStep)}
                 type="info"
                 showIcon
                 style={{ marginBottom: 16 }}
@@ -454,7 +573,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
               label="Lokalizacja"
               name="lokalizacja"
             >
-              <Input placeholder="Lokalizacja (opcjonalnie)" />
+              <Input placeholder="Lokalizacja/stanowisko (opcjonalnie)" />
             </Form.Item>
 
             {/* Komentarz */}
