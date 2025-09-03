@@ -1,0 +1,78 @@
+/* Reset dla Ant Design Select - naprawienie problemów z klikalnością */
+.ant-select-dropdown {
+  z-index: 9999 !important;
+}
+
+.ant-select-dropdown-hidden {
+  display: none !important;
+}
+
+/* Upewnienie się, że dropdown jest klikalny */
+.ant-select-dropdown .ant-select-item {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.ant-select-dropdown .ant-select-item-option {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+/* Naprawienie problemów z overlayem */
+.ant-select-dropdown-placement-bottomLeft,
+.ant-select-dropdown-placement-topLeft {
+  pointer-events: auto !important;
+}
+
+/* Naprawienie warstw z-index dla modali */
+.ant-modal-wrap {
+  z-index: 1000;
+}
+
+.ant-modal-mask {
+  z-index: 1000;
+}
+
+/* Select w modalu powinien mieć wyższy z-index */
+.ant-modal .ant-select-dropdown {
+  z-index: 10000 !important;
+}
+
+/* Upewnienie się, że select jest interaktywny */
+.ant-select {
+  pointer-events: auto !important;
+}
+
+.ant-select-selector {
+  cursor: pointer !important;
+}
+
+/* Naprawienie Form.Item z Select */
+.ant-form-item .ant-select {
+  width: 100%;
+}
+
+/* Dodatkowe poprawki dla React 18 i Strict Mode */
+.ant-select-selection-search-input {
+  cursor: text !important;
+}
+
+/* Poprawki dla dropdown menu */
+.ant-dropdown {
+  z-index: 9999 !important;
+}
+
+.ant-dropdown-menu {
+  pointer-events: auto !important;
+}
+
+/* Usunięcie potencjalnych problemów z overflow */
+body {
+  overflow-x: hidden;
+}
+
+/* Poprawki dla DatePicker który też może nie działać */
+.ant-picker-dropdown {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider } from '@alp/theme';
 import { ConfigProvider, App as AntApp } from 'antd';
+import plPL from 'antd/es/locale/pl_PL';
 import dayjs from 'dayjs';
 import 'dayjs/locale/pl';
 import { Router } from './router';
@@ -25,9 +26,22 @@ export const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AntApp>
-          <Router />
-        </AntApp>
+        <ConfigProvider 
+          locale={plPL}
+          theme={{
+            token: {
+              colorPrimary: '#1890ff',
+            },
+          }}
+          // Ważne - wyłączamy renderowanie wartości w Select, które może powodować problemy
+          select={{
+            showSearch: true,
+          }}
+        >
+          <AntApp>
+            <Router />
+          </AntApp>
+        </ConfigProvider>
       </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
