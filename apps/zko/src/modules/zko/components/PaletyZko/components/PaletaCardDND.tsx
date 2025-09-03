@@ -62,12 +62,12 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
   const isActive = isOver && canDrop;
   const isZamknieta = paleta.status === 'zamknieta' || paleta.status === 'gotowa_do_transportu';
   
-  // Obliczenia
-  const sztuk = paleta.ilosc_formatek || 0;
-  const waga = paleta.waga_kg || 0;
-  const wysokosc = paleta.wysokosc_stosu || 0;
-  const maxWaga = paleta.max_waga_kg || 700;
-  const maxWysokosc = paleta.max_wysokosc_mm || 1440;
+  // Obliczenia - konwersja do Number dla pewności
+  const sztuk = Number(paleta.ilosc_formatek || 0);
+  const waga = Number(paleta.waga_kg || 0);
+  const wysokosc = Number(paleta.wysokosc_stosu || 0);
+  const maxWaga = Number(paleta.max_waga_kg || 700);
+  const maxWysokosc = Number(paleta.max_wysokosc_mm || 1440);
   
   const procentWagi = Math.min(Math.round((waga / maxWaga) * 100), 100);
   const procentWysokosci = Math.min(Math.round((wysokosc / maxWysokosc) * 100), 100);
@@ -330,7 +330,7 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
               }} />
             </div>
             
-            {/* Szczegóły wagi i wysokości */}
+            {/* Szczegóły wagi i wysokości - NAPRAWIONE z Number() */}
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between',
@@ -338,8 +338,8 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
               fontSize: 10,
               color: colors.textSecondary
             }}>
-              <span>{waga.toFixed(1)}kg</span>
-              <span>{wysokosc}mm</span>
+              <span>{Number(waga).toFixed(1)}kg</span>
+              <span>{Number(wysokosc).toFixed(0)}mm</span>
             </div>
           </div>
 
