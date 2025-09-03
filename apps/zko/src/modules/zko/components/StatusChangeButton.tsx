@@ -225,6 +225,25 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
     return 'Następny krok';
   };
 
+  // Przygotowanie opcji dla Select
+  const stepOptions = validation?.mozliwe_przejscia?.map((step: any) => ({
+    value: step.kod_etapu,
+    label: (
+      <Space>
+        {step.mozna_zmienic ? (
+          <CheckCircleOutlined style={{ color: '#52c41a' }} />
+        ) : (
+          <LockOutlined style={{ color: '#ff4d4f' }} />
+        )}
+        <span>{step.nazwa_etapu}</span>
+        {step.ostrzezenia?.length > 0 && (
+          <WarningOutlined style={{ color: '#faad14' }} />
+        )}
+      </Space>
+    ),
+    disabled: !step.mozna_zmienic
+  })) || [];
+
   return (
     <>
       <Tooltip 
@@ -263,27 +282,8 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
               placeholder="Wybierz następny etap"
               onChange={handleStepSelect}
               loading={validating}
-            >
-              {validation?.mozliwe_przejscia?.map((step: any) => (
-                <Select.Option 
-                  key={step.kod_etapu} 
-                  value={step.kod_etapu}
-                  disabled={!step.mozna_zmienic}
-                >
-                  <Space>
-                    {step.mozna_zmienic ? (
-                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    ) : (
-                      <LockOutlined style={{ color: '#ff4d4f' }} />
-                    )}
-                    <span>{step.nazwa_etapu}</span>
-                    {step.ostrzezenia?.length > 0 && (
-                      <WarningOutlined style={{ color: '#faad14' }} />
-                    )}
-                  </Space>
-                </Select.Option>
-              ))}
-            </Select>
+              options={stepOptions}
+            />
           </Form.Item>
 
           {/* Pokaż błędy dla wybranego kroku */}

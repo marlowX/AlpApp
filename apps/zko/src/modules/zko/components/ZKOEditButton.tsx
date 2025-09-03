@@ -78,6 +78,26 @@ export const ZKOEditButton: React.FC<ZKOEditButtonProps> = ({
     }
   };
 
+  // Przygotowanie opcji dla Select - kooperanci
+  const kooperanciOptions = kooperanci?.map((k: any) => ({
+    value: k.value,
+    label: `${k.label} ${k.ocena ? `(⭐ ${Number(k.ocena).toFixed(1)})` : ''}`
+  })) || [];
+
+  // Przygotowanie opcji dla Select - priorytety
+  const priorytetOptions = [
+    { value: 1, label: '1 - Bardzo niski' },
+    { value: 2, label: '2 - Niski' },
+    { value: 3, label: '3 - Niski+' },
+    { value: 4, label: '4 - Normalny-' },
+    { value: 5, label: '5 - Normalny (domyślny)' },
+    { value: 6, label: '6 - Normalny+' },
+    { value: 7, label: '7 - Podwyższony' },
+    { value: 8, label: '8 - Wysoki' },
+    { value: 9, label: '9 - Bardzo wysoki' },
+    { value: 10, label: '10 - Krytyczny' }
+  ];
+
   return (
     <>
       <Button
@@ -111,14 +131,9 @@ export const ZKOEditButton: React.FC<ZKOEditButtonProps> = ({
               <Select
                 placeholder="Wybierz kooperanta"
                 showSearch
-                optionFilterProp="children"
-              >
-                {kooperanci?.map((k: any) => (
-                  <Select.Option key={k.value} value={k.value}>
-                    {k.label} {k.ocena && `(⭐ ${Number(k.ocena).toFixed(1)})`}
-                  </Select.Option>
-                ))}
-              </Select>
+                optionFilterProp="label"
+                options={kooperanciOptions}
+              />
             )}
           </Form.Item>
 
@@ -131,18 +146,10 @@ export const ZKOEditButton: React.FC<ZKOEditButtonProps> = ({
               { type: 'number', min: 1, max: 10, message: 'Priorytet musi być między 1 a 10' }
             ]}
           >
-            <Select placeholder="Wybierz priorytet">
-              <Select.Option value={1}>1 - Bardzo niski</Select.Option>
-              <Select.Option value={2}>2 - Niski</Select.Option>
-              <Select.Option value={3}>3 - Niski+</Select.Option>
-              <Select.Option value={4}>4 - Normalny-</Select.Option>
-              <Select.Option value={5}>5 - Normalny (domyślny)</Select.Option>
-              <Select.Option value={6}>6 - Normalny+</Select.Option>
-              <Select.Option value={7}>7 - Podwyższony</Select.Option>
-              <Select.Option value={8}>8 - Wysoki</Select.Option>
-              <Select.Option value={9}>9 - Bardzo wysoki</Select.Option>
-              <Select.Option value={10}>10 - Krytyczny</Select.Option>
-            </Select>
+            <Select 
+              placeholder="Wybierz priorytet"
+              options={priorytetOptions}
+            />
           </Form.Item>
 
           {/* Data planowana */}
