@@ -106,18 +106,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       <ConfigProvider
         locale={plPL}
         theme={mergedTheme}
-        componentSize="middle"
-        getPopupContainer={(triggerNode) => {
-          // Jeśli jesteśmy w modalu, renderuj w nim
-          if (triggerNode) {
-            const modalBody = triggerNode.closest('.ant-modal-body');
-            if (modalBody) {
-              return modalBody as HTMLElement;
-            }
-          }
-          // W przeciwnym razie renderuj w body
-          return document.body;
-        }}
       >
         <StyledThemeProvider theme={mergedTheme}>
           {children}
