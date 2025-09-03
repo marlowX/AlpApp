@@ -26,9 +26,10 @@ interface StatusChangeButtonProps {
 
 // Mapowanie statusów na możliwe następne kroki zgodnie z v_instrukcja_workflow
 const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu: string}>> = {
-  // Start produkcji
+  // Start produkcji - dodajemy też CIECIE jako alternatywę dla CIECIE_START
   'NOWE': [
     { kod_etapu: 'CIECIE_START', nazwa_etapu: 'Rozpocznij cięcie' },
+    { kod_etapu: 'CIECIE', nazwa_etapu: 'Rozpocznij cięcie' },
     { kod_etapu: 'ANULOWANE', nazwa_etapu: 'Anuluj zlecenie' }
   ],
   
@@ -36,6 +37,14 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   'CIECIE_START': [
     { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' },
     { kod_etapu: 'CIECIE_STOP', nazwa_etapu: 'Zakończ cięcie' }
+  ],
+  'CIECIE': [
+    { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' },
+    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
+    { kod_etapu: 'BUFOR_PILA', nazwa_etapu: 'Do bufora piły' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
   ],
   'CIECIE_STOP': [
     { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' }
@@ -56,6 +65,7 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   // Bufor piła i transport
   'BUFOR_PILA': [
     { kod_etapu: 'TRANSPORT_1', nazwa_etapu: 'Transport do następnego etapu' },
+    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
     { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
     { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
     { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
@@ -63,15 +73,24 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   'TRANSPORT_1': [
     { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
     { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
   ],
   
   // Oklejanie
   'BUFOR_OKLEINIARKA': [
-    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' }
+    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' }
   ],
   'OKLEJANIE_START': [
     { kod_etapu: 'OKLEJANIE_STOP', nazwa_etapu: 'Zakończ oklejanie' }
+  ],
+  'OKLEJANIE': [
+    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' },
+    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
+    { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
+    { kod_etapu: 'BUFOR_WIERCENIE', nazwa_etapu: 'Do bufora wiertarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
   ],
   'OKLEJANIE_STOP': [
     { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
@@ -81,10 +100,20 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   
   // Wiercenie
   'BUFOR_WIERTARKA': [
-    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' }
+    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
+    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' }
+  ],
+  'BUFOR_WIERCENIE': [
+    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
+    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' }
   ],
   'WIERCENIE_START': [
     { kod_etapu: 'WIERCENIE_STOP', nazwa_etapu: 'Zakończ wiercenie' }
+  ],
+  'WIERCENIE': [
+    { kod_etapu: 'PAKOWANIE', nazwa_etapu: 'Rozpocznij pakowanie' },
+    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
   ],
   'WIERCENIE_STOP': [
     { kod_etapu: 'BUFOR_KOMPLETOWANIE', nazwa_etapu: 'Do kompletowania' },
@@ -106,14 +135,24 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   
   // Pakowanie finalne
   'BUFOR_PAKOWANIE': [
-    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' }
+    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' },
+    { kod_etapu: 'PAKOWANIE', nazwa_etapu: 'Rozpocznij pakowanie' }
   ],
   'PAKOWANIE_START': [
     { kod_etapu: 'PAKOWANIE_STOP', nazwa_etapu: 'Zakończ pakowanie' }
   ],
+  'PAKOWANIE': [
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij' },
+    { kod_etapu: 'TRANSPORT', nazwa_etapu: 'Transport' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
+  ],
   'PAKOWANIE_STOP': [
     { kod_etapu: 'BUFOR_WYSYLKA', nazwa_etapu: 'Do wysyłki' },
-    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij' }
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij' },
+    { kod_etapu: 'TRANSPORT_1', nazwa_etapu: 'Transport' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
   ],
   
   // Wysyłka
@@ -121,43 +160,28 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
     { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij do klienta' }
   ],
   'WYSYLKA': [
-    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' }
+    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
+  ],
+  
+  // Transport
+  'TRANSPORT': [
+    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
   ],
   
   // Magazyn
   'MAGAZYN': [
     { kod_etapu: 'BUFOR_WYSYLKA', nazwa_etapu: 'Do wysyłki' },
     { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij z magazynu' },
-    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' }
+    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
   ],
   
   // Stany końcowe
   'ZAKONCZONE': [],
   'ZAKONCZONA': [],
-  'ANULOWANE': [],
-  
-  // Fallback dla starych statusów
-  'CIECIE': [
-    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' },
-    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
-  ],
-  'OKLEJANIE': [
-    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
-    { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
-  ],
-  'WIERCENIE': [
-    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
-  ],
-  'PAKOWANIE': [
-    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
-  ],
-  'TRANSPORT': [
-    { kod_etapu: 'ZAKONCZONE', nazwa_etapu: 'Zakończ zlecenie' }
-  ]
+  'ANULOWANE': []
 };
 
 export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
@@ -186,15 +210,21 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
         const data = await response.json();
         console.log('Next steps from API:', data);
         
-        // Jeśli API zwróciło puste dane, użyj lokalnej mapy workflow
-        if (!data || data.length === 0) {
+        // Jeśli API zwraca dane, użyj ich
+        if (data && data.length > 0) {
+          // Mapuj dane z API na nasz format jeśli potrzeba
+          const mappedSteps = data.map((step: any) => ({
+            kod_etapu: step.kod_etapu || step.code,
+            nazwa_etapu: step.nazwa_etapu || step.name || step.label
+          }));
+          setAvailableSteps(mappedSteps);
+        } else {
+          // Jeśli API zwróciło puste dane, użyj lokalnej mapy workflow
           console.warn('API returned empty steps, using workflow map for status:', currentStatus);
           const workflowSteps = WORKFLOW_TRANSITIONS[currentStatus.toUpperCase()] || 
                                WORKFLOW_TRANSITIONS[currentStatus] || [];
           setAvailableSteps(workflowSteps);
           setUseFallback(true);
-        } else {
-          setAvailableSteps(data);
         }
       } else {
         console.error('Failed to fetch next steps, using workflow map');
@@ -229,15 +259,18 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
 
     setLoading(true);
     try {
-      // Używamy endpointa PUT /api/zko/:id/status
-      const response = await fetch(`/api/zko/${zkoId}/status`, {
-        method: 'PUT',
+      // POPRAWKA: Używamy właściwego endpointa POST /api/zko/status/change
+      const response = await fetch('/api/zko/status/change', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          zko_id: zkoId,  // Używamy zko_id zamiast samego id
           nowy_etap_kod: selectedStep,
           komentarz: values.komentarz,
           operator: values.operator || 'system',
-          lokalizacja: values.lokalizacja || ''
+          lokalizacja: values.lokalizacja || '',
+          uzytkownik: 'system',
+          wymus: values.wymus || false
         })
       });
 
@@ -271,7 +304,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
               </div>
             )
           });
-        } else if (data.ostrzezenia && data.ostrzezenia.length > 0) {
+        } else if (data.wymaga_potwierdzenia && data.ostrzezenia && data.ostrzezenia.length > 0) {
           // Pokaż ostrzeżenia i zapytaj o kontynuację
           Modal.confirm({
             title: 'Wykryto ostrzeżenia',
@@ -325,6 +358,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       'BUFOR_PILA': '⏸️ Bufor piły',
       'BUFOR_OKLEINIARKA': '⏸️ Bufor okleiniarki',
       'BUFOR_WIERTARKA': '⏸️ Bufor wiertarki',
+      'BUFOR_WIERCENIE': '⏸️ Bufor wiertarki',
       'BUFOR_KOMPLETOWANIE': '⏸️ Bufor kompletowania',
       'BUFOR_PAKOWANIE': '⏸️ Bufor pakowania',
       'BUFOR_WYSYLKA': '⏸️ Bufor wysyłki',
@@ -367,6 +401,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
     const descriptions: Record<string, string> = {
       'NOWE': 'Zlecenie oczekuje na rozpoczęcie produkcji',
       'CIECIE_START': 'Trwa cięcie formatek na pile',
+      'CIECIE': 'Rozpoczęcie cięcia formatek na pile formatowej',
       'OTWARCIE_PALETY': 'Paleta otwarta, gotowa do pakowania',
       'PAKOWANIE_PALETY': 'Trwa pakowanie formatek na paletę',
       'ZAMKNIECIE_PALETY': 'Paleta zamknięta',
@@ -374,19 +409,25 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       'TRANSPORT_1': 'Transport do następnego stanowiska',
       'BUFOR_OKLEINIARKA': 'Formatki czekają na oklejanie',
       'OKLEJANIE_START': 'Trwa oklejanie krawędzi',
+      'OKLEJANIE': 'Rozpoczęcie oklejania krawędzi na okleiniarce',
       'OKLEJANIE_STOP': 'Oklejanie zakończone',
       'BUFOR_WIERTARKA': 'Formatki czekają na wiercenie',
+      'BUFOR_WIERCENIE': 'Formatki czekają na wiercenie',
       'WIERCENIE_START': 'Trwa wiercenie otworów',
+      'WIERCENIE': 'Rozpoczęcie wiercenia otworów na wiertarce',
       'WIERCENIE_STOP': 'Wiercenie zakończone',
       'BUFOR_KOMPLETOWANIE': 'Czeka na kompletowanie',
       'KOMPLETOWANIE_START': 'Trwa kompletowanie zamówienia',
       'BUFOR_PAKOWANIE': 'Czeka na pakowanie finalne',
       'PAKOWANIE_START': 'Trwa pakowanie do wysyłki',
+      'PAKOWANIE': 'Rozpoczęcie pakowania gotowych formatek',
       'PAKOWANIE_STOP': 'Pakowanie zakończone',
       'BUFOR_WYSYLKA': 'Czeka na wysyłkę',
       'WYSYLKA': 'Wysłane do klienta',
+      'TRANSPORT': 'W transporcie',
       'MAGAZYN': 'Na magazynie',
       'ZAKONCZONE': 'Zlecenie zakończone',
+      'ZAKONCZONA': 'Zlecenie zakończone',
       'ANULOWANE': 'Zlecenie anulowane'
     };
     return descriptions[status] || 'Status: ' + status;
@@ -467,7 +508,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       >
         {loadingSteps ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <Spin size="large" tip="Pobieranie dostępnych kroków..." />
+            <Spin size="large" />
           </div>
         ) : (
           <Form
@@ -514,6 +555,12 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
                   placeholder="Wybierz następny etap"
                   onChange={setSelectedStep}
                   size="large"
+                  showSearch
+                  filterOption={(input, option) =>
+                    (option?.children as any)?.props?.children[1]?.props?.children
+                      ?.toLowerCase()
+                      ?.includes(input.toLowerCase())
+                  }
                 >
                   {availableSteps.map((step: any) => (
                     <Option key={step.kod_etapu} value={step.kod_etapu}>
