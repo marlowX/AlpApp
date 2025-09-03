@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
-import { Table, Button, Tag, Tooltip, Space, Typography } from 'antd';
+import { Table, Button, Tag, Tooltip, Space, Typography, Switch } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, WarningOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+// ZMIANA: Importujemy nowy komponent z prawdziwym Select
+import { PlytaSelectV3 } from './PlytaSelectV3';
 import { PlytySelectorV2 } from './PlytySelectorV2';
 import { WymiaryColumn } from './components/WymiaryColumn';
 import { ParametryColumn } from './components/ParametryColumn';
@@ -30,6 +32,8 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
   onRemoveKolor,
   maxPlytNaPozycje = 5
 }) => {
+  // Stan do przełączania między starym a nowym selektorem
+  const [useNewSelector, setUseNewSelector] = React.useState(true);
 
   const totalPlyty = kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
   const przekroczonyLimit = totalPlyty > maxPlytNaPozycje;
@@ -112,13 +116,23 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       key: 'kolor',
       width: '40%',
       render: (_: any, __: any, index: number) => (
-        <PlytySelectorV2
-          plyty={plyty}
-          loading={plytyLoading}
-          value={kolorePlyty[index]?.kolor}
-          onChange={(plyta) => handlePlytaChange(index, plyta)}
-          placeholder={`Wybierz płytę dla pozycji ${index + 1}`}
-        />
+        useNewSelector ? (
+          <PlytaSelectV3
+            plyty={plyty}
+            loading={plytyLoading}
+            value={kolorePlyty[index]?.kolor}
+            onChange={(plyta) => handlePlytaChange(index, plyta)}
+            placeholder={`Wybierz płytę dla pozycji ${index + 1}`}
+          />
+        ) : (
+          <PlytySelectorV2
+            plyty={plyty}
+            loading={plytyLoading}
+            value={kolorePlyty[index]?.kolor}
+            onChange={(plyta) => handlePlytaChange(index, plyta)}
+            placeholder={`Wybierz płytę dla pozycji ${index + 1}`}
+          />
+        )
       ),
     },
     {
@@ -198,13 +212,27 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
 
   return (
     <div>
-      <div style={{ marginBottom: 8 }}>
-        <Text strong style={{ fontSize: '14px' }}>Kolory płyt do rozkroju</Text>
-        {przekroczonyLimit && (
-          <Tag color="error" style={{ marginLeft: 8 }} icon={<ExclamationCircleOutlined />}>
-            PRZEKROCZONY LIMIT!
-          </Tag>
-        )}
+      <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Space>
+          <Text strong style={{ fontSize: '14px' }}>Kolory płyt do rozkroju</Text>
+          {przekroczonyLimit && (
+            <Tag color="error" icon={<ExclamationCircleOutlined />}>
+              PRZEKROCZONY LIMIT!
+            </Tag>
+          )}
+        </Space>
+        
+        {/* Przełącznik między starym a nowym selektorem - tylko do testów */}
+        <Space style={{ fontSize: '11px' }}>
+          <Text type="secondary">Typ selektora:</Text>
+          <Switch
+            checkedChildren="Select"
+            unCheckedChildren="Custom"
+            checked={useNewSelector}
+            onChange={setUseNewSelector}
+            size="small"
+          />
+        </Space>
       </div>
       
       <Table

@@ -109,6 +109,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
         locale={plPL}
         theme={mergedTheme}
         componentSize="middle"
+        // WAŻNE: Dodajemy getPopupContainer aby dropdown renderował się w body
+        getPopupContainer={() => document.body}
+        // Wyłączamy virtual scroll który może powodować problemy
+        virtual={false}
       >
         <StyledThemeProvider theme={mergedTheme}>
           {/* TYMCZASOWO WYŁĄCZAMY GlobalStyles */}

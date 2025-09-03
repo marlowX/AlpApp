@@ -3,6 +3,17 @@
 /* Fix z-index dla dropdown */
 .ant-select-dropdown {
   z-index: 2050 !important;
+  position: fixed !important;
+}
+
+/* Zapewnij że dropdown jest widoczny */
+.ant-select-dropdown-hidden {
+  display: none;
+}
+
+/* Fix dla dropdown w modalach */
+.ant-modal .ant-select-dropdown {
+  z-index: 2050 !important;
 }
 
 /* Fix dla modali */
@@ -14,11 +25,46 @@
   z-index: 1050;
 }
 
-.ant-modal .ant-select-dropdown {
-  z-index: 2050 !important;
-}
-
 /* Fix dla DatePicker */
 .ant-picker-dropdown {
   z-index: 2050 !important;
 }
+
+/* Dodatkowy fix dla Select - upewnij się że dropdown się pokazuje */
+.ant-select {
+  position: relative;
+}
+
+.ant-select-selector {
+  cursor: pointer !important;
+}
+
+/* Fix dla custom dropdown klasy */
+.plyta-select-dropdown {
+  z-index: 2050 !important;
+  min-width: 400px !important;
+  max-width: 600px !important;
+}
+
+/* Upewnij się że opcje są klikalne */
+.ant-select-item {
+  cursor: pointer !important;
+}
+
+.ant-select-item-option {
+  padding: 5px 12px !important;
+}
+
+/* Jeśli coś nadpisuje display none */
+.ant-select-dropdown:not(.ant-select-dropdown-hidden) {
+  display: block !important;
+}
+
+/* Debug - pokaż dropdown zawsze (tymczasowo) */
+/*
+.ant-select-dropdown {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+*/

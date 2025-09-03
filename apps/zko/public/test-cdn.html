@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Ant Design z CDN</title>
+  <!-- Ant Design CSS z CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@5.21.0/dist/reset.css">
+  <style>
+    body { padding: 50px; font-family: Arial, sans-serif; }
+    .test-section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h1>Test Ant Design Select z CDN</h1>
+  
+  <div class="test-section">
+    <h3>Test 1: React + Ant Design z CDN</h3>
+    <div id="app"></div>
+  </div>
+
+  <div class="test-section">
+    <h3>Test 2: Native HTML Select</h3>
+    <select>
+      <option>Działa 1</option>
+      <option>Działa 2</option>
+      <option>Działa 3</option>
+    </select>
+  </div>
+
+  <!-- React, ReactDOM i Ant Design z CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/dayjs@1.11.10/dayjs.min.js"></script>
+  <script crossorigin src="https://unpkg.com/antd@5.21.0/dist/antd.min.js"></script>
+  
+  <script>
+    const { Select } = antd;
+    const { useState } = React;
+    
+    function App() {
+      const [value, setValue] = useState(undefined);
+      
+      return React.createElement('div', null,
+        React.createElement('p', null, 'Wybrana wartość: ' + (value || 'brak')),
+        React.createElement(Select, {
+          style: { width: 200 },
+          placeholder: 'Kliknij tutaj',
+          onChange: setValue,
+          value: value,
+          options: [
+            { value: 'opt1', label: 'Opcja 1' },
+            { value: 'opt2', label: 'Opcja 2' },
+            { value: 'opt3', label: 'Opcja 3' }
+          ]
+        })
+      );
+    }
+    
+    const root = ReactDOM.createRoot(document.getElementById('app'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
