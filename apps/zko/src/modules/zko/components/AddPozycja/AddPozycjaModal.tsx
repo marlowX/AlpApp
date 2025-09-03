@@ -165,7 +165,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       let sciezkaProdukcji = pozycjaToEdit.sciezka_produkcji;
       
       // Jeśli nie ma ścieżki w pozycji, pobierz z formatek
-      if (!sciezkaProdukcji && pozycjaToEdit.formatki && pozycjaToEdit.formatki.length > 0) {
+      if (!sciezkaProdukcji && pozycjaToEdit.formatki && pozycjatoEdit.formatki.length > 0) {
         sciezkaProdukcji = pozycjaToEdit.formatki[0].sciezka_produkcji;
       }
       
@@ -451,7 +451,6 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       width="90%"
       style={{ maxWidth: '1400px' }}
       footer={null}
-      destroyOnClose={true}
       maskClosable={false}
       keyboard={false}
     >

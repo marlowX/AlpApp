@@ -11,7 +11,6 @@ import {
 } from '@ant-design/icons';
 
 const { Text } = Typography;
-const { Option } = Select;
 
 export interface SciezkaProdukcjiProps {
   value?: string;
@@ -127,16 +126,32 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
     </Space>
   );
 
+  // Przygotowanie items dla Select zamiast Option (nowszy sposób Ant Design)
+  const selectOptions = SCIEZKI_PRODUKCJI.map(sciezka => ({
+    key: sciezka.id,
+    value: sciezka.id,
+    label: (
+      <Space>
+        {sciezka.ikona}
+        <span style={{ fontSize: 12 }}>{sciezka.label}</span>
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          ({sciezka.opis})
+        </Text>
+      </Space>
+    )
+  }));
+
   return (
     <div>
       <Space direction="vertical" style={{ width: '100%' }} size="small">
         <div>
           <Space style={{ marginBottom: 4 }}>
             <Text strong style={{ fontSize: 13 }}>Ścieżka produkcji:</Text>
-            <InfoCircleOutlined 
-              style={{ color: '#1890ff', cursor: 'help', fontSize: 12 }} 
-              title="Określa kolejność etapów przez które przejdą formatki"
-            />
+            <Tooltip title="Określa kolejność etapów przez które przejdą formatki">
+              <InfoCircleOutlined 
+                style={{ color: '#1890ff', cursor: 'help', fontSize: 12 }} 
+              />
+            </Tooltip>
           </Space>
           
           <Select
@@ -146,19 +161,8 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
             placeholder="Wybierz ścieżkę produkcji"
             style={{ width: '100%' }}
             size="middle"
-          >
-            {SCIEZKI_PRODUKCJI.map(sciezka => (
-              <Option key={sciezka.id} value={sciezka.id}>
-                <Space>
-                  {sciezka.ikona}
-                  <span style={{ fontSize: 12 }}>{sciezka.label}</span>
-                  <Text type="secondary" style={{ fontSize: 11 }}>
-                    ({sciezka.opis})
-                  </Text>
-                </Space>
-              </Option>
-            ))}
-          </Select>
+            options={selectOptions}
+          />
         </div>
 
         {/* Wizualizacja wybranej ścieżki */}
@@ -181,7 +185,7 @@ export const SciezkaProdukcji: React.FC<SciezkaProdukcjiProps> = ({
   );
 };
 
-// Komponent do wyświetlania ścieżki (read-only) - bez Tooltip który powoduje warning
+// Komponent do wyświetlania ścieżki (read-only)
 export const SciezkaDisplay: React.FC<{ sciezka: string }> = ({ sciezka }) => {
   const sciezkaObj = SCIEZKI_PRODUKCJI.find(s => s.id === sciezka);
   
