@@ -24,6 +24,7 @@ export const PlytaSelectV3: React.FC<PlytaSelectV3Props> = ({
   disabled = false
 }) => {
   const [searchValue, setSearchValue] = useState('');
+  const [open, setOpen] = useState(false);
 
   // Sortuj płyty - najpierw z magazynem, potem alfabetycznie
   const sortedPlyty = useMemo(() => {
@@ -50,6 +51,7 @@ export const PlytaSelectV3: React.FC<PlytaSelectV3Props> = ({
     
     const plyta = plyty.find(p => p.kolor_nazwa === selectedValue);
     onChange?.(plyta || null);
+    setOpen(false);
   };
 
   const filterOption = (input: string, option: any) => {
@@ -80,9 +82,16 @@ export const PlytaSelectV3: React.FC<PlytaSelectV3Props> = ({
       filterOption={filterOption}
       optionFilterProp="searchtext"
       notFoundContent={loading ? 'Ładowanie...' : 'Nie znaleziono płyt'}
-      dropdownStyle={{ maxHeight: 400 }}
+      dropdownStyle={{ maxHeight: 400, zIndex: 2050 }}
       dropdownMatchSelectWidth={false}
       popupClassName="plyta-select-dropdown"
+      // WAŻNE: Kontrola otwierania/zamykania
+      open={open}
+      onDropdownVisibleChange={(visible) => setOpen(visible)}
+      // WAŻNE: Upewnij się że dropdown renderuje się w body
+      getPopupContainer={() => document.body}
+      // Wyłącz virtual scroll który może powodować problemy
+      virtual={false}
     >
       {sortedPlyty.map(plyta => (
         <Option 

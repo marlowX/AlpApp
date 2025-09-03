@@ -39,7 +39,8 @@ import {
   AppstoreOutlined,
   InboxOutlined,
   PrinterOutlined,
-  ForkOutlined
+  ForkOutlined,
+  BugOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -52,6 +53,7 @@ import { PaletyZko } from '../components/PaletyZko';
 import { StatusChangeButton } from '../components/StatusChangeButton';
 import { ZKOEditButton } from '../components/ZKOEditButton';
 import { ZKOHeaderCompact } from '../components/ZKOHeaderCompact';
+import { SimpleTestSelect } from '../components/SimpleTestSelect';
 import zkoApi from '../services/zkoApi';
 import '../styles/zko-details.css';
 
@@ -66,6 +68,7 @@ export const ZKODetailsPage: React.FC = () => {
   const [showEditPozycja, setShowEditPozycja] = useState(false);
   const [selectedPozycja, setSelectedPozycja] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [showSelectTest, setShowSelectTest] = useState(false);
 
   if (isLoading) {
     return (
@@ -469,6 +472,11 @@ export const ZKODetailsPage: React.FC = () => {
 
   return (
     <div style={{ padding: '12px' }} className="zko-details-page">
+      {/* Test Select - tylko w trybie deweloperskim */}
+      {process.env.NODE_ENV === 'development' && showSelectTest && (
+        <SimpleTestSelect onClose={() => setShowSelectTest(false)} />
+      )}
+
       {/* Header - KOMPAKTOWY */}
       <Row justify="space-between" align="middle" style={{ marginBottom: '12px' }}>
         <Col>
@@ -486,6 +494,15 @@ export const ZKODetailsPage: React.FC = () => {
             <Tag color={statusColors[zko.status] || 'default'} style={{ fontSize: '11px' }}>
               {statusLabels[zko.status] || zko.status}
             </Tag>
+            {process.env.NODE_ENV === 'development' && (
+              <Button
+                size="small"
+                icon={<BugOutlined />}
+                onClick={() => setShowSelectTest(!showSelectTest)}
+                type={showSelectTest ? 'primary' : 'default'}
+                title="Test Select"
+              />
+            )}
           </Space>
         </Col>
         <Col>

@@ -165,7 +165,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       let sciezkaProdukcji = pozycjaToEdit.sciezka_produkcji;
       
       // Jeśli nie ma ścieżki w pozycji, pobierz z formatek
-      if (!sciezkaProdukcji && pozycjaToEdit.formatki && pozycjatoEdit.formatki.length > 0) {
+      if (!sciezkaProdukcji && pozycjaToEdit.formatki && pozycjaToEdit.formatki.length > 0) {
         sciezkaProdukcji = pozycjaToEdit.formatki[0].sciezka_produkcji;
       }
       
@@ -453,6 +453,10 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       footer={null}
       maskClosable={false}
       keyboard={false}
+      // WAŻNE: Dodajemy getPopupContainer aby dropdowny renderowały się w modalach
+      getPopupContainer={() => document.body}
+      // Zapobiegamy problemom z z-index
+      zIndex={1000}
     >
       <Form form={form} layout="vertical">
         <div style={{ padding: '20px 0' }}>
