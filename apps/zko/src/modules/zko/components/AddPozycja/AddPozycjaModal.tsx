@@ -112,35 +112,6 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     { validateOnMount: false }
   );
 
-  // Cleanup modal overlay on unmount
-  useEffect(() => {
-    return () => {
-      // Usuń wszystkie pozostałe overlaye modali
-      const modalRoots = document.querySelectorAll('.ant-modal-root');
-      modalRoots.forEach(root => {
-        if (root.parentNode) {
-          root.parentNode.removeChild(root);
-        }
-      });
-      
-      // Usuń również wrapy
-      const modalWraps = document.querySelectorAll('.ant-modal-wrap');
-      modalWraps.forEach(wrap => {
-        if (wrap.parentNode) {
-          wrap.parentNode.removeChild(wrap);
-        }
-      });
-      
-      // Usuń maski
-      const modalMasks = document.querySelectorAll('.ant-modal-mask');
-      modalMasks.forEach(mask => {
-        if (mask.parentNode) {
-          mask.parentNode.removeChild(mask);
-        }
-      });
-    };
-  }, []);
-
   // Załaduj dane do edycji
   useEffect(() => {
     if (editMode && pozycjaToEdit && visible) {
@@ -352,20 +323,8 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
     setIsClosing(true);
     resetForm();
     setLoading(false);
-    
-    // Wymuś usunięcie overlaya
-    setTimeout(() => {
-      onCancel();
-      setIsClosing(false);
-      
-      // Dodatkowe czyszczenie
-      const modalRoots = document.querySelectorAll('.ant-modal-root');
-      modalRoots.forEach(root => {
-        if (root.parentNode) {
-          root.parentNode.removeChild(root);
-        }
-      });
-    }, 50);
+    onCancel();
+    setIsClosing(false);
   };
 
   const handleRozkrojChange = (rozkrojId: number) => {
@@ -453,10 +412,7 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       footer={null}
       maskClosable={false}
       keyboard={false}
-      // WAŻNE: Dodajemy getPopupContainer aby dropdowny renderowały się w modalach
-      getPopupContainer={() => document.body}
-      // Zapobiegamy problemom z z-index
-      zIndex={1000}
+      destroyOnClose={true}
     >
       <Form form={form} layout="vertical">
         <div style={{ padding: '20px 0' }}>
