@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { Table, Button, Tag, Tooltip, Space, Typography, Radio } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, WarningOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-// Importujemy wszystkie wersje selektorów
+// Importujemy wszystkie wersje selektorów - DODANY BetterPlytaSelector
+import { BetterPlytaSelector } from './BetterPlytaSelector';
 import { PlytaSelectV3 } from './PlytaSelectV3';
 import { PlytySelectorV2 } from './PlytySelectorV2';
 import { SimplePlytaSelector } from './SimplePlytaSelector';
@@ -33,8 +34,8 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
   onRemoveKolor,
   maxPlytNaPozycje = 5
 }) => {
-  // Stan do przełączania między selektorami
-  const [selectorType, setSelectorType] = React.useState<'select' | 'custom' | 'simple'>('simple');
+  // Stan do przełączania między selektorami - DODANY BETTER
+  const [selectorType, setSelectorType] = React.useState<'better' | 'select' | 'custom' | 'simple'>('better');
 
   const totalPlyty = kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
   const przekroczonyLimit = totalPlyty > maxPlytNaPozycje;
@@ -105,6 +106,25 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
     }
   };
 
+  // NOWY HANDLER dla BetterPlytaSelector - automatyczne dodawanie płyt
+  const handleBetterPlytaAdd = (plyta: Plyta) => {
+    // Znajdź pierwszy pusty slot lub dodaj nowy
+    const emptyIndex = kolorePlyty.findIndex(k => !k.kolor);
+    if (emptyIndex >= 0) {
+      // Wypełnij pusty slot
+      handlePlytaChange(emptyIndex, plyta);
+    } else if (kolorePlyty.length < maxPlytNaPozycje) {
+      // Dodaj nową pozycję jeśli nie przekraczamy limitu
+      const newIndex = kolorePlyty.length;
+      handlePlytaChange(newIndex, plyta);
+    }
+  };
+
+  // Lista już wybranych płyt dla BetterPlytaSelector
+  const selectedPlytyNames = kolorePlyty
+    .filter(k => k.kolor)
+    .map(k => k.kolor);
+
   const columns = [
     {
       title: (
@@ -117,7 +137,44 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       key: 'kolor',
       width: '40%',
       render: (_: any, __: any, index: number) => {
-        if (selectorType === 'select') {
+        // NOWA LOGIKA dla BetterPlytaSelector
+        if (selectorType === 'better') {
+          // Dla pierwszego pustego rzędu pokazujemy BetterPlytaSelector
+          if (!kolorePlyty[index]?.kolor && index === kolorePlyty.findIndex(k => !k.kolor)) {
+            return (
+              <BetterPlytaSelector
+                plyty={plyty}
+                loading={plytyLoading}
+                onAddPlyta={handleBetterPlytaAdd}
+                selectedPlyty={selectedPlytyNames}
+                placeholder="Wyszukaj i kliknij płytę aby dodać..."
+              />
+            );
+          } else if (kolorePlyty[index]?.kolor) {
+            // Dla wypełnionych rzędów - prosty selektor do edycji
+            return (
+              <SimplePlytaSelector
+                plyty={plyty}
+                loading={plytyLoading}
+                value={kolorePlyty[index]?.kolor}
+                onChange={(plyta) => handlePlytaChange(index, plyta)}
+                placeholder={`Płyta ${index + 1}`}
+              />
+            );
+          } else {
+            // Pusty rząd ale nie pierwszy - placeholder
+            return (
+              <div style={{ 
+                padding: '4px 8px', 
+                color: '#999', 
+                fontSize: '12px',
+                fontStyle: 'italic'
+              }}>
+                Użyj selektora powyżej...
+              </div>
+            );
+          }
+        } else if (selectorType === 'select') {
           return (
             <PlytaSelectV3
               plyty={plyty}
@@ -230,6 +287,9 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
           <Text strong style={{ fontSize: '14px' }}>Kolory płyt do rozkroju</Text>
+          {selectorType === 'better' && (
+            <Tag color="processing">KLIKNIJ ABY DODAĆ</Tag>
+          )}
           {przekroczonyLimit && (
             <Tag color="error" icon={<ExclamationCircleOutlined />}>
               PRZEKROCZONY LIMIT!
@@ -237,7 +297,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
           )}
         </Space>
         
-        {/* Przełącznik między selektorami */}
+        {/* Przełącznik między selektorami - DODANY BETTER */}
         <Space style={{ fontSize: '11px' }}>
           <Text type="secondary">Typ selektora:</Text>
           <Radio.Group 
@@ -246,6 +306,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
             size="small"
             buttonStyle="solid"
           >
+            <Radio.Button value="better">Kliknij</Radio.Button>
             <Radio.Button value="simple">Prosty</Radio.Button>
             <Radio.Button value="select">Select</Radio.Button>
             <Radio.Button value="custom">Custom</Radio.Button>
