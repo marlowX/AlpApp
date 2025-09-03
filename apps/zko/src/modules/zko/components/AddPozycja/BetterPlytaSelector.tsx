@@ -14,9 +14,9 @@ interface BetterPlytaSelectorProps {
   loading?: boolean;
   value?: string;
   onChange?: (plyta: Plyta | null) => void;
-  onAddPlyta?: (plyta: Plyta) => void; // Nowy prop dla dodawania
+  onAddPlyta?: (plyta: Plyta) => void;
   placeholder?: string;
-  selectedPlyty?: string[]; // Lista już wybranych płyt
+  selectedPlyty?: string[];
 }
 
 export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
@@ -49,12 +49,12 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
 
   // Filtruj płyty według wyszukiwania
   const filteredPlyty = useMemo(() => {
-    if (!search) return sortedPlyty.slice(0, 15); // Pokazuj TOP 15
+    if (!search) return sortedPlyty.slice(0, 15);
     
     const searchWords = search.toLowerCase().split(/\s+/).filter(word => word.length > 0);
     return sortedPlyty
       .filter(p => {
-        const searchText = `${p.kolor_nazwa} ${p.grubosc}`.toLowerCase();
+        const searchText = `${p.kolor_nazwa} ${p.grubosc} ${p.dlugosc} ${p.szerokosc}`.toLowerCase();
         return searchWords.every(word => searchText.includes(word));
       })
       .slice(0, 20);
@@ -82,7 +82,7 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
       borderRadius: 6,
       overflow: 'hidden'
     }}>
-      {/* Wyszukiwarka - POPRAWIONA */}
+      {/* Wyszukiwarka */}
       <div style={{ padding: '8px' }}>
         <div style={{ position: 'relative' }}>
           <SearchOutlined style={{ 
@@ -213,15 +213,26 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
                   </div>
                   
                   {/* Grubość */}
-                  <div style={{ width: 60, textAlign: 'right', marginRight: 12 }}>
+                  <div style={{ width: 50, textAlign: 'right' }}>
                     <Text type="secondary" style={{ fontSize: 11 }}>
                       {plyta.grubosc}mm
+                    </Text>
+                  </div>
+                  
+                  {/* Rozmiar płyty */}
+                  <div style={{ width: 90, textAlign: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: 10, color: '#666' }}>
+                      {plyta.dlugosc && plyta.szerokosc ? 
+                        `${Math.round(plyta.dlugosc)}×${Math.round(plyta.szerokosc)}` : 
+                        '-'
+                      }
                     </Text>
                   </div>
                   
                   {/* Stan */}
                   <div style={{ 
                     minWidth: 32,
+                    marginLeft: 8,
                     padding: '2px 6px',
                     borderRadius: 10,
                     backgroundColor: 
