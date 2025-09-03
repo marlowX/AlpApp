@@ -1,8 +1,6 @@
-import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { ConfigProvider, theme as antTheme } from 'antd';
+import React, { createContext, useContext, ReactNode, useState } from 'react';
+import { ConfigProvider, App } from 'antd';
 import plPL from 'antd/locale/pl_PL';
-import { lightTheme, darkTheme } from './tokens';
-import { ThemeProvider as StyledThemeProvider } from 'styled-components';
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -36,38 +34,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   const [isDarkMode, setIsDarkMode] = useState(defaultDark);
   const [customTokens, setCustomTokens] = useState(initialCustomTokens);
 
-  // Odczytaj preferencje z localStorage
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('alp-theme');
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark');
-    } else {
-      // Sprawdź preferencje systemowe
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkMode(prefersDark);
-    }
-
-    const savedTokens = localStorage.getItem('alp-custom-tokens');
-    if (savedTokens) {
-      try {
-        setCustomTokens(JSON.parse(savedTokens));
-      } catch (e) {
-        console.error('Failed to parse custom tokens:', e);
-      }
-    }
-  }, []);
-
-  // Zapisz preferencje do localStorage
-  useEffect(() => {
-    localStorage.setItem('alp-theme', isDarkMode ? 'dark' : 'light');
-  }, [isDarkMode]);
-
-  useEffect(() => {
-    if (Object.keys(customTokens).length > 0) {
-      localStorage.setItem('alp-custom-tokens', JSON.stringify(customTokens));
-    }
-  }, [customTokens]);
-
   const toggleTheme = () => {
     setIsDarkMode(prev => !prev);
   };
@@ -78,19 +44,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
 
   const resetTheme = () => {
     setCustomTokens({});
-    localStorage.removeItem('alp-custom-tokens');
-  };
-
-  const currentTheme = isDarkMode ? darkTheme : lightTheme;
-  
-  // Merge custom tokens with theme
-  const mergedTheme = {
-    ...currentTheme,
-    token: {
-      ...currentTheme.token,
-      ...customTokens,
-    },
-    algorithm: isDarkMode ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
   };
 
   const contextValue: ThemeContextType = {
@@ -101,15 +54,24 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     resetTheme,
   };
 
+  // MINIMALNY theme - tylko podstawowe kolory
+  const minimalTheme = {
+    token: {
+      colorPrimary: '#1890ff',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontSize: 14,
+    }
+  };
+
   return (
     <ThemeContext.Provider value={contextValue}>
       <ConfigProvider
         locale={plPL}
-        theme={mergedTheme}
+        theme={minimalTheme}
       >
-        <StyledThemeProvider theme={mergedTheme}>
+        <App>
           {children}
-        </StyledThemeProvider>
+        </App>
       </ConfigProvider>
     </ThemeContext.Provider>
   );

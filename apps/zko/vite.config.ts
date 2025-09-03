@@ -13,7 +13,7 @@ export default defineConfig({
     port: 3001,
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',  // Ujednolicony port backend - 5001
+        target: 'http://localhost:5001',
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -29,13 +29,19 @@ export default defineConfig({
         },
       },
       '/ws': {
-        target: 'ws://localhost:5001',  // WebSocket też na 5001
+        target: 'ws://localhost:5001',
         ws: true,
         changeOrigin: true
       },
     },
   },
   build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        test: path.resolve(__dirname, 'test.html'),
+      },
+    },
     outDir: 'dist',
     sourcemap: true,
   },
