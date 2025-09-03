@@ -1,11 +1,11 @@
 /**
- * @fileoverview Element formatki z obsługą DRAG - WERSJA FINALNA POPRAWIONA
+ * @fileoverview Element formatki z obsługą DRAG - wersja kompaktowa
  * @module PaletyZko/components/FormatkaItem
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useDrag } from 'react-dnd';
-import { Space, Typography, Tag, Checkbox } from 'antd';
+import { Typography, Tag, Checkbox, Space } from 'antd';
 import { DragOutlined } from '@ant-design/icons';
 import { Formatka } from '../types';
 
@@ -21,150 +21,128 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
   onSelectFormatka
 }) => {
   const dostepne = formatka.sztuki_dostepne || formatka.ilosc_dostepna || 0;
-  const [ilosc, setIlosc] = useState(dostepne);
   const [przeciagajWszystkie, setPrzeciagajWszystkie] = useState(true);
 
-  useEffect(() => {
-    if (przeciagajWszystkie) {
-      setIlosc(dostepne);
-    }
-  }, [dostepne, przeciagajWszystkie]);
-
-  // Setup drag source - cały element jest przeciągalny
+  // Setup drag source
   const [{ opacity, isDragging }, drag] = useDrag({
     type: 'FORMATKA',
-    item: () => {
-      const iloscDoPrzeciagniecia = przeciagajWszystkie ? dostepne : ilosc;
-      return {
-        type: 'FORMATKA',
-        formatka,
-        ilosc: iloscDoPrzeciagniecia
-      };
-    },
+    item: () => ({
+      type: 'FORMATKA',
+      formatka,
+      ilosc: przeciagajWszystkie ? dostepne : dostepne
+    }),
     collect: (monitor) => ({
       opacity: monitor.isDragging() ? 0.4 : 1,
       isDragging: monitor.isDragging()
     })
   });
 
-  // Formatowanie nazwy: 562×70-ARTISAN (bez x3)
+  // Formatowanie nazwy
   const dlugosc = Math.round(formatka.dlugosc || formatka.wymiar_x || 0);
   const szerokosc = Math.round(formatka.szerokosc || formatka.wymiar_y || 0);
-  // Wyciągamy kolor bez liczby arkuszy (np. "ARTISAN x3" -> "ARTISAN")
   const kolorRaw = formatka.kolor || formatka.kolor_plyty || 'BRAK';
-  const kolor = kolorRaw.split(' ')[0]; // Bierzemy tylko pierwszą część przed spacją
+  const kolor = kolorRaw.split(' ')[0];
   const nazwa = `${dlugosc}×${szerokosc}-${kolor}`;
   const grubosc = formatka.grubosc ? `${formatka.grubosc}mm` : '18mm';
 
   return (
     <div 
       ref={drag}
-      className="formatka-item-final"
+      className="formatka-item-compact"
       style={{
         opacity,
         cursor: isDragging ? 'grabbing' : 'grab',
-        padding: '10px 12px 10px 36px',
-        marginBottom: '3px',
+        padding: '6px 10px',
+        marginBottom: '2px',
         background: isDragging ? '#e6f7ff' : '#ffffff',
-        border: isDragging ? '2px solid #1890ff' : '1px solid #e8e8e8',
-        borderRadius: '4px',
-        transition: 'all 0.15s ease',
-        position: 'relative'
+        border: isDragging ? '1px solid #1890ff' : '1px solid #f0f0f0',
+        borderRadius: '3px',
+        transition: 'all 0.1s ease',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        minHeight: '32px'
       }}
       onMouseEnter={(e) => {
         if (!isDragging) {
           e.currentTarget.style.background = '#fafafa';
-          e.currentTarget.style.borderColor = '#40a9ff';
+          e.currentTarget.style.borderColor = '#d9d9d9';
         }
       }}
       onMouseLeave={(e) => {
         if (!isDragging) {
           e.currentTarget.style.background = '#ffffff';
-          e.currentTarget.style.borderColor = '#e8e8e8';
+          e.currentTarget.style.borderColor = '#f0f0f0';
         }
       }}
     >
-      {/* Ikona przeciągania - lepiej widoczna */}
+      {/* Ikona przeciągania */}
       <DragOutlined 
         style={{ 
-          position: 'absolute',
-          left: '12px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          fontSize: '14px',
-          color: isDragging ? '#1890ff' : '#bfbfbf'
+          fontSize: '12px',
+          color: isDragging ? '#1890ff' : '#bfbfbf',
+          flexShrink: 0
         }}
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-        {/* Główne informacje */}
-        <div style={{ flex: 1 }}>
-          {/* Nazwa formatki - lepsza czcionka */}
-          <div style={{ marginBottom: '4px' }}>
-            <Text strong style={{ 
-              fontSize: '14px', 
-              fontFamily: '"SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace',
-              letterSpacing: '0.5px'
-            }}>
-              {nazwa}
-            </Text>
-            <Text type="secondary" style={{ fontSize: '11px', marginLeft: '8px' }}>
-              {grubosc}
-            </Text>
-          </div>
-          
-          {/* Dodatkowe info */}
-          <div>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              FORMATKA · Poz: {formatka.pozycja_id || 80}
-            </Text>
-          </div>
-        </div>
-
-        {/* Ilość dostępna */}
-        <Tag 
-          color="green" 
-          style={{ 
-            margin: 0,
-            padding: '2px 8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            minWidth: '50px',
-            textAlign: 'center'
-          }}
-        >
-          {dostepne} szt.
-        </Tag>
-      </div>
-
-      {/* Checkbox i info o przeciąganiu */}
+      {/* Główne informacje - wszystko w jednej linii */}
       <div style={{ 
-        marginTop: '8px', 
-        paddingTop: '8px', 
-        borderTop: '1px solid #f0f0f0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
+        flex: 1, 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '8px',
+        minWidth: 0
       }}>
-        <Checkbox
-          checked={przeciagajWszystkie}
-          onChange={(e) => {
-            setPrzeciagajWszystkie(e.target.checked);
-            if (e.target.checked) {
-              setIlosc(dostepne);
-            }
-          }}
-          style={{ fontSize: '12px' }}
-        >
-          <Text style={{ fontSize: '12px' }}>
-            Przeciągnij wszystkie
-          </Text>
-        </Checkbox>
+        {/* Nazwa formatki */}
+        <Text strong style={{ 
+          fontSize: '12px',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          {nazwa}
+        </Text>
         
-        <Text type="secondary" style={{ fontSize: '12px' }}>
-          Do przeciągnięcia: {przeciagajWszystkie ? dostepne : ilosc} szt.
+        {/* Grubość */}
+        <Text type="secondary" style={{ 
+          fontSize: '11px',
+          flexShrink: 0
+        }}>
+          {grubosc}
+        </Text>
+        
+        {/* Pozycja */}
+        <Text type="secondary" style={{ 
+          fontSize: '10px',
+          marginLeft: 'auto'
+        }}>
+          Poz: {formatka.pozycja_id || 99}
         </Text>
       </div>
+
+      {/* Checkbox */}
+      <Checkbox
+        checked={przeciagajWszystkie}
+        onChange={(e) => setPrzeciagajWszystkie(e.target.checked)}
+        style={{ marginLeft: '4px' }}
+      />
+
+      {/* Ilość */}
+      <Tag 
+        color="green" 
+        style={{ 
+          margin: 0,
+          fontSize: '11px',
+          padding: '0 6px',
+          height: '18px',
+          lineHeight: '18px',
+          minWidth: '45px',
+          textAlign: 'center'
+        }}
+      >
+        {dostepne} szt
+      </Tag>
     </div>
   );
 };
