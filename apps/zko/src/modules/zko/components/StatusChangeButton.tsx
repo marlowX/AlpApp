@@ -8,7 +8,8 @@ import {
   InfoCircleOutlined,
   RocketOutlined,
   SendOutlined,
-  UserOutlined
+  UserOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 
 const { TextArea } = Input;
@@ -23,6 +24,68 @@ interface StatusChangeButtonProps {
   disabled?: boolean;
 }
 
+// Fallback - mapowanie statusów na możliwe następne kroki
+const FALLBACK_NEXT_STEPS: Record<string, Array<{kod_etapu: string, nazwa_etapu: string}>> = {
+  'NOWE': [
+    { kod_etapu: 'CIECIE', nazwa_etapu: 'Rozpocznij cięcie' },
+    { kod_etapu: 'BUFOR_PILA', nazwa_etapu: 'Przekaż do bufora piły' }
+  ],
+  'BUFOR_PILA': [
+    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Przekaż do bufora okleiniarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  ],
+  'CIECIE': [
+    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Przekaż do bufora okleiniarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  ],
+  'CIECIE_START': [
+    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Przekaż do bufora okleiniarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  ],
+  'OKLEJANIE': [
+    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' },
+    { kod_etapu: 'BUFOR_WIERCENIE', nazwa_etapu: 'Przekaż do bufora wiertarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  ],
+  'OKLEJANIE_START': [
+    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' },
+    { kod_etapu: 'BUFOR_WIERCENIE', nazwa_etapu: 'Przekaż do bufora wiertarki' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  ],
+  'WIERCENIE': [
+    { kod_etapu: 'PAKOWANIE', nazwa_etapu: 'Rozpocznij pakowanie' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' }
+  ],
+  'PAKOWANIE': [
+    { kod_etapu: 'TRANSPORT', nazwa_etapu: 'Przygotuj do transportu' },
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij do klienta' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
+  ],
+  'PAKOWANIE_STOP': [
+    { kod_etapu: 'TRANSPORT', nazwa_etapu: 'Przygotuj do transportu' },
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij do klienta' },
+    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Przekaż na magazyn' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
+  ],
+  'TRANSPORT': [
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Potwierdź odbiór i zakończ' }
+  ],
+  'TRANSPORT_1': [
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Potwierdź odbiór i zakończ' }
+  ],
+  'WYSYLKA': [
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Potwierdź odbiór i zakończ' }
+  ],
+  'MAGAZYN': [
+    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij z magazynu' },
+    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
+  ]
+};
+
 export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
   zkoId,
   currentStatus,
@@ -34,26 +97,41 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingSteps, setLoadingSteps] = useState(false);
   const [availableSteps, setAvailableSteps] = useState<any[]>([]);
+  const [useFallback, setUseFallback] = useState(false);
   const [form] = Form.useForm();
   const [selectedStep, setSelectedStep] = useState<string | null>(null);
 
   // Pobierz dostępne następne kroki
   const fetchNextSteps = async () => {
     setLoadingSteps(true);
+    setUseFallback(false);
+    
     try {
       const response = await fetch(`/api/workflow/next-steps/${zkoId}`);
       if (response.ok) {
         const data = await response.json();
         console.log('Next steps from API:', data);
-        setAvailableSteps(data || []);
+        
+        // Jeśli API zwróciło puste dane, użyj fallback
+        if (!data || data.length === 0) {
+          console.warn('API returned empty steps, using fallback for status:', currentStatus);
+          const fallbackSteps = FALLBACK_NEXT_STEPS[currentStatus.toUpperCase()] || [];
+          setAvailableSteps(fallbackSteps);
+          setUseFallback(true);
+        } else {
+          setAvailableSteps(data);
+        }
       } else {
-        console.error('Failed to fetch next steps');
-        setAvailableSteps([]);
+        console.error('Failed to fetch next steps, using fallback');
+        const fallbackSteps = FALLBACK_NEXT_STEPS[currentStatus.toUpperCase()] || [];
+        setAvailableSteps(fallbackSteps);
+        setUseFallback(true);
       }
     } catch (error) {
-      console.error('Error fetching next steps:', error);
-      message.error('Błąd pobierania dostępnych kroków');
-      setAvailableSteps([]);
+      console.error('Error fetching next steps, using fallback:', error);
+      const fallbackSteps = FALLBACK_NEXT_STEPS[currentStatus.toUpperCase()] || [];
+      setAvailableSteps(fallbackSteps);
+      setUseFallback(true);
     } finally {
       setLoadingSteps(false);
     }
@@ -157,7 +235,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
   const getStepLabel = (kod: string) => {
     const labels: Record<string, string> = {
       'CIECIE': '🔪 Rozpocznij cięcie',
-      'BUFOR_CIECIE': '📦 Bufor piły',
+      'BUFOR_PILA': '📦 Bufor piły',
       'OKLEJANIE': '🎨 Rozpocznij oklejanie',
       'BUFOR_OKLEINIARKA': '📦 Bufor okleiniarki',
       'WIERCENIE': '🔩 Rozpocznij wiercenie',
@@ -165,14 +243,15 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       'PAKOWANIE': '📦 Rozpocznij pakowanie',
       'TRANSPORT': '🚚 Wyślij transport',
       'ZAKONCZONA': '✅ Zakończ zlecenie',
-      'MAGAZYN': '🏭 Przekaż na magazyn'
+      'MAGAZYN': '🏭 Przekaż na magazyn',
+      'WYSYLKA': '📮 Wyślij do klienta'
     };
     return labels[kod] || kod;
   };
 
   // Określ ikonę dla przycisku
   const getButtonIcon = () => {
-    if (currentStatus === 'ZAKONCZONA') {
+    if (currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE') {
       return <CheckCircleOutlined />;
     }
     if (currentStatus === 'NOWE') {
@@ -183,7 +262,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
 
   // Określ tekst przycisku
   const getButtonText = () => {
-    if (currentStatus === 'ZAKONCZONA') {
+    if (currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE') {
       return 'Zlecenie zakończone';
     }
     if (currentStatus === 'NOWE') {
@@ -195,20 +274,24 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
   // Określ kolor przycisku
   const getButtonType = () => {
     if (currentStatus === 'NOWE') return 'primary';
-    if (currentStatus === 'ZAKONCZONA') return 'default';
+    if (currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE') return 'default';
     return 'primary';
   };
 
   return (
     <>
       <Tooltip 
-        title={currentStatus === 'ZAKONCZONA' ? 'Zlecenie zakończone' : 'Zmień status zlecenia'}
+        title={
+          currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE' 
+            ? 'Zlecenie zakończone' 
+            : 'Zmień status zlecenia'
+        }
       >
         <Button
           type={getButtonType() as any}
           icon={getButtonIcon()}
           onClick={handleOpenModal}
-          disabled={disabled || currentStatus === 'ZAKONCZONA'}
+          disabled={disabled || currentStatus === 'ZAKONCZONA' || currentStatus === 'ZAKONCZONE'}
         >
           {getButtonText()}
         </Button>
@@ -219,6 +302,11 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
           <Space>
             <SendOutlined />
             <span>Zmiana statusu ZKO</span>
+            {useFallback && (
+              <Tooltip title="Używam lokalnej mapy przejść statusów, ponieważ serwer nie zwrócił danych">
+                <ExclamationCircleOutlined style={{ color: '#faad14' }} />
+              </Tooltip>
+            )}
           </Space>
         }
         open={modalVisible}
@@ -236,6 +324,18 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
             layout="vertical"
             onFinish={handleSubmit}
           >
+            {/* Alert o używaniu fallback */}
+            {useFallback && (
+              <Alert
+                message="Tryb awaryjny"
+                description="Używam lokalnej mapy przejść statusów. Skontaktuj się z administratorem, aby zaktualizować funkcję w bazie danych."
+                type="warning"
+                showIcon
+                icon={<ExclamationCircleOutlined />}
+                style={{ marginBottom: 16 }}
+              />
+            )}
+
             {/* Alert z aktualnym statusem */}
             <Alert
               message="Aktualny status"
@@ -244,9 +344,12 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
                   <strong>{currentStatus}</strong>
                   {currentStatus === 'NOWE' && '- Zlecenie oczekuje na rozpoczęcie produkcji'}
                   {currentStatus === 'CIECIE' && '- Trwa cięcie formatek'}
+                  {currentStatus === 'BUFOR_PILA' && '- Formatki w buforze piły'}
                   {currentStatus === 'OKLEJANIE' && '- Trwa oklejanie krawędzi'}
                   {currentStatus === 'WIERCENIE' && '- Trwa wiercenie otworów'}
                   {currentStatus === 'PAKOWANIE' && '- Trwa pakowanie'}
+                  {currentStatus === 'TRANSPORT' && '- W transporcie'}
+                  {currentStatus === 'WYSYLKA' && '- Wysłane do klienta'}
                 </Space>
               }
               type="info"
@@ -287,7 +390,7 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
               ) : (
                 <Alert
                   message="Brak dostępnych kroków"
-                  description="Nie znaleziono następnych kroków dla tego zlecenia. Sprawdź status zlecenia."
+                  description="Nie znaleziono następnych kroków dla tego zlecenia. Status może być końcowy lub nieobsługiwany."
                   type="warning"
                   showIcon
                 />
@@ -314,6 +417,15 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
                     )}
                     {selectedStep === 'PAKOWANIE' && (
                       <p>📦 Rozpoczęcie pakowania gotowych formatek.</p>
+                    )}
+                    {selectedStep === 'TRANSPORT' && (
+                      <p>🚚 Przygotowanie do transportu.</p>
+                    )}
+                    {selectedStep === 'WYSYLKA' && (
+                      <p>📮 Wysyłka do klienta.</p>
+                    )}
+                    {selectedStep === 'MAGAZYN' && (
+                      <p>🏭 Przekazanie na magazyn.</p>
                     )}
                     {selectedStep === 'ZAKONCZONA' && (
                       <p>✅ Zakończenie zlecenia - wszystkie formatki zostały wyprodukowane.</p>
