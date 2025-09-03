@@ -141,6 +141,7 @@ h6 { font-size: 11px !important; }
   font-size: 11px !important;
 }
 
+/* Przyciski primary - niebieskie z białymi ikonami */
 .ant-btn-primary {
   background: #1890ff !important;
   border-color: #1890ff !important;
@@ -150,6 +151,11 @@ h6 { font-size: 11px !important; }
 .ant-btn-primary:hover {
   background: #40a9ff !important;
   border-color: #40a9ff !important;
+  color: #ffffff !important;
+}
+
+.ant-btn-primary .anticon {
+  color: #ffffff !important;
 }
 
 /* Kolory funkcjonalne */
@@ -317,17 +323,58 @@ h6 { font-size: 11px !important; }
   color: #d9d9d9;
 }
 
-/* Ikony - mono kolor */
+/* Ikony - domyślnie szare */
 .anticon {
   color: #8c8c8c !important;
 }
 
-.ant-btn:hover .anticon {
-  color: inherit !important;
+/* Ikony w przyciskach text - szare */
+.ant-btn-text .anticon {
+  color: #595959 !important;
 }
 
+.ant-btn-text:hover .anticon {
+  color: #262626 !important;
+}
+
+/* Ikony w przyciskach primary - BIAŁE */
 .ant-btn-primary .anticon {
   color: #ffffff !important;
+}
+
+.ant-btn-primary:hover .anticon {
+  color: #ffffff !important;
+}
+
+/* Ikony w przyciskach danger */
+.ant-btn-dangerous .anticon,
+.ant-btn-text.ant-btn-dangerous .anticon {
+  color: #ff4d4f !important;
+}
+
+/* Specyficzne kolory ikon */
+.anticon-check-circle {
+  color: #52c41a !important;
+}
+
+.anticon-lock {
+  color: #faad14 !important;
+}
+
+.anticon-unlock {
+  color: #52c41a !important;
+}
+
+.anticon-printer {
+  color: #1890ff !important;
+}
+
+.anticon-eye {
+  color: #595959 !important;
+}
+
+.anticon-delete {
+  color: #ff4d4f !important;
 }
 
 /* Scrollbar - subtelny */
