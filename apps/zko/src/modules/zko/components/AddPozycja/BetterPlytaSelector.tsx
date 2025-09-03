@@ -1,17 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { Card, Tag, Badge, Typography, Empty, Spin, Space, Input, Button, Row, Col } from 'antd';
+import { Typography, Empty, Spin, Input } from 'antd';
 import { 
   SearchOutlined, 
   CheckCircleOutlined, 
-  CloseOutlined,
   FireOutlined,
-  StarFilled,
-  InboxOutlined 
+  CloseOutlined
 } from '@ant-design/icons';
 import type { Plyta } from './types';
 
 const { Text } = Typography;
-const { Search } = Input;
 
 interface BetterPlytaSelectorProps {
   plyty: Plyta[];
@@ -26,10 +23,9 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
   loading = false,
   value,
   onChange,
-  placeholder = "Szukaj płyty..."
+  placeholder = "Filtruj płyty..."
 }) => {
   const [search, setSearch] = useState('');
-  const [showAll, setShowAll] = useState(false);
 
   const selectedPlyta = useMemo(() => 
     plyty.find(p => p.kolor_nazwa === value) || null,
@@ -39,7 +35,7 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
   // Sortuj płyty według popularności i stanu magazynowego
   const sortedPlyty = useMemo(() => {
     return [...plyty]
-      .filter(p => p.aktywna !== false)
+      .filter(p => p.aktywna !== false && p.stan_magazynowy > 0)
       .sort((a, b) => {
         // Najpierw według popularności (jeśli istnieje)
         const popA = (a as any).popularnosc || 1;
@@ -55,48 +51,24 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
 
   // Filtruj płyty według wyszukiwania
   const filteredPlyty = useMemo(() => {
-    let filtered = sortedPlyty;
+    if (!search) return sortedPlyty.slice(0, 15); // Pokazuj TOP 15
     
-    if (search) {
-      const searchWords = search.toLowerCase().split(/\s+/).filter(word => word.length > 0);
-      filtered = sortedPlyty.filter(p => {
-        const searchText = `${p.kolor_nazwa} ${p.nazwa} ${p.opis || ''} ${p.grubosc}mm`.toLowerCase();
+    const searchWords = search.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+    return sortedPlyty
+      .filter(p => {
+        const searchText = `${p.kolor_nazwa} ${p.grubosc}`.toLowerCase();
         return searchWords.every(word => searchText.includes(word));
-      });
-    }
-    
-    // Pokazuj TOP 10 lub wszystkie jeśli showAll
-    return showAll ? filtered : filtered.slice(0, 10);
-  }, [sortedPlyty, search, showAll]);
+      })
+      .slice(0, 20);
+  }, [sortedPlyty, search]);
 
   const handleSelect = (plyta: Plyta) => {
-    onChange?.(plyta);
-    setSearch('');
-    setShowAll(false);
-  };
-
-  const handleClear = () => {
-    onChange?.(null);
-    setSearch('');
-  };
-
-  const getStockColor = (stock: number) => {
-    if (stock > 20) return '#52c41a';
-    if (stock > 5) return '#faad14';
-    return '#ff4d4f';
-  };
-
-  const getPopularityStars = (plyta: any) => {
-    const popularity = plyta.popularnosc || 1;
-    if (popularity >= 4) {
-      return (
-        <Space size={2}>
-          <FireOutlined style={{ color: '#ff4d4f', fontSize: '12px' }} />
-          <Text style={{ fontSize: '10px', color: '#ff4d4f' }}>TOP</Text>
-        </Space>
-      );
+    if (selectedPlyta?.id === plyta.id) {
+      // Odznacz jeśli klikamy na już wybraną
+      onChange?.(null);
+    } else {
+      onChange?.(plyta);
     }
-    return null;
   };
 
   if (loading) {
@@ -107,72 +79,41 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
     );
   }
 
-  // Jeśli mamy wybraną płytę - pokazujemy kompaktową kartę
-  if (selectedPlyta) {
-    return (
-      <Card 
-        size="small" 
-        style={{ 
-          backgroundColor: '#f6ffed', 
-          borderColor: '#52c41a',
-          borderWidth: '2px'
-        }}
-        styles={{
-          body: { padding: '6px 10px' }
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Space size="small">
-            <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '14px' }} />
-            <Text strong style={{ fontSize: '12px', color: '#52c41a' }}>
-              {selectedPlyta.kolor_nazwa}
-            </Text>
-            {selectedPlyta.struktura === 1 && (
-              <Tag color="gold" style={{ fontSize: '9px', padding: '0 3px', margin: 0, height: '16px', lineHeight: '14px' }}>
-                STR
-              </Tag>
-            )}
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              {selectedPlyta.grubosc}mm • {selectedPlyta.dlugosc}×{selectedPlyta.szerokosc}mm • Stan: {selectedPlyta.stan_magazynowy}
-            </Text>
-          </Space>
-          <Button 
-            size="small" 
-            type="text"
-            danger
-            icon={<CloseOutlined />}
-            onClick={handleClear}
-            style={{ fontSize: '10px', height: '20px' }}
-          />
-        </div>
-      </Card>
-    );
-  }
-
-  // Jeśli nie ma wybranej płyty - pokazujemy listę do wyboru
   return (
-    <div>
+    <div style={{ 
+      backgroundColor: '#fff',
+      border: '1px solid #d9d9d9',
+      borderRadius: 6,
+      overflow: 'hidden'
+    }}>
       {/* Wyszukiwarka */}
-      <Search
-        placeholder={placeholder}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        allowClear
-        size="small"
-        style={{ marginBottom: 8 }}
-        prefix={<SearchOutlined />}
-      />
-
-      {/* Lista płyt - PROSTA BEZ CARDS */}
       <div style={{ 
-        border: '1px solid #d9d9d9',
-        borderRadius: 4,
-        maxHeight: 320,
+        padding: '8px',
+        borderBottom: '1px solid #f0f0f0',
+        backgroundColor: '#fafafa'
+      }}>
+        <Input
+          placeholder={placeholder}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          allowClear
+          size="small"
+          prefix={<SearchOutlined style={{ color: '#999' }} />}
+          style={{ 
+            border: '1px solid #e8e8e8',
+            borderRadius: 4
+          }}
+        />
+      </div>
+
+      {/* Lista płyt */}
+      <div style={{ 
+        height: 240,
         overflowY: 'auto',
-        backgroundColor: '#fff'
+        overflowX: 'hidden'
       }}>
         {filteredPlyty.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center' }}>
+          <div style={{ padding: '60px 20px', textAlign: 'center' }}>
             <Empty 
               description={search ? `Brak płyt dla "${search}"` : "Brak dostępnych płyt"} 
               image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -180,110 +121,127 @@ export const BetterPlytaSelector: React.FC<BetterPlytaSelectorProps> = ({
             />
           </div>
         ) : (
-          <>
-            {filteredPlyty.map((plyta, index) => {
-              const isDisabled = plyta.stan_magazynowy === 0;
+          <div>
+            {filteredPlyty.map((plyta) => {
+              const isSelected = selectedPlyta?.id === plyta.id;
               const popularity = (plyta as any).popularnosc || 1;
               
               return (
                 <div
                   key={plyta.id}
-                  onClick={() => !isDisabled && handleSelect(plyta)}
+                  onClick={() => handleSelect(plyta)}
                   style={{
-                    padding: '6px 10px',
-                    borderBottom: index < filteredPlyty.length - 1 ? '1px solid #f0f0f0' : 'none',
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    opacity: isDisabled ? 0.5 : 1,
-                    backgroundColor: '#fff',
-                    transition: 'background-color 0.2s'
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    backgroundColor: isSelected ? '#e6f7ff' : '#fff',
+                    borderLeft: isSelected ? '3px solid #1890ff' : '3px solid transparent',
+                    transition: 'all 0.2s',
+                    borderBottom: '1px solid #fafafa'
                   }}
                   onMouseEnter={(e) => {
-                    if (!isDisabled) {
+                    if (!isSelected) {
                       e.currentTarget.style.backgroundColor = '#f5f5f5';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#fff';
+                    if (!isSelected) {
+                      e.currentTarget.style.backgroundColor = '#fff';
+                    }
                   }}
                 >
-                  <Row align="middle" gutter={8}>
-                    <Col flex="auto">
-                      <Space size="small" align="center">
-                        {/* Popularność */}
-                        {popularity >= 4 && (
-                          <FireOutlined style={{ color: '#ff4d4f', fontSize: '12px' }} title="Popularna" />
-                        )}
-                        
-                        {/* Nazwa */}
-                        <Text strong style={{ fontSize: '12px' }}>
-                          {plyta.kolor_nazwa}
-                        </Text>
-                        
-                        {/* Tagi */}
-                        {plyta.struktura === 1 && (
-                          <Tag color="gold" style={{ fontSize: '9px', padding: '0 2px', margin: 0, height: '14px', lineHeight: '12px' }}>
-                            STR
-                          </Tag>
-                        )}
-                        
-                        {/* Grubość */}
-                        <Text type="secondary" style={{ fontSize: '11px' }}>
-                          {plyta.grubosc}mm
-                        </Text>
-                        
-                        {/* Cena */}
-                        {plyta.cena_za_plyte && (
-                          <Text type="secondary" style={{ fontSize: '10px' }}>
-                            {plyta.cena_za_plyte.toFixed(2)} zł
-                          </Text>
-                        )}
-                      </Space>
-                    </Col>
-                    
-                    <Col>
-                      {/* Stan magazynowy */}
-                      <Badge 
-                        count={plyta.stan_magazynowy || 0} 
-                        overflowCount={999}
+                  {/* Ikona */}
+                  <div style={{ width: 24, marginRight: 8 }}>
+                    {isSelected ? (
+                      <CheckCircleOutlined style={{ color: '#1890ff', fontSize: 14 }} />
+                    ) : popularity >= 4 ? (
+                      <FireOutlined style={{ color: '#ff4d4f', fontSize: 12 }} />
+                    ) : null}
+                  </div>
+                  
+                  {/* Nazwa */}
+                  <div style={{ flex: 1 }}>
+                    <Text strong={isSelected} style={{ fontSize: 12 }}>
+                      {plyta.kolor_nazwa}
+                    </Text>
+                    {plyta.struktura === 1 && (
+                      <Text 
                         style={{ 
-                          backgroundColor: isDisabled ? '#d9d9d9' : getStockColor(plyta.stan_magazynowy),
-                          fontSize: '10px'
+                          fontSize: 9,
+                          marginLeft: 6,
+                          padding: '0 4px',
+                          backgroundColor: '#fff7e6',
+                          color: '#fa8c16',
+                          borderRadius: 2
                         }}
-                      />
-                    </Col>
-                  </Row>
+                      >
+                        STR
+                      </Text>
+                    )}
+                  </div>
+                  
+                  {/* Grubość */}
+                  <div style={{ width: 60, textAlign: 'right', marginRight: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {plyta.grubosc}mm
+                    </Text>
+                  </div>
+                  
+                  {/* Stan */}
+                  <div style={{ 
+                    minWidth: 32,
+                    padding: '2px 6px',
+                    borderRadius: 10,
+                    backgroundColor: 
+                      plyta.stan_magazynowy > 20 ? '#f6ffed' : 
+                      plyta.stan_magazynowy > 5 ? '#fff7e6' : '#fff2e8',
+                    color: 
+                      plyta.stan_magazynowy > 20 ? '#52c41a' : 
+                      plyta.stan_magazynowy > 5 ? '#fa8c16' : '#ff4d4f',
+                    fontSize: 11,
+                    fontWeight: 500,
+                    textAlign: 'center'
+                  }}>
+                    {plyta.stan_magazynowy}
+                  </div>
                 </div>
               );
             })}
-            
-            {/* Pokaż więcej */}
-            {!showAll && sortedPlyty.length > 10 && (
-              <div style={{ 
-                padding: '8px', 
-                textAlign: 'center', 
-                borderTop: '1px solid #f0f0f0',
-                backgroundColor: '#fafafa'
-              }}>
-                <Button 
-                  size="small" 
-                  type="link" 
-                  onClick={() => setShowAll(true)}
-                >
-                  Pokaż wszystkie ({sortedPlyty.length - 10} więcej)
-                </Button>
-              </div>
-            )}
-          </>
+          </div>
         )}
       </div>
 
-      {/* Info */}
-      <div style={{ marginTop: 4 }}>
-        <Text type="secondary" style={{ fontSize: '10px' }}>
-          <FireOutlined style={{ color: '#ff4d4f' }} /> = Popularna płyta • 
-          <InboxOutlined style={{ marginLeft: 8 }} /> = Stan magazynowy
-        </Text>
-      </div>
+      {/* Info o wybranej płycie */}
+      {selectedPlyta && (
+        <div style={{ 
+          padding: '6px 12px',
+          backgroundColor: '#e6f7ff',
+          borderTop: '1px solid #91d5ff',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <CheckCircleOutlined style={{ color: '#1890ff', fontSize: 12 }} />
+            <Text style={{ fontSize: 11 }}>
+              Wybrano: <strong>{selectedPlyta.kolor_nazwa}</strong> {selectedPlyta.grubosc}mm • {selectedPlyta.dlugosc}×{selectedPlyta.szerokosc}mm
+            </Text>
+          </div>
+          <CloseOutlined 
+            style={{ 
+              fontSize: 10, 
+              color: '#999',
+              cursor: 'pointer',
+              padding: 4
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange?.(null);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -1,10 +1,7 @@
 import React, { useMemo } from 'react';
-import { Table, Button, Tag, Space, Typography } from 'antd';
-import { DeleteOutlined, InfoCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-// Używamy nowego lepszego selektora
+import { Button, Tag, Space, Typography, InputNumber } from 'antd';
+import { DeleteOutlined, ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { BetterPlytaSelector } from './BetterPlytaSelector';
-import { ParametryColumn } from './components/ParametryColumn';
-import { IloscColumn } from './components/IloscColumn';
 import type { KolorPlyty, Plyta } from './types';
 
 const { Text } = Typography;
@@ -32,35 +29,26 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
 }) => {
   const totalPlyty = kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
   const przekroczonyLimit = totalPlyty > maxPlytNaPozycje;
+  
+  // Stan dla aktualnie edytowanego selektora
+  const [editingIndex, setEditingIndex] = React.useState<number>(0);
 
-  const getMaxPlytForColor = (kolor: string, currentIndex: number): number => {
-    const plyta = plyty.find(p => p.kolor_nazwa === kolor);
-    const gruboscLimit = plyta && plyta.grubosc >= 18 ? 5 : 50;
-    
-    const plytyInneKolory = kolorePlyty.reduce((sum, k, idx) => {
-      if (idx === currentIndex) return sum;
-      return sum + (k.ilosc || 0);
-    }, 0);
-    
-    const pozostalo = maxPlytNaPozycje - plytyInneKolory;
-    return Math.min(gruboscLimit, Math.max(0, pozostalo));
-  };
-
-  const handlePlytaChange = (index: number, plyta: Plyta | null) => {
+  const handlePlytaChange = (plyta: Plyta | null) => {
     if (plyta) {
       const updatedKolor = {
         kolor: plyta.kolor_nazwa,
         nazwa: plyta.nazwa,
-        ilosc: kolorePlyty[index]?.ilosc || 1,
+        ilosc: kolorePlyty[editingIndex]?.ilosc || 1,
         plyta_id: plyta.id,
         stan_magazynowy: plyta.stan_magazynowy,
         grubosc: plyta.grubosc,
         dlugosc: plyta.dlugosc,
         szerokosc: plyta.szerokosc
       };
-      onUpdateKolor(index, '__FULL_UPDATE__', updatedKolor);
-    } else {
-      const clearedKolor = {
+      onUpdateKolor(editingIndex, '__FULL_UPDATE__', updatedKolor);
+    } else if (editingIndex < kolorePlyty.length) {
+      // Wyczyść wybraną płytę
+      onUpdateKolor(editingIndex, '__FULL_UPDATE__', {
         kolor: '',
         nazwa: '',
         ilosc: 1,
@@ -69,155 +57,195 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
         grubosc: undefined,
         dlugosc: undefined,
         szerokosc: undefined
-      };
-      onUpdateKolor(index, '__FULL_UPDATE__', clearedKolor);
+      });
     }
   };
 
-  const columns = [
-    {
-      title: (
-        <Space>
-          <InfoCircleOutlined />
-          Wybór płyty
-        </Space>
-      ),
-      dataIndex: 'kolor',
-      key: 'kolor',
-      width: '50%', // Zwiększamy szerokość bo usunęliśmy kolumnę Wymiary
-      render: (_: any, __: any, index: number) => (
-        <BetterPlytaSelector
-          plyty={plyty}
-          loading={plytyLoading}
-          value={kolorePlyty[index]?.kolor}
-          onChange={(plyta) => handlePlytaChange(index, plyta)}
-          placeholder="Szukaj płyty..."
-        />
-      ),
-    },
-    {
-      title: 'Parametry',
-      dataIndex: 'parametry',
-      key: 'parametry',
-      width: '25%',
-      render: (_: any, __: any, index: number) => (
-        <ParametryColumn kolor={kolorePlyty[index]} />
-      ),
-    },
-    {
-      title: 'Ilość płyt',
-      dataIndex: 'ilosc',
-      key: 'ilosc',
-      width: '15%',
-      render: (_: any, __: any, index: number) => {
-        const kolor = kolorePlyty[index];
-        const maxPlyt = kolor?.kolor ? getMaxPlytForColor(kolor.kolor, index) : maxPlytNaPozycje;
-        return (
-          <>
-            <IloscColumn
-              kolor={kolor}
-              index={index}
-              maxPlyt={maxPlyt}
-              onUpdateKolor={onUpdateKolor}
-            />
-            {kolor?.kolor && maxPlyt === 0 && (
-              <Text type="danger" style={{ fontSize: '10px' }}>
-                Brak miejsca!
-              </Text>
-            )}
-          </>
-        );
-      },
-    },
-    {
-      title: 'Akcje',
-      key: 'actions',
-      width: '10%',
-      render: (_: any, __: any, index: number) => (
-        <div style={{ textAlign: 'center' }}>
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={() => onRemoveKolor(index)}
-            disabled={kolorePlyty.length === 1}
-            title={kolorePlyty.length === 1 ? 
-              "Musi zostać przynajmniej jedna pozycja" : "Usuń pozycję"}
-          />
-          <div style={{ fontSize: '10px', color: '#666', marginTop: 2 }}>
-            #{index + 1}
-          </div>
-        </div>
-      ),
-    },
-  ];
+  const handleAddNew = () => {
+    // Dodaj nowy pusty slot i ustaw go jako aktywny
+    const newKolory = [...kolorePlyty, { kolor: '', nazwa: '', ilosc: 1 }];
+    setEditingIndex(newKolory.length - 1);
+    // Wywołaj callback aby parent zaktualizował stan
+    onUpdateKolor(kolorePlyty.length, '__FULL_UPDATE__', { kolor: '', nazwa: '', ilosc: 1 });
+  };
+
+  const handleRemove = (index: number) => {
+    onRemoveKolor(index);
+    // Ustaw focus na pierwszy element lub 0
+    if (editingIndex >= kolorePlyty.length - 1) {
+      setEditingIndex(Math.max(0, kolorePlyty.length - 2));
+    }
+  };
+
+  const handleEditClick = (index: number) => {
+    setEditingIndex(index);
+  };
 
   return (
     <div>
-      <div style={{ marginBottom: 8 }}>
-        <Space>
-          <Text strong style={{ fontSize: '14px' }}>Kolory płyt do rozkroju</Text>
-          {przekroczonyLimit && (
-            <Tag color="error" icon={<ExclamationCircleOutlined />}>
-              PRZEKROCZONY LIMIT!
-            </Tag>
-          )}
-        </Space>
+      <div style={{ marginBottom: 12 }}>
+        <Text strong style={{ fontSize: 14 }}>
+          Kolory płyt do rozkroju
+        </Text>
+        {przekroczonyLimit && (
+          <Tag color="error" icon={<ExclamationCircleOutlined />} style={{ marginLeft: 8 }}>
+            PRZEKROCZONY LIMIT! ({totalPlyty}/{maxPlytNaPozycje})
+          </Tag>
+        )}
       </div>
-      
-      <Table
-        columns={columns}
-        dataSource={kolorePlyty.map((item, index) => ({ ...item, key: index }))}
-        pagination={false}
-        size="small"
-        locale={{ emptyText: 'Brak wybranych płyt' }}
-        style={{ overflow: 'hidden' }}
-        bordered
-      />
-      
-      <TableFooter 
-        kolorePlyty={kolorePlyty}
-        totalPlyty={totalPlyty}
-        maxPlytNaPozycje={maxPlytNaPozycje}
-        przekroczonyLimit={przekroczonyLimit}
-      />
-    </div>
-  );
-};
 
-// Podkomponent stopki tabeli
-const TableFooter: React.FC<{
-  kolorePlyty: KolorPlyty[];
-  totalPlyty: number;
-  maxPlytNaPozycje: number;
-  przekroczonyLimit: boolean;
-}> = ({ kolorePlyty, totalPlyty, maxPlytNaPozycje, przekroczonyLimit }) => {
-  if (kolorePlyty.length === 0) return null;
-  
-  return (
-    <div style={{ 
-      marginTop: 8, 
-      padding: '6px 8px', 
-      backgroundColor: przekroczonyLimit ? '#fff2f0' : '#fafafa',
-      borderRadius: 4,
-      border: przekroczonyLimit ? '1px solid #ffccc7' : '1px solid #f0f0f0',
-      fontSize: '11px'
-    }}>
-      <Space split="|">
-        <Text style={{ fontSize: '11px' }}>
-          Pozycji: {kolorePlyty.length}
-        </Text>
-        <Text 
-          style={{ 
-            fontSize: '11px',
-            color: przekroczonyLimit ? '#ff4d4f' : undefined,
-            fontWeight: przekroczonyLimit ? 'bold' : 'normal'
-          }}
-        >
-          Łącznie płyt: {totalPlyty}/{maxPlytNaPozycje}
-        </Text>
-      </Space>
+      <div style={{ display: 'flex', gap: 16 }}>
+        {/* Lewa strona - Selektor płyt */}
+        <div style={{ flex: '1 1 60%', minWidth: 300 }}>
+          <div style={{ marginBottom: 8 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              Kliknij na płytę aby {kolorePlyty[editingIndex]?.kolor ? 'zmienić' : 'dodać'} do pozycji #{editingIndex + 1}
+            </Text>
+          </div>
+          <BetterPlytaSelector
+            plyty={plyty}
+            loading={plytyLoading}
+            value={kolorePlyty[editingIndex]?.kolor}
+            onChange={handlePlytaChange}
+            placeholder="Filtruj płyty..."
+          />
+        </div>
+
+        {/* Prawa strona - Wybrane płyty */}
+        <div style={{ flex: '1 1 40%', minWidth: 250 }}>
+          <div style={{ 
+            backgroundColor: '#fff',
+            border: '1px solid #d9d9d9',
+            borderRadius: 6,
+            overflow: 'hidden',
+            minHeight: 280
+          }}>
+            {/* Nagłówek */}
+            <div style={{ 
+              padding: '8px 12px',
+              backgroundColor: '#fafafa',
+              borderBottom: '1px solid #f0f0f0',
+              fontSize: 12,
+              fontWeight: 500
+            }}>
+              Wybrane płyty ({kolorePlyty.filter(k => k.kolor).length})
+            </div>
+            
+            {/* Lista wybranych */}
+            <div style={{ padding: 12 }}>
+              {kolorePlyty.filter(k => k.kolor).length === 0 ? (
+                <div style={{ 
+                  padding: '40px 20px', 
+                  textAlign: 'center',
+                  color: '#999'
+                }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Wybierz płytę z listy obok
+                  </Text>
+                </div>
+              ) : (
+                <>
+                  {kolorePlyty.map((kolor, index) => {
+                    if (!kolor.kolor) return null;
+                    
+                    const isEditing = index === editingIndex;
+                    
+                    return (
+                      <div 
+                        key={index}
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center',
+                          padding: '6px 8px',
+                          marginBottom: 6,
+                          backgroundColor: isEditing ? '#e6f7ff' : '#f5f5f5',
+                          borderRadius: 4,
+                          border: isEditing ? '1px solid #1890ff' : '1px solid #e8e8e8',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onClick={() => handleEditClick(index)}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <Text strong style={{ fontSize: 12 }}>
+                            {kolor.kolor}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 10, marginLeft: 8 }}>
+                            {kolor.grubosc}mm • {kolor.dlugosc}×{kolor.szerokosc}mm
+                          </Text>
+                        </div>
+                        
+                        <Space size="small">
+                          <InputNumber
+                            min={1}
+                            max={maxPlytNaPozycje - totalPlyty + kolor.ilosc}
+                            value={kolor.ilosc}
+                            onChange={(value) => onUpdateKolor(index, 'ilosc', value || 1)}
+                            size="small"
+                            style={{ width: 50, fontSize: 11 }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Text type="secondary" style={{ fontSize: 10 }}>szt.</Text>
+                          {kolorePlyty.length > 1 && (
+                            <Button
+                              type="text"
+                              danger
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemove(index);
+                              }}
+                              style={{ fontSize: 10 }}
+                            />
+                          )}
+                        </Space>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Przycisk dodaj kolejną płytę */}
+                  {kolorePlyty.length < 5 && totalPlyty < maxPlytNaPozycje && (
+                    <Button
+                      type="dashed"
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={handleAddNew}
+                      style={{ 
+                        width: '100%', 
+                        marginTop: 8, 
+                        fontSize: 11,
+                        height: 28
+                      }}
+                    >
+                      Dodaj kolejny kolor płyty
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+            
+            {/* Podsumowanie */}
+            {kolorePlyty.filter(k => k.kolor).length > 0 && (
+              <div style={{ 
+                padding: '8px 12px',
+                borderTop: '1px solid #f0f0f0',
+                backgroundColor: '#fafafa',
+                fontSize: 11
+              }}>
+                <Space split="|">
+                  <Text type="secondary">
+                    Pozycji: {kolorePlyty.filter(k => k.kolor).length}
+                  </Text>
+                  <Text type={przekroczonyLimit ? 'danger' : 'secondary'}>
+                    Łącznie płyt: {totalPlyty}/{maxPlytNaPozycje}
+                  </Text>
+                </Space>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
