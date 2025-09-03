@@ -3,7 +3,8 @@ import { ConfigProvider, theme as antTheme } from 'antd';
 import plPL from 'antd/locale/pl_PL';
 import { lightTheme, darkTheme } from './tokens';
 import { ThemeProvider as StyledThemeProvider } from 'styled-components';
-import { GlobalStyles } from './GlobalStyles';
+// TYMCZASOWO WYŁĄCZAMY GlobalStyles
+// import { GlobalStyles } from './GlobalStyles';
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -110,7 +111,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
         componentSize="middle"
       >
         <StyledThemeProvider theme={mergedTheme}>
-          <GlobalStyles />
+          {/* TYMCZASOWO WYŁĄCZAMY GlobalStyles */}
+          {/* <GlobalStyles /> */}
           {children}
         </StyledThemeProvider>
       </ConfigProvider>

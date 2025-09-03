@@ -1,138 +1,24 @@
-/* RESET AGRESYWNY dla Ant Design Select */
+/* Podstawowe poprawki dla Ant Design Select */
 
-/* Wymuszenie widoczności dropdown */
+/* Fix z-index dla dropdown */
 .ant-select-dropdown {
-  display: block !important;
-  opacity: 1 !important;
-  z-index: 99999 !important;
-  pointer-events: auto !important;
-  position: absolute !important;
+  z-index: 2050 !important;
 }
 
-.ant-select-dropdown-hidden {
-  display: block !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
-/* Naprawienie itemów w dropdown */
-.ant-select-item {
-  cursor: pointer !important;
-  pointer-events: auto !important;
-  user-select: none !important;
-}
-
-.ant-select-item-option {
-  cursor: pointer !important;
-  pointer-events: auto !important;
-  position: relative !important;
-}
-
-.ant-select-item-option-content {
-  pointer-events: none !important;
-}
-
-/* Naprawienie hover */
-.ant-select-item:hover {
-  background-color: #f5f5f5 !important;
-}
-
-.ant-select-item-option-selected {
-  background-color: #e6f7ff !important;
-}
-
-/* Fix dla selektora */
-.ant-select-selector {
-  cursor: pointer !important;
-  pointer-events: auto !important;
-}
-
-.ant-select-selection-search {
-  pointer-events: auto !important;
-}
-
-.ant-select-selection-search-input {
-  cursor: text !important;
-  pointer-events: auto !important;
-}
-
-/* Fix dla arrow */
-.ant-select-arrow {
-  pointer-events: none !important;
-}
-
-/* Modal fixes */
+/* Fix dla modali */
 .ant-modal-wrap {
-  z-index: 1000 !important;
+  z-index: 1050;
 }
 
 .ant-modal-mask {
-  z-index: 1000 !important;
+  z-index: 1050;
 }
 
 .ant-modal .ant-select-dropdown {
-  z-index: 100000 !important;
+  z-index: 2050 !important;
 }
 
-/* Wymuszenie działania kliknięcia */
-.ant-select-dropdown .ant-select-item {
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -khtml-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-/* Override dla virtual list jeśli jest używana */
-.ant-select-dropdown .rc-virtual-list {
-  pointer-events: auto !important;
-}
-
-.ant-select-dropdown .rc-virtual-list-holder {
-  pointer-events: auto !important;
-}
-
-.ant-select-dropdown .rc-virtual-list-holder-inner {
-  pointer-events: auto !important;
-}
-
-/* DatePicker fixes */
+/* Fix dla DatePicker */
 .ant-picker-dropdown {
-  z-index: 99999 !important;
-  pointer-events: auto !important;
-}
-
-.ant-picker-panel {
-  pointer-events: auto !important;
-}
-
-/* Wymuszenie widoczności */
-body .ant-select-dropdown {
-  visibility: visible !important;
-}
-
-/* Fix dla Form.Item */
-.ant-form-item-control-input-content {
-  pointer-events: auto !important;
-}
-
-/* Usunięcie możliwych konfliktów z transform */
-.ant-select-dropdown {
-  transform: none !important;
-}
-
-/* Fix dla portalu */
-body > .ant-select-dropdown {
-  position: fixed !important;
-}
-
-/* Debug - tymczasowo pokazuje granice */
-.ant-select-dropdown {
-  border: 2px solid red !important;
-}
-
-.ant-select-item-option {
-  border: 1px solid blue !important;
+  z-index: 2050 !important;
 }
