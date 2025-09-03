@@ -1,11 +1,8 @@
 import React, { useMemo } from 'react';
-import { Table, Button, Tag, Tooltip, Space, Typography, Radio } from 'antd';
-import { DeleteOutlined, InfoCircleOutlined, WarningOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-// Importujemy wszystkie wersje selektorów
-import { PlytaSelectV3 } from './PlytaSelectV3';
-import { PlytySelectorV2 } from './PlytySelectorV2';
-import { SimplePlytaSelector } from './SimplePlytaSelector';
-import { WymiaryColumn } from './components/WymiaryColumn';
+import { Table, Button, Tag, Space, Typography } from 'antd';
+import { DeleteOutlined, InfoCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+// Używamy nowego lepszego selektora
+import { BetterPlytaSelector } from './BetterPlytaSelector';
 import { ParametryColumn } from './components/ParametryColumn';
 import { IloscColumn } from './components/IloscColumn';
 import type { KolorPlyty, Plyta } from './types';
@@ -33,36 +30,8 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
   onRemoveKolor,
   maxPlytNaPozycje = 5
 }) => {
-  // Stan do przełączania między selektorami - DOMYŚLNIE 'simple'
-  const [selectorType, setSelectorType] = React.useState<'select' | 'custom' | 'simple'>('simple');
-
   const totalPlyty = kolorePlyty.reduce((sum, k) => sum + (k.ilosc || 0), 0);
   const przekroczonyLimit = totalPlyty > maxPlytNaPozycje;
-
-  const wymiaryAnaliza = useMemo(() => {
-    const wybranePlyty = kolorePlyty
-      .filter(k => k.kolor)
-      .map(k => {
-        const plyta = plyty.find(p => p.kolor_nazwa === k.kolor);
-        return plyta ? { ...plyta, ilosc: k.ilosc } : null;
-      })
-      .filter(Boolean) as (Plyta & { ilosc: number })[];
-    
-    if (wybranePlyty.length === 0) return { wszystkieTeSame: true, grupy: new Map() };
-    
-    const grupy = new Map<string, number>();
-    wybranePlyty.forEach(plyta => {
-      const key = `${plyta.dlugosc || 0}x${plyta.szerokosc || 0}`;
-      grupy.set(key, (grupy.get(key) || 0) + 1);
-    });
-    
-    return {
-      wszystkieTeSame: grupy.size === 1,
-      grupy,
-      najczestszyRozmiar: grupy.size > 0 ? 
-        Array.from(grupy.entries()).sort((a, b) => b[1] - a[1])[0][0] : null
-    };
-  }, [kolorePlyty, plyty]);
 
   const getMaxPlytForColor = (kolor: string, currentIndex: number): number => {
     const plyta = plyty.find(p => p.kolor_nazwa === kolor);
@@ -115,63 +84,22 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       ),
       dataIndex: 'kolor',
       key: 'kolor',
-      width: '40%',
-      render: (_: any, __: any, index: number) => {
-        if (selectorType === 'select') {
-          return (
-            <PlytaSelectV3
-              plyty={plyty}
-              loading={plytyLoading}
-              value={kolorePlyty[index]?.kolor}
-              onChange={(plyta) => handlePlytaChange(index, plyta)}
-              placeholder={`Wybierz płytę dla pozycji ${index + 1}`}
-            />
-          );
-        } else if (selectorType === 'custom') {
-          return (
-            <PlytySelectorV2
-              plyty={plyty}
-              loading={plytyLoading}
-              value={kolorePlyty[index]?.kolor}
-              onChange={(plyta) => handlePlytaChange(index, plyta)}
-              placeholder={`Wybierz płytę dla pozycji ${index + 1}`}
-            />
-          );
-        } else {
-          return (
-            <SimplePlytaSelector
-              plyty={plyty}
-              loading={plytyLoading}
-              value={kolorePlyty[index]?.kolor}
-              onChange={(plyta) => handlePlytaChange(index, plyta)}
-              placeholder={`Wpisz nazwę koloru płyty...`}
-            />
-          );
-        }
-      },
-    },
-    {
-      title: 'Wymiary',
-      dataIndex: 'wymiary',
-      key: 'wymiary',
-      width: '20%',
-      render: (_: any, __: any, index: number) => {
-        const kolor = kolorePlyty[index];
-        const plyta = plyty.find(p => p.kolor_nazwa === kolor?.kolor);
-        return (
-          <WymiaryColumn 
-            kolor={kolor}
-            plyta={plyta}
-            wymiaryAnaliza={wymiaryAnaliza}
-          />
-        );
-      },
+      width: '50%', // Zwiększamy szerokość bo usunęliśmy kolumnę Wymiary
+      render: (_: any, __: any, index: number) => (
+        <BetterPlytaSelector
+          plyty={plyty}
+          loading={plytyLoading}
+          value={kolorePlyty[index]?.kolor}
+          onChange={(plyta) => handlePlytaChange(index, plyta)}
+          placeholder="Szukaj płyty..."
+        />
+      ),
     },
     {
       title: 'Parametry',
       dataIndex: 'parametry',
       key: 'parametry',
-      width: '20%',
+      width: '25%',
       render: (_: any, __: any, index: number) => (
         <ParametryColumn kolor={kolorePlyty[index]} />
       ),
@@ -204,7 +132,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
     {
       title: 'Akcje',
       key: 'actions',
-      width: '5%',
+      width: '10%',
       render: (_: any, __: any, index: number) => (
         <div style={{ textAlign: 'center' }}>
           <Button
@@ -227,7 +155,7 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
 
   return (
     <div>
-      <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ marginBottom: 8 }}>
         <Space>
           <Text strong style={{ fontSize: '14px' }}>Kolory płyt do rozkroju</Text>
           {przekroczonyLimit && (
@@ -236,23 +164,6 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
             </Tag>
           )}
         </Space>
-        
-        {/* Przełącznik między selektorami - tylko w trybie dev */}
-        {process.env.NODE_ENV === 'development' && (
-          <Space style={{ fontSize: '11px' }}>
-            <Text type="secondary">Typ selektora:</Text>
-            <Radio.Group 
-              value={selectorType} 
-              onChange={(e) => setSelectorType(e.target.value)}
-              size="small"
-              buttonStyle="solid"
-            >
-              <Radio.Button value="simple">✅ Wyszukiwarka</Radio.Button>
-              <Radio.Button value="select">🔧 Select</Radio.Button>
-              <Radio.Button value="custom">📦 Custom</Radio.Button>
-            </Radio.Group>
-          </Space>
-        )}
       </div>
       
       <Table
@@ -267,7 +178,6 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
       
       <TableFooter 
         kolorePlyty={kolorePlyty}
-        wymiaryAnaliza={wymiaryAnaliza}
         totalPlyty={totalPlyty}
         maxPlytNaPozycje={maxPlytNaPozycje}
         przekroczonyLimit={przekroczonyLimit}
@@ -279,11 +189,10 @@ export const KolorePlytyTable: React.FC<KolorePlytyTableProps> = ({
 // Podkomponent stopki tabeli
 const TableFooter: React.FC<{
   kolorePlyty: KolorPlyty[];
-  wymiaryAnaliza: any;
   totalPlyty: number;
   maxPlytNaPozycje: number;
   przekroczonyLimit: boolean;
-}> = ({ kolorePlyty, wymiaryAnaliza, totalPlyty, maxPlytNaPozycje, przekroczonyLimit }) => {
+}> = ({ kolorePlyty, totalPlyty, maxPlytNaPozycje, przekroczonyLimit }) => {
   if (kolorePlyty.length === 0) return null;
   
   return (
@@ -307,9 +216,6 @@ const TableFooter: React.FC<{
           }}
         >
           Łącznie płyt: {totalPlyty}/{maxPlytNaPozycje}
-        </Text>
-        <Text style={{ fontSize: '11px' }}>
-          Wymiarów: {wymiaryAnaliza.grupy.size}
         </Text>
       </Space>
     </div>

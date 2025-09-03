@@ -12,6 +12,7 @@ export interface Plyta {
   cena_za_m2?: number;
   dlugosc?: number;
   szerokosc?: number;
+  popularnosc?: number;  // Dodane pole popularności (1-5)
 }
 
 export interface Rozkroj {
@@ -39,17 +40,17 @@ export interface KolorPlyty {
   plyta_id?: number;
   stan_magazynowy?: number;
   grubosc?: number;
-  dlugosc?: number;  // Dodane pole
-  szerokosc?: number; // Dodane pole
+  dlugosc?: number;
+  szerokosc?: number;
 }
 
 export interface AddPozycjaModalProps {
-  visible: boolean;  // Zachowujemy dla kompatybilności wstecznej
+  visible: boolean;
   zkoId: number;
   onCancel: () => void;
   onSuccess: () => void;
-  editMode?: boolean;        // Dodane dla trybu edycji
-  pozycjaToEdit?: any;       // Dodane dla danych pozycji do edycji
+  editMode?: boolean;
+  pozycjaToEdit?: any;
 }
 
 export interface PlytyQueryParams {
