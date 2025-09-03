@@ -1,432 +1,478 @@
 /**
- * @fileoverview Style CSS dla modułu PaletyZko z Drag & Drop - ULEPSZONE
- * @module PaletyZko/styles
+ * Style dla modułu PaletyZko - minimalistyczny, nowoczesny design
  */
 
-/* ==================== GŁÓWNY KONTENER ==================== */
+/* Reset i podstawowe style */
 .palety-zko {
-  width: 100%;
-  min-height: 600px;
-  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ==================== FORMATKI - KOMPAKTOWY DESIGN ==================== */
-.formatka-item-compact {
-  cursor: move !important;
-  transition: all 0.2s ease;
-  user-select: none;
-  position: relative;
-  background: #ffffff;
-  margin-bottom: 4px;
-  border: 1px solid #f0f0f0;
-  border-radius: 6px;
-  padding: 8px 12px;
-}
-
-/* Hover effect dla całej formatki */
-.formatka-item-compact:hover {
-  background: #fafafa !important;
-  border-color: #40a9ff !important;
-  transform: translateX(4px);
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
-}
-
-/* Stan podczas przeciągania */
-.formatka-item-compact:active {
-  cursor: grabbing !important;
-  transform: scale(0.98) rotate(1deg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-}
-
-/* Uchwyt do przeciągania - większy obszar aktywny */
-.formatka-item-compact .drag-handle {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  opacity: 0.3;
-  transition: opacity 0.2s;
-}
-
-.formatka-item-compact:hover .drag-handle {
-  opacity: 1;
-}
-
-/* ==================== SELEKTOR FORMATEK - ULTRA KOMPAKT ==================== */
-.formatka-selector-ultra-compact {
-  padding: 0;
-}
-
-/* Ukryj scrollbar ale zachowaj funkcjonalność */
-.formatka-selector-ultra-compact > div:last-child {
-  scrollbar-width: thin;
-  scrollbar-color: #d9d9d9 transparent;
-}
-
-.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar {
-  width: 6px;
-}
-
-.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar-thumb {
-  background-color: #d9d9d9;
-  border-radius: 3px;
-}
-
-.formatka-selector-ultra-compact > div:last-child::-webkit-scrollbar-thumb:hover {
-  background-color: #bfbfbf;
-}
-
-/* Małe inputy i selecty */
-.formatka-selector-ultra-compact .ant-input-sm {
-  font-size: 12px !important;
-  height: 28px !important;
-}
-
-.formatka-selector-ultra-compact .ant-select-sm .ant-select-selector {
-  font-size: 12px !important;
-  height: 28px !important;
-}
-
-/* ==================== KARTY PALET - DRAG & DROP ==================== */
-.paleta-card {
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-  position: relative;
-  overflow: visible;
-  background: #ffffff !important;
-  height: auto !important;
-}
-
-.paleta-card .ant-card-body {
-  background: #ffffff !important;
-  padding: 16px;
-}
-
-.paleta-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: #1890ff;
-}
-
-/* Stan podczas przeciągania nad paletą */
-.paleta-card.drag-over {
-  border-color: #52c41a !important;
-  background: linear-gradient(to bottom, #f6ffed, #ffffff) !important;
-  transform: scale(1.02);
-  box-shadow: 0 0 20px rgba(82, 196, 26, 0.3);
-}
-
-.paleta-card.drag-over::before {
-  content: '⬇ UPUŚĆ TUTAJ';
-  position: absolute;
-  top: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #52c41a;
-  color: white;
-  padding: 2px 12px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: bold;
-  z-index: 100;
-  animation: pulse 1s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
-  50% { opacity: 0.8; transform: translateX(-50%) scale(1.05); }
-}
-
-/* Animacja pulsowania dla drop zone */
-.paleta-card.can-drop {
-  animation: dropPulse 1.5s ease-in-out infinite;
-}
-
-@keyframes dropPulse {
-  0%, 100% {
-    border-color: transparent;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  }
-  50% {
-    border-color: #52c41a;
-    box-shadow: 0 4px 20px rgba(82, 196, 26, 0.2);
-  }
-}
-
-/* Stan palety zamkniętej */
-.paleta-card.locked {
-  opacity: 0.7;
-  cursor: not-allowed;
-  background: #f5f5f5 !important;
-}
-
-.paleta-card.locked::after {
-  content: '🔒';
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 16px;
-}
-
-/* Wskaźnik pełnej palety */
-.paleta-card.paleta-full::before {
-  content: '⚠️ PEŁNA';
-  position: absolute;
-  top: -10px;
-  right: 10px;
-  background: #ff4d4f;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: bold;
-  z-index: 10;
-}
-
-/* ==================== DROP INDICATOR ==================== */
-.drop-indicator {
-  border: 2px dashed #52c41a;
-  background: linear-gradient(
-    45deg,
-    rgba(82, 196, 26, 0.05) 25%,
-    transparent 25%,
-    transparent 75%,
-    rgba(82, 196, 26, 0.05) 75%,
-    rgba(82, 196, 26, 0.05)
-  );
-  background-size: 20px 20px;
-  animation: dropIndicatorMove 1s linear infinite;
-  padding: 24px;
-  border-radius: 8px;
-  text-align: center;
-  margin: 8px 0;
-}
-
-@keyframes dropIndicatorMove {
-  0% { background-position: 0 0; }
-  100% { background-position: 20px 20px; }
-}
-
-.drop-indicator-text {
-  color: #52c41a;
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* ==================== SEPARATORY WIZUALNE ==================== */
-.formatka-item-compact + .formatka-item-compact {
-  margin-top: 4px;
-}
-
-/* Dodaj subtelny separator między formatkami */
-.formatka-item-compact::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 12px;
-  right: 12px;
-  height: 1px;
-  background: linear-gradient(to right, transparent, #f0f0f0 20%, #f0f0f0 80%, transparent);
-}
-
-/* ==================== CHECKBOX I TAGI ==================== */
-.formatka-item-compact .ant-checkbox-wrapper {
-  font-size: 11px !important;
-}
-
-.formatka-item-compact .ant-checkbox {
-  transform: scale(0.9);
-}
-
-.formatka-item-compact .ant-tag {
-  font-size: 11px !important;
-  padding: 0 6px !important;
-  line-height: 18px !important;
-  border-radius: 3px !important;
-}
-
-/* ==================== ALERT - KOMPAKTOWY ==================== */
-.palety-zko .ant-alert {
-  padding: 8px 12px !important;
-  margin-bottom: 12px !important;
-}
-
-.palety-zko .ant-alert-message {
-  font-size: 13px !important;
-  font-weight: 500 !important;
-}
-
-.palety-zko .ant-alert-description {
-  font-size: 12px !important;
-  margin-top: 4px !important;
-}
-
-.palety-zko .ant-alert-description ul {
-  margin: 4px 0 !important;
-  padding-left: 20px !important;
-}
-
-.palety-zko .ant-alert-description li {
-  margin: 2px 0 !important;
-}
-
-/* ==================== STATYSTYKI - MINI ==================== */
-.stats-mini {
-  background: linear-gradient(135deg, #f5f5f5 0%, #fafafa 100%);
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-}
-
-.stats-mini .ant-tag {
-  margin: 0 !important;
-  font-size: 11px !important;
-  font-weight: 500;
-}
-
-/* ==================== PALETY HEADER ==================== */
+/* Nagłówek */
 .palety-header {
-  background: #ffffff !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07) !important;
 }
 
 .palety-header .ant-card-body {
-  background: #ffffff !important;
-  padding: 16px !important;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
 }
 
-/* ==================== PROGRESS BARS ==================== */
-.progress-with-label {
+/* Kafelki pozycji - styl nowoczesny */
+.position-tile {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e8e8e8;
+  background: #ffffff;
+  cursor: pointer;
   position: relative;
-  margin-bottom: 8px;
+  overflow: hidden;
 }
 
-.progress-label {
+.position-tile::before {
+  content: '';
   position: absolute;
-  top: -20px;
+  top: 0;
+  left: 0;
   right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1890ff, #52c41a);
+  transform: translateY(-100%);
+  transition: transform 0.2s ease;
+}
+
+.position-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border-color: #1890ff;
+}
+
+.position-tile:hover::before {
+  transform: translateY(0);
+}
+
+.position-tile.selected {
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f9ff 100%);
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.1);
+}
+
+/* Karty główne */
+.ant-card {
+  border-radius: 8px !important;
+  border: 1px solid #f0f0f0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  transition: all 0.2s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Przyciski - minimalistyczne */
+.ant-btn {
+  border-radius: 4px !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  transition: all 0.2s ease !important;
+  border: 1px solid transparent !important;
+}
+
+.ant-btn-sm {
+  height: 24px !important;
+  padding: 0 8px !important;
+  font-size: 12px !important;
+}
+
+.ant-btn:not(.ant-btn-primary):not(.ant-btn-danger) {
+  background: #fafafa !important;
+  border-color: #d9d9d9 !important;
+}
+
+.ant-btn:not(.ant-btn-primary):not(.ant-btn-danger):hover {
+  background: #ffffff !important;
+  border-color: #1890ff !important;
+  color: #1890ff !important;
+}
+
+.ant-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
+}
+
+.ant-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* Tagi - kompaktowe */
+.ant-tag {
+  border-radius: 2px !important;
+  padding: 0 6px !important;
+  height: 20px !important;
+  line-height: 18px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  border: none !important;
+}
+
+/* Progress bar */
+.ant-progress-line {
+  margin-bottom: 2px !important;
+}
+
+.ant-progress-bg {
+  border-radius: 2px !important;
+  background: linear-gradient(90deg, currentColor, currentColor) !important;
+}
+
+/* Formatki do przeciągania */
+.formatka-item {
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  cursor: grab;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  min-height: 36px;
+}
+
+.formatka-item:hover {
+  border-color: #1890ff;
+  background: #f0f9ff;
+  transform: translateX(2px);
+}
+
+.formatka-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  transform: rotate(2deg);
+}
+
+.formatka-item .formatka-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.formatka-item .formatka-count {
+  background: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #595959;
+}
+
+/* Palety - widok blokowy */
+.paleta-card {
+  background: #ffffff;
+  border: 2px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 120px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.paleta-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #e8e8e8;
+}
+
+.paleta-card.status-otwarta::before {
+  background: #52c41a;
+}
+
+.paleta-card.status-zamknieta::before {
+  background: #faad14;
+}
+
+.paleta-card.status-gotowa::before {
+  background: #1890ff;
+}
+
+.paleta-card.empty {
+  border-style: dashed;
+  background: #fafafa;
+  border-color: #d9d9d9;
+  opacity: 0.6;
+}
+
+.paleta-card.drag-over {
+  border-color: #1890ff;
+  background: #e6f7ff;
+  box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+
+.paleta-card:hover:not(.empty) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Nagłówek palety */
+.paleta-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.paleta-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #262626;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.paleta-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.paleta-header-actions .ant-btn {
+  width: 24px !important;
+  height: 24px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Zawartość palety */
+.paleta-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.paleta-formatka-item {
+  background: #fafafa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.paleta-formatka-item:hover {
+  background: #f0f0f0;
+}
+
+/* Statystyki palety */
+.paleta-stats {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 11px;
   color: #8c8c8c;
 }
 
-/* ==================== SIATKA PALET ==================== */
-.palety-grid {
-  margin-top: 16px;
-  background: transparent;
-  padding: 0 8px;
+.paleta-fill-indicator {
+  width: 100%;
+  height: 4px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 4px;
 }
 
-.palety-grid .ant-row {
-  margin: -8px;
+.paleta-fill-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #52c41a, #95de64);
+  transition: width 0.3s ease;
+  border-radius: 2px;
 }
 
-.palety-grid .ant-col {
-  padding: 8px;
-}
-
-/* ==================== WYRÓWNANIE KOLUMN ==================== */
-.palety-zko .ant-row {
-  align-items: stretch;
-}
-
-.palety-zko .ant-col {
+/* Sekcja pustych palet */
+.empty-pallets-section {
+  min-height: 400px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed #d9d9d9;
+  border-radius: 8px;
+  background: #fafafa;
+  transition: all 0.2s ease;
 }
 
-.palety-zko .ant-col > .ant-card {
-  flex: 1;
+.empty-pallets-section.drag-over {
+  border-color: #1890ff;
+  background: #e6f7ff;
 }
 
-/* Stała wysokość dla obu kolumn */
-.palety-zko .ant-card-body {
-  max-height: 600px;
-  overflow-y: auto;
+.empty-pallets-content {
+  text-align: center;
+  padding: 40px;
 }
 
-/* ==================== TOOLTIPS ==================== */
-.custom-tooltip {
-  max-width: 250px;
+.empty-pallets-icon {
+  font-size: 48px;
+  color: #bfbfbf;
+  margin-bottom: 16px;
 }
 
-.tooltip-content {
-  font-size: 11px;
-  line-height: 1.4;
+/* Animacje */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* ==================== RESPONSIVE ==================== */
+.paleta-card {
+  animation: slideIn 0.3s ease;
+}
+
+/* Responsywność */
 @media (max-width: 768px) {
-  .palety-grid .ant-col {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .formatka-item-compact {
-    padding: 6px 10px;
-  }
-
-  .palety-zko .ant-card-body {
-    max-height: 400px;
-  }
-}
-
-@media (max-width: 576px) {
-  .paleta-card .ant-card-actions > li {
-    padding: 8px 4px;
-  }
-
-  .paleta-card .ant-card-actions .anticon {
-    font-size: 14px;
+  .paleta-card {
+    min-height: 100px;
   }
   
-  .formatka-item-compact {
-    font-size: 11px;
+  .formatka-item {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  
+  .position-tile {
+    min-height: 70px;
   }
 }
 
-/* ==================== DARK MODE OVERRIDE ==================== */
-.palety-zko,
-.palety-zko * {
-  background-color: transparent;
+/* Ikony - mono kolor */
+.anticon {
+  color: #595959 !important;
+  transition: color 0.2s ease;
 }
 
-.palety-zko .ant-card,
-.palety-zko .ant-card-head,
-.palety-zko .ant-card-body,
-.palety-zko .ant-modal-content,
-.palety-zko .ant-modal-header,
-.palety-zko .ant-modal-body,
-.formatka-item-compact {
-  background: #ffffff !important;
-  color: rgba(0, 0, 0, 0.85) !important;
+.ant-btn:hover .anticon {
+  color: #1890ff !important;
 }
 
-/* ==================== PRINT STYLES ==================== */
-@media print {
-  .palety-zko .ant-btn,
-  .palety-zko .ant-card-actions,
-  .drag-handle,
-  .drop-indicator {
-    display: none !important;
-  }
+.ant-btn-primary .anticon,
+.ant-btn-danger .anticon {
+  color: #ffffff !important;
+}
 
-  .paleta-card {
-    page-break-inside: avoid;
-    border: 1px solid #000 !important;
-  }
+/* Scrollbar - minimalistyczny */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bfbfbf;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #8c8c8c;
+}
+
+/* Tooltips - kompaktowe */
+.ant-tooltip {
+  font-size: 12px !important;
+}
+
+.ant-tooltip-inner {
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+}
+
+/* Modals - czyste */
+.ant-modal-header {
+  border-bottom: 1px solid #f0f0f0 !important;
+  padding: 12px 16px !important;
+}
+
+.ant-modal-body {
+  padding: 16px !important;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid #f0f0f0 !important;
+  padding: 8px 16px !important;
+}
+
+/* Empty state */
+.ant-empty-description {
+  color: #8c8c8c !important;
+  font-size: 13px !important;
+}
+
+/* Badges */
+.ant-badge-count {
+  height: 18px !important;
+  min-width: 18px !important;
+  line-height: 18px !important;
+  padding: 0 4px !important;
+  font-size: 11px !important;
+  border-radius: 9px !important;
+  font-weight: 600 !important;
+}
+
+/* Spin loader */
+.ant-spin-dot-item {
+  background-color: #667eea !important;
+}
+
+/* Focus states - subtelne */
+.ant-btn:focus,
+.ant-input:focus,
+.ant-select-selector:focus {
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1) !important;
+}
+
+/* Disabled states */
+.ant-btn[disabled] {
+  opacity: 0.4 !important;
+  cursor: not-allowed !important;
+}
+
+/* Cards grid layout */
+.ant-row {
+  margin-left: -4px !important;
+  margin-right: -4px !important;
+}
+
+.ant-col {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
 }
