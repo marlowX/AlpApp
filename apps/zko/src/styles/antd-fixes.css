@@ -1,17 +1,11 @@
 /* Podstawowe poprawki dla Ant Design Select */
 
-/* Fix z-index dla dropdown - WAŻNE: musi być wyższy niż modal */
+/* Fix z-index dla dropdown */
 .ant-select-dropdown {
-  z-index: 2050 !important;
-  position: fixed !important;
+  z-index: 1050 !important;
 }
 
-/* Zapewnij że dropdown jest widoczny */
-.ant-select-dropdown-hidden {
-  display: none;
-}
-
-/* Fix dla dropdown w modalach - KLUCZOWE */
+/* Fix dla dropdown w modalach */
 .ant-modal .ant-select-dropdown {
   z-index: 2050 !important;
 }
@@ -27,82 +21,15 @@
 
 /* Fix dla DatePicker */
 .ant-picker-dropdown {
-  z-index: 2050 !important;
+  z-index: 1050 !important;
 }
 
-/* Dodatkowy fix dla Select - upewnij się że dropdown się pokazuje */
-.ant-select {
-  position: relative;
-}
-
+/* Upewnij się że Select jest klikalny */
 .ant-select-selector {
   cursor: pointer !important;
 }
 
-/* Fix dla custom dropdown klasy */
-.plyta-select-dropdown {
-  z-index: 2050 !important;
-  min-width: 400px !important;
-  max-width: 600px !important;
-}
-
-/* Upewnij się że opcje są klikalne */
-.ant-select-item {
-  cursor: pointer !important;
-}
-
+/* Fix dla opcji w dropdown */
 .ant-select-item-option {
-  padding: 5px 12px !important;
-}
-
-/* Jeśli coś nadpisuje display none */
-.ant-select-dropdown:not(.ant-select-dropdown-hidden) {
-  display: block !important;
-}
-
-/* Fix dla Select w modalu - DODATKOWE POPRAWKI */
-.ant-modal-content .ant-select {
-  position: relative !important;
-}
-
-.ant-modal-body .ant-select-selector {
   cursor: pointer !important;
-  background: #fff !important;
-  border: 1px solid #d9d9d9 !important;
 }
-
-.ant-modal-body .ant-select-selector:hover {
-  border-color: #40a9ff !important;
-}
-
-/* Upewnij się że Select w modalu reaguje na kliknięcie */
-.ant-modal .ant-select:not(.ant-select-disabled) .ant-select-selector {
-  pointer-events: auto !important;
-}
-
-/* Fix dla portalu dropdownu */
-.ant-select-dropdown-placement-bottomLeft,
-.ant-select-dropdown-placement-topLeft {
-  position: fixed !important;
-}
-
-/* Dodatkowy fix dla Tab i Steps w modalach */
-.ant-modal .ant-tabs-content,
-.ant-modal .ant-steps-content {
-  position: relative;
-  z-index: 1;
-}
-
-/* Fix dla overflow w modalach */
-.ant-modal-body {
-  overflow: visible !important;
-}
-
-/* Debug - pokaż dropdown zawsze (tymczasowo - ODKOMENTUJ TYLKO DO TESTÓW) */
-/*
-.ant-select-dropdown {
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-*/

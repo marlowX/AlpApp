@@ -3,8 +3,6 @@ import { ConfigProvider, theme as antTheme } from 'antd';
 import plPL from 'antd/locale/pl_PL';
 import { lightTheme, darkTheme } from './tokens';
 import { ThemeProvider as StyledThemeProvider } from 'styled-components';
-// TYMCZASOWO WYŁĄCZAMY GlobalStyles
-// import { GlobalStyles } from './GlobalStyles';
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -109,14 +107,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
         locale={plPL}
         theme={mergedTheme}
         componentSize="middle"
-        // WAŻNE: Dodajemy getPopupContainer aby dropdown renderował się w body
-        getPopupContainer={() => document.body}
-        // Wyłączamy virtual scroll który może powodować problemy
-        virtual={false}
+        // USUNIĘTE problematyczne ustawienia
+        // getPopupContainer i virtual mogą powodować problemy
       >
         <StyledThemeProvider theme={mergedTheme}>
-          {/* TYMCZASOWO WYŁĄCZAMY GlobalStyles */}
-          {/* <GlobalStyles /> */}
           {children}
         </StyledThemeProvider>
       </ConfigProvider>
