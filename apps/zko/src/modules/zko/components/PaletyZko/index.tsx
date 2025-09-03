@@ -1,9 +1,9 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko - Z AUTOMATYCZNYM TWORZENIEM PALET PRZEZ DRAG & DROP
+ * @fileoverview Główny komponent modułu PaletyZko - minimalistyczny design z auto-odświeżaniem
  * @module PaletyZko
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, Row, Col, Space, Typography, Button, Badge, message, Spin, Empty, Tooltip, Popconfirm } from 'antd';
 import {
   AppstoreOutlined,
@@ -12,13 +12,15 @@ import {
   DeleteOutlined,
   DragOutlined,
   InfoCircleOutlined,
-  InboxOutlined
+  InboxOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
 // Style
 import './styles.css';
+import { colors, dimensions, componentStyles } from './styles/theme';
 
 // Komponenty z Drag & Drop
 import { PozycjaSelector } from './components/PozycjaSelector';
@@ -46,6 +48,8 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   const [selectedPozycjaId, setSelectedPozycjaId] = useState<number>();
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [detailsPaletaId, setDetailsPaletaId] = useState<number>();
+  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [lastAutoRefresh, setLastAutoRefresh] = useState(Date.now());
 
   // ========== HOOKS ==========
   const {
@@ -73,11 +77,34 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     obliczStatystyki
   } = useFormatki(selectedPozycjaId);
 
+  // Auto-odświeżanie co 10 sekund gdy komponent jest aktywny
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (selectedPozycjaId) {
+        fetchPalety();
+        fetchFormatki();
+        setLastAutoRefresh(Date.now());
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [selectedPozycjaId, fetchPalety, fetchFormatki]);
+
+  // Odświeżanie danych po zmianie pozycji
+  useEffect(() => {
+    if (selectedPozycjaId) {
+      fetchPalety();
+      fetchFormatki();
+    }
+  }, [selectedPozycjaId, refreshCounter]);
+
   // ========== HANDLERS ==========
   const handleRefresh = useCallback(() => {
+    setRefreshCounter(prev => prev + 1);
     fetchPalety();
     fetchFormatki();
     if (onRefresh) onRefresh();
+    message.success('Odświeżono dane', 1);
   }, [fetchPalety, fetchFormatki, onRefresh]);
 
   const handleSelectPozycja = useCallback((pozycjaId: number) => {
@@ -94,11 +121,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     if (paleta) {
       setCreateModalVisible(false);
       message.success('Paleta utworzona pomyślnie');
-      await fetchFormatki();
+      setRefreshCounter(prev => prev + 1);
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPalete]);
 
-  // Tworzenie pustej palety
   const handleCreateEmptyPaleta = useCallback(async () => {
     if (!selectedPozycjaId) {
       message.warning('Wybierz najpierw pozycję ZKO');
@@ -114,16 +140,16 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success('Utworzono pustą paletę');
-      await fetchFormatki();
+      setRefreshCounter(prev => prev + 1);
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPalete]);
 
   const handleDeletePaleta = useCallback(async (paletaId: number) => {
     const success = await usunPalete(paletaId);
     if (success) {
-      await fetchFormatki();
+      setRefreshCounter(prev => prev + 1);
     }
-  }, [usunPalete, fetchFormatki]);
+  }, [usunPalete]);
 
   const handleClosePaleta = useCallback(async (paletaId: number) => {
     const success = await zamknijPalete(paletaId);
@@ -146,11 +172,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
 
     const result = await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
     if (result) {
-      await fetchFormatki();
+      setRefreshCounter(prev => prev + 1);
     }
-  }, [selectedPozycjaId, utworzPaletyDlaPozostalych, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPaletyDlaPozostalych]);
 
-  // DRAG & DROP - Automatyczne tworzenie palety gdy nie ma żadnej
   const handleDropFormatkaToEmptyArea = useCallback(async (
     formatka: any,
     ilosc: number
@@ -160,7 +185,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       return;
     }
 
-    // Automatycznie utwórz paletę z formatkami
     const data: PaletaFormData = {
       przeznaczenie: 'MAGAZYN',
       formatki: [{
@@ -173,14 +197,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success('Automatycznie utworzono paletę z formatkami');
-      await Promise.all([
-        fetchPalety(),
-        fetchFormatki()
-      ]);
+      setRefreshCounter(prev => prev + 1);
     }
-  }, [selectedPozycjaId, utworzPalete, fetchPalety, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPalete]);
 
-  // DRAG & DROP - Handler dla upuszczenia formatki na paletę
   const handleDropFormatka = useCallback(async (
     formatka: any,
     ilosc: number,
@@ -232,16 +252,13 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       
       if (success) {
         message.success(`Dodano ${ilosc} szt. formatki do palety`);
-        await Promise.all([
-          fetchPalety(),
-          fetchFormatki()
-        ]);
+        setRefreshCounter(prev => prev + 1);
       }
     } catch (error) {
       console.error('Błąd podczas dodawania formatki:', error);
       message.error('Błąd podczas dodawania formatki do palety');
     }
-  }, [palety, edytujPalete, fetchPalety, fetchFormatki]);
+  }, [palety, edytujPalete]);
 
   const formatkiDostepne = getFormatkiDostepne();
   const statystykiFormatek = obliczStatystyki();
@@ -251,86 +268,146 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="palety-zko">
-        {/* Header z selektorem pozycji */}
+        {/* Kompaktowy nagłówek */}
         <Card 
           className="palety-header"
-          style={{ marginBottom: 16 }}
-          styles={{ body: { padding: '16px' } }}
+          size="small"
+          style={{ 
+            marginBottom: dimensions.spacingMd,
+            borderRadius: dimensions.cardBorderRadius,
+            overflow: 'hidden'
+          }}
+          styles={{ 
+            body: { 
+              padding: dimensions.spacingMd 
+            } 
+          }}
         >
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Space>
-                <DragOutlined style={{ fontSize: 24, color: '#1890ff' }} />
-                <Title level={4} style={{ margin: 0 }}>Zarządzanie Paletami (Drag & Drop)</Title>
+          <Space direction="vertical" style={{ width: '100%' }} size={dimensions.spacingSm}>
+            {/* Górna linia - tytuł i przyciski */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center'
+            }}>
+              <Space size={dimensions.spacingSm}>
+                <DragOutlined style={{ 
+                  fontSize: dimensions.iconSizeLarge, 
+                  color: colors.primary 
+                }} />
+                <Title level={5} style={{ 
+                  margin: 0, 
+                  fontSize: dimensions.fontSizeLarge,
+                  fontWeight: dimensions.fontWeightBold
+                }}>
+                  Zarządzanie Paletami
+                </Title>
                 {palety.length > 0 && (
-                  <Badge count={palety.length} style={{ backgroundColor: '#52c41a' }} />
+                  <Badge 
+                    count={palety.length} 
+                    style={{ 
+                      backgroundColor: colors.success,
+                      fontSize: 10,
+                      height: 16,
+                      lineHeight: '16px',
+                      minWidth: 16
+                    }} 
+                  />
                 )}
               </Space>
-              <Space>
-                <Button 
-                  icon={<ReloadOutlined />} 
-                  onClick={handleRefresh}
-                  loading={loading}
-                >
-                  Odśwież
-                </Button>
+              <Space size={dimensions.spacingXs}>
+                <Text style={{ fontSize: 10, color: colors.textSecondary }}>
+                  Auto-odświeżanie: {new Date(lastAutoRefresh).toLocaleTimeString('pl-PL')}
+                </Text>
+                <Tooltip title="Odśwież dane">
+                  <Button 
+                    icon={<ReloadOutlined />} 
+                    onClick={handleRefresh}
+                    loading={loading}
+                    size="small"
+                    style={componentStyles.button.small}
+                  />
+                </Tooltip>
                 {palety.length > 0 && (
                   <Popconfirm
                     title="Usuń wszystkie palety"
                     description="Czy na pewno chcesz usunąć wszystkie palety?"
                     onConfirm={usunWszystkiePalety}
-                    okText="Tak, usuń"
-                    cancelText="Anuluj"
-                    okButtonProps={{ danger: true }}
+                    okText="Tak"
+                    cancelText="Nie"
+                    okButtonProps={{ danger: true, size: 'small' }}
+                    cancelButtonProps={{ size: 'small' }}
                   >
-                    <Button
-                      danger
-                      icon={<DeleteOutlined />}
-                      loading={loading}
-                    >
-                      Usuń wszystkie
-                    </Button>
+                    <Tooltip title="Usuń wszystkie palety">
+                      <Button
+                        danger
+                        icon={<DeleteOutlined />}
+                        loading={loading}
+                        size="small"
+                        style={componentStyles.button.small}
+                      />
+                    </Tooltip>
                   </Popconfirm>
                 )}
+                <Tooltip title="Ustawienia">
+                  <Button
+                    icon={<SettingOutlined />}
+                    size="small"
+                    style={componentStyles.button.small}
+                    disabled
+                  />
+                </Tooltip>
               </Space>
             </div>
 
+            {/* Selektor pozycji z refresh triggerem */}
             <PozycjaSelector
               zkoId={zkoId}
               selectedPozycjaId={selectedPozycjaId}
               onSelect={handleSelectPozycja}
               loading={loading}
+              refreshTrigger={refreshCounter}
             />
 
+            {/* Statystyki - kompaktowe */}
             {selectedPozycjaId && (
-              <PaletyStats
-                podsumowanie={podsumowanie}
-                statystykiFormatek={statystykiFormatek}
-              />
+              <div style={{ 
+                background: colors.bgSecondary,
+                padding: dimensions.spacingSm,
+                borderRadius: dimensions.buttonBorderRadius,
+                marginTop: dimensions.spacingXs
+              }}>
+                <PaletyStats
+                  podsumowanie={podsumowanie}
+                  statystykiFormatek={statystykiFormatek}
+                />
+              </div>
             )}
           </Space>
         </Card>
 
-        {/* GŁÓWNY WIDOK - FORMATKI PO LEWEJ, PALETY PO PRAWEJ */}
-        <div style={{ minHeight: '600px' }}>
-          <Row gutter={16}>
-            {/* LEWA KOLUMNA - FORMATKI DO PRZECIĄGANIA */}
+        {/* GŁÓWNY WIDOK - FORMATKI I PALETY */}
+        <div style={{ minHeight: '500px' }}>
+          <Row gutter={dimensions.spacingSm}>
+            {/* LEWA KOLUMNA - FORMATKI */}
             <Col xs={24} lg={8}>
               <Card 
+                size="small"
                 title={
-                  <Space>
-                    <DragOutlined />
-                    <span>Dostępne formatki ({formatkiDostepne.length})</span>
+                  <Space size={dimensions.spacingXs}>
+                    <DragOutlined style={{ fontSize: dimensions.iconSizeBase }} />
+                    <span style={{ fontSize: dimensions.fontSizeBase }}>
+                      Formatki ({formatkiDostepne.length})
+                    </span>
                     <Tooltip 
-                      title={
-                        <div style={{ fontSize: '12px' }}>
-                          <div>• Przeciągnij formatki na palety</div>
-                          <div>• Jeśli nie ma palet, paleta utworzy się automatycznie</div>
-                          <div>• Liczba w nawiasie to dostępne sztuki</div>
-                        </div>
-                      }
+                      title="Przeciągnij formatki na palety"
+                      placement="right"
                     >
-                      <InfoCircleOutlined style={{ fontSize: '14px', color: '#1890ff', cursor: 'help' }} />
+                      <InfoCircleOutlined style={{ 
+                        fontSize: dimensions.iconSizeSmall, 
+                        color: colors.info, 
+                        cursor: 'help' 
+                      }} />
                     </Tooltip>
                   </Space>
                 }
@@ -340,16 +417,21 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       size="small"
                       onClick={handleCreateRemaining}
                       disabled={!selectedPozycjaId}
+                      style={componentStyles.button.small}
                     >
-                      Palety dla wszystkich
+                      Wszystkie
                     </Button>
                   )
                 }
                 styles={{ 
+                  header: {
+                    minHeight: dimensions.headerHeightSmall,
+                    padding: `0 ${dimensions.spacingSm}px`
+                  },
                   body: { 
-                    height: '600px',
+                    height: '450px',
                     overflowY: 'auto',
-                    padding: '12px'
+                    padding: dimensions.spacingSm
                   }
                 }}
               >
@@ -366,50 +448,69 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   />
                 ) : (
                   <Empty 
+                    image={<InboxOutlined style={componentStyles.empty.icon} />}
                     description={
-                      selectedPozycjaId 
-                        ? "Wszystkie formatki zostały przypisane do palet"
-                        : "Wybierz pozycję ZKO aby zobaczyć formatki"
+                      <Text style={{ fontSize: dimensions.fontSizeSmall }}>
+                        {selectedPozycjaId 
+                          ? "Wszystkie formatki na paletach"
+                          : "Wybierz pozycję ZKO"
+                        }
+                      </Text>
                     }
                   />
                 )}
               </Card>
             </Col>
 
-            {/* PRAWA KOLUMNA - PALETY (DROP ZONES) */}
+            {/* PRAWA KOLUMNA - PALETY */}
             <Col xs={24} lg={16}>
               <Card 
+                size="small"
                 title={
-                  <Space>
-                    <AppstoreOutlined />
-                    <span>Palety ({palety.length})</span>
+                  <Space size={dimensions.spacingXs}>
+                    <AppstoreOutlined style={{ fontSize: dimensions.iconSizeBase }} />
+                    <span style={{ fontSize: dimensions.fontSizeBase }}>
+                      Palety ({palety.length})
+                    </span>
                   </Space>
                 }
                 extra={
-                  <Space>
-                    <Button
-                      icon={<InboxOutlined />}
-                      onClick={handleCreateEmptyPaleta}
-                      disabled={!selectedPozycjaId}
-                      style={{ display: palety.length > 0 ? 'inline-block' : 'none' }}
-                    >
-                      Pusta paleta
-                    </Button>
+                  <Space size={dimensions.spacingXs}>
+                    {palety.length > 0 && (
+                      <Tooltip title="Utwórz pustą paletę">
+                        <Button
+                          icon={<InboxOutlined />}
+                          onClick={handleCreateEmptyPaleta}
+                          disabled={!selectedPozycjaId}
+                          size="small"
+                          style={componentStyles.button.small}
+                        />
+                      </Tooltip>
+                    )}
                     <Button
                       type="primary"
                       icon={<PlusOutlined />}
                       onClick={() => setCreateModalVisible(true)}
                       disabled={!selectedPozycjaId}
+                      size="small"
+                      style={{
+                        ...componentStyles.button.small,
+                        fontWeight: dimensions.fontWeightBold
+                      }}
                     >
-                      Utwórz paletę z formatkami
+                      Nowa paleta
                     </Button>
                   </Space>
                 }
                 styles={{ 
+                  header: {
+                    minHeight: dimensions.headerHeightSmall,
+                    padding: `0 ${dimensions.spacingSm}px`
+                  },
                   body: { 
-                    height: '600px',
+                    height: '450px',
                     overflowY: 'auto',
-                    padding: '12px'
+                    padding: dimensions.spacingSm
                   }
                 }}
               >
@@ -433,57 +534,57 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   />
                 ) : (
                   <div 
-                    style={{ 
-                      textAlign: 'center', 
-                      padding: '60px 20px',
-                      border: '2px dashed #d9d9d9',
-                      borderRadius: '8px',
-                      background: '#fafafa',
-                      minHeight: '400px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}
+                    className="empty-pallets-section"
                     onDrop={(e) => {
                       e.preventDefault();
-                      // Tu obsługa automatycznego tworzenia palety
                       if (selectedPozycjaId) {
-                        message.info('Przeciągnij formatkę tutaj aby automatycznie utworzyć paletę');
+                        message.info('Przeciągnij formatkę tutaj');
                       }
                     }}
                     onDragOver={(e) => e.preventDefault()}
                   >
-                    <AppstoreOutlined style={{ fontSize: 64, color: '#d9d9d9', marginBottom: 16 }} />
-                    <Title level={4} style={{ color: '#999', marginBottom: 8 }}>
-                      Brak palet
-                    </Title>
-                    <Text style={{ color: '#999', marginBottom: 24 }}>
-                      {selectedPozycjaId 
-                        ? 'Przeciągnij formatkę z lewej strony lub użyj przycisków poniżej'
-                        : 'Wybierz najpierw pozycję ZKO'
-                      }
-                    </Text>
-                    
-                    {selectedPozycjaId && (
-                      <Space direction="vertical" size="middle">
-                        <Button
-                          icon={<InboxOutlined />}
-                          onClick={handleCreateEmptyPaleta}
-                          size="large"
-                        >
-                          Utwórz pustą paletę
-                        </Button>
-                        <Button
-                          type="primary"
-                          icon={<PlusOutlined />}
-                          onClick={() => setCreateModalVisible(true)}
-                          size="large"
-                        >
-                          Utwórz paletę z formatkami
-                        </Button>
-                      </Space>
-                    )}
+                    <div className="empty-pallets-content">
+                      <AppstoreOutlined className="empty-pallets-icon" />
+                      <Title level={5} style={{ 
+                        color: colors.textSecondary, 
+                        marginBottom: dimensions.spacingSm 
+                      }}>
+                        Brak palet
+                      </Title>
+                      <Text style={{ 
+                        color: colors.textSecondary, 
+                        fontSize: dimensions.fontSizeSmall,
+                        marginBottom: dimensions.spacingLg 
+                      }}>
+                        {selectedPozycjaId 
+                          ? 'Przeciągnij formatkę lub utwórz paletę'
+                          : 'Wybierz pozycję ZKO'
+                        }
+                      </Text>
+                      
+                      {selectedPozycjaId && (
+                        <Space direction="vertical" size={dimensions.spacingSm}>
+                          <Button
+                            icon={<InboxOutlined />}
+                            onClick={handleCreateEmptyPaleta}
+                            style={componentStyles.button.base}
+                          >
+                            Pusta paleta
+                          </Button>
+                          <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => setCreateModalVisible(true)}
+                            style={{
+                              ...componentStyles.button.base,
+                              fontWeight: dimensions.fontWeightBold
+                            }}
+                          >
+                            Nowa paleta z formatkami
+                          </Button>
+                        </Space>
+                      )}
+                    </div>
                   </div>
                 )}
               </Card>

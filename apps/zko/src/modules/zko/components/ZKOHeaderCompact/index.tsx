@@ -124,7 +124,7 @@ export const ZKOHeaderCompact: React.FC<ZKOHeaderCompactProps> = ({ zko, postepR
         <Progress 
           percent={postepRealizacji} 
           showInfo={false}
-          strokeHeight={4}
+          strokeWidth={4}
           style={{ flex: 1, margin: 0 }}
         />
 

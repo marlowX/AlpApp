@@ -1,12 +1,7 @@
 import { createGlobalStyle } from 'styled-components';
 
 export const GlobalStyles = createGlobalStyle`
-  * {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-  }
-
+  /* BEZPIECZNY reset - nie dotyka komponentów Ant Design */
   html {
     font-size: 16px;
     -webkit-font-smoothing: antialiased;
@@ -22,7 +17,7 @@ export const GlobalStyles = createGlobalStyle`
     transition: background-color 0.3s ease;
   }
 
-  /* Scrollbar styles */
+  /* Scrollbar styles - NIE ma wpływu na Select */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -48,20 +43,20 @@ export const GlobalStyles = createGlobalStyle`
     color: ${props => props.theme.token?.colorText || 'rgba(0, 0, 0, 0.88)'};
   }
 
-  /* Focus styles */
-  :focus-visible {
+  /* Focus styles - WYŁĄCZAMY globalnie, Ant Design ma własne */
+  /* :focus-visible {
     outline: 2px solid ${props => props.theme.token?.colorPrimary || '#1890ff'};
     outline-offset: 2px;
-  }
+  } */
 
-  /* Ant Design overrides for better integration */
+  /* Ant Design layout styling - BEZPIECZNE */
   .ant-layout {
     background: ${props => props.theme.token?.colorBgLayout || '#f5f5f5'};
   }
 
   .ant-layout-content {
     padding: 24px;
-    min-height: calc(100vh - 64px - 69px); /* header - footer */
+    min-height: calc(100vh - 64px - 69px);
   }
 
   /* Animations */
@@ -87,15 +82,6 @@ export const GlobalStyles = createGlobalStyle`
     }
   }
 
-  @keyframes pulse {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.7;
-    }
-  }
-
   /* Utility classes */
   .fade-in {
     animation: fadeIn 0.3s ease;
@@ -105,8 +91,8 @@ export const GlobalStyles = createGlobalStyle`
     animation: slideInRight 0.3s ease;
   }
 
-  /* Custom table hover effect */
-  .ant-table-tbody > tr {
+  /* SELEKTYWNE ulepszenia - tylko dla niestandardowych komponentów */
+  .zko-details-page .ant-table-tbody > tr {
     transition: all 0.2s ease;
     
     &:hover {
@@ -115,8 +101,7 @@ export const GlobalStyles = createGlobalStyle`
     }
   }
 
-  /* Card hover effect */
-  .ant-card {
+  .palety-zko .ant-card {
     transition: all 0.3s ease;
     
     &:hover {
@@ -124,13 +109,7 @@ export const GlobalStyles = createGlobalStyle`
     }
   }
 
-  /* Button loading state */
-  .ant-btn-loading {
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-
-  /* Status colors utility classes */
+  /* Status utility classes */
   .status-active {
     color: ${props => props.theme.token?.colorSuccess || '#52c41a'};
   }

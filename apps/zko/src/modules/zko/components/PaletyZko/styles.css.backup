@@ -1,0 +1,545 @@
+/**
+ * Style dla modułu PaletyZko - minimalistyczny ERP design
+ */
+
+/* Reset i podstawowe style */
+.palety-zko {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #262626;
+}
+
+/* Nagłówek - płaski, bez gradientów */
+.palety-header {
+  background: #ffffff !important;
+  border: 1px solid #f0f0f0 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.palety-header .ant-card-body {
+  background: #ffffff;
+  border-radius: 0;
+}
+
+/* Nagłówki sekcji - małe i kompaktowe */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 500 !important;
+  color: #262626 !important;
+  margin: 0 !important;
+}
+
+h1 { font-size: 18px !important; }
+h2 { font-size: 16px !important; }
+h3 { font-size: 14px !important; }
+h4 { font-size: 13px !important; }
+h5 { font-size: 12px !important; }
+h6 { font-size: 11px !important; }
+
+/* Taby z ramkami */
+.ant-tabs-tab {
+  background: #fafafa !important;
+  border: 1px solid #e8e8e8 !important;
+  border-radius: 3px 3px 0 0 !important;
+  margin-right: 2px !important;
+  padding: 4px 12px !important;
+  font-size: 12px !important;
+  color: #595959 !important;
+}
+
+.ant-tabs-tab-active {
+  background: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+  color: #1890ff !important;
+}
+
+.ant-tabs-tab .anticon {
+  font-size: 14px !important;
+  margin-right: 6px !important;
+}
+
+.ant-tabs-nav {
+  margin-bottom: 12px !important;
+}
+
+/* Kafelki pozycji */
+.position-tile {
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 4px;
+}
+
+.position-tile:hover {
+  background: #fafafa;
+  border-color: #d9d9d9;
+  transform: none;
+  box-shadow: none;
+}
+
+.position-tile.selected {
+  background: #f0f9ff;
+  border: 2px solid #1890ff;
+}
+
+/* Karty - płaskie */
+.ant-card {
+  border-radius: 4px !important;
+  border: 1px solid #f0f0f0 !important;
+  box-shadow: none !important;
+}
+
+.ant-card:hover {
+  box-shadow: none !important;
+  border-color: #d9d9d9 !important;
+}
+
+.ant-card-head {
+  background: #fafafa !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+}
+
+.ant-card-head-title {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 0 !important;
+}
+
+.ant-card-body {
+  padding: 10px !important;
+}
+
+/* Przyciski - płaskie, małe */
+.ant-btn {
+  border-radius: 3px !important;
+  height: 26px !important;
+  padding: 0 10px !important;
+  font-weight: 400 !important;
+  font-size: 12px !important;
+  transition: all 0.15s ease !important;
+  box-shadow: none !important;
+  border: 1px solid #d9d9d9 !important;
+  background: #ffffff !important;
+  color: #595959 !important;
+}
+
+.ant-btn:hover:not([disabled]) {
+  background: #fafafa !important;
+  border-color: #bfbfbf !important;
+  color: #262626 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.ant-btn-sm {
+  height: 22px !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+}
+
+/* Przyciski primary - niebieskie z białymi ikonami */
+.ant-btn-primary {
+  background: #1890ff !important;
+  border-color: #1890ff !important;
+  color: #ffffff !important;
+}
+
+.ant-btn-primary:hover {
+  background: #40a9ff !important;
+  border-color: #40a9ff !important;
+  color: #ffffff !important;
+}
+
+.ant-btn-primary .anticon {
+  color: #ffffff !important;
+}
+
+/* Kolory funkcjonalne */
+.ant-btn-dangerous {
+  background: #ffffff !important;
+  border-color: #ff4d4f !important;
+  color: #ff4d4f !important;
+}
+
+.ant-btn-dangerous:hover {
+  background: #fff1f0 !important;
+  border-color: #ff4d4f !important;
+  color: #ff4d4f !important;
+}
+
+/* Tagi - małe z ramkami */
+.ant-tag {
+  border-radius: 2px !important;
+  padding: 0 6px !important;
+  height: 18px !important;
+  line-height: 16px !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  border: 1px solid #e8e8e8 !important;
+  background: #fafafa !important;
+  color: #595959 !important;
+}
+
+.ant-tag-green {
+  background: #f6ffed !important;
+  border-color: #b7eb8f !important;
+  color: #52c41a !important;
+}
+
+.ant-tag-blue {
+  background: #e6f7ff !important;
+  border-color: #91d5ff !important;
+  color: #1890ff !important;
+}
+
+.ant-tag-red {
+  background: #fff1f0 !important;
+  border-color: #ffa39e !important;
+  color: #ff4d4f !important;
+}
+
+/* Progress bar - kolory funkcjonalne */
+.ant-progress-line {
+  margin: 0 !important;
+}
+
+.ant-progress-bg {
+  border-radius: 2px !important;
+  height: 6px !important;
+}
+
+.ant-progress-inner {
+  background: #f0f0f0 !important;
+  border-radius: 2px !important;
+}
+
+/* Formatki do przeciągania */
+.formatka-item {
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  border-radius: 3px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  cursor: grab;
+  transition: all 0.15s ease;
+  font-size: 12px;
+  min-height: 32px;
+}
+
+.formatka-item:hover {
+  background: #fafafa;
+  border-color: #d9d9d9;
+  transform: none;
+}
+
+.formatka-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.formatka-count {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #595959;
+  border: 1px solid #e8e8e8;
+}
+
+/* Palety - wyraźne karty */
+.paleta-card {
+  background: #ffffff;
+  border: 1px solid #e8e8e8;
+  border-radius: 4px;
+  padding: 10px;
+  min-height: 100px;
+  transition: all 0.15s ease;
+}
+
+.paleta-card.status-otwarta {
+  border-left: 3px solid #52c41a;
+}
+
+.paleta-card.status-zamknieta {
+  background: #fffbe6;
+  border-left: 3px solid #faad14;
+}
+
+.paleta-card.empty {
+  border: 1px dashed #d9d9d9;
+  background: #fafafa;
+  opacity: 0.7;
+}
+
+.paleta-card.drag-over {
+  border-color: #1890ff;
+  background: #f0f9ff;
+  border-width: 2px;
+}
+
+.paleta-card:hover:not(.empty) {
+  border-color: #bfbfbf;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Nagłówek palety */
+.paleta-header-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #262626;
+}
+
+/* Statystyki */
+.paleta-stats {
+  font-size: 11px;
+  color: #8c8c8c;
+  padding-top: 6px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.paleta-fill-bar {
+  background: #52c41a;
+}
+
+/* Empty state */
+.empty-pallets-section {
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #d9d9d9;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+.empty-pallets-icon {
+  font-size: 40px;
+  color: #d9d9d9;
+}
+
+/* Ikony - domyślnie szare */
+.anticon {
+  color: #8c8c8c !important;
+}
+
+/* Ikony w przyciskach text - szare */
+.ant-btn-text .anticon {
+  color: #595959 !important;
+}
+
+.ant-btn-text:hover .anticon {
+  color: #262626 !important;
+}
+
+/* Ikony w przyciskach primary - BIAŁE */
+.ant-btn-primary .anticon {
+  color: #ffffff !important;
+}
+
+.ant-btn-primary:hover .anticon {
+  color: #ffffff !important;
+}
+
+/* Ikony w przyciskach danger */
+.ant-btn-dangerous .anticon,
+.ant-btn-text.ant-btn-dangerous .anticon {
+  color: #ff4d4f !important;
+}
+
+/* Specyficzne kolory ikon */
+.anticon-check-circle {
+  color: #52c41a !important;
+}
+
+.anticon-lock {
+  color: #faad14 !important;
+}
+
+.anticon-unlock {
+  color: #52c41a !important;
+}
+
+.anticon-printer {
+  color: #1890ff !important;
+}
+
+.anticon-eye {
+  color: #595959 !important;
+}
+
+.anticon-delete {
+  color: #ff4d4f !important;
+}
+
+/* Scrollbar - subtelny */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fafafa;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+/* Tooltips */
+.ant-tooltip {
+  font-size: 11px !important;
+}
+
+.ant-tooltip-inner {
+  padding: 4px 8px !important;
+  background: #595959 !important;
+}
+
+/* Modals */
+.ant-modal-header {
+  background: #fafafa !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  padding: 10px 16px !important;
+}
+
+.ant-modal-title {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.ant-modal-body {
+  padding: 16px !important;
+}
+
+.ant-modal-footer {
+  border-top: 1px solid #f0f0f0 !important;
+  padding: 8px 16px !important;
+  background: #fafafa !important;
+}
+
+/* Badges */
+.ant-badge-count {
+  height: 16px !important;
+  min-width: 16px !important;
+  line-height: 16px !important;
+  padding: 0 4px !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  background: #ff4d4f !important;
+}
+
+.ant-badge-status-success .ant-badge-status-dot {
+  background: #52c41a !important;
+}
+
+.ant-badge-status-warning .ant-badge-status-dot {
+  background: #faad14 !important;
+}
+
+/* Select */
+.ant-select-selector {
+  height: 26px !important;
+  padding: 0 8px !important;
+  font-size: 12px !important;
+  border: 1px solid #d9d9d9 !important;
+  border-radius: 3px !important;
+}
+
+.ant-select-selection-item {
+  line-height: 24px !important;
+  font-size: 12px !important;
+}
+
+/* Input */
+.ant-input {
+  height: 26px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  border-radius: 3px !important;
+  border: 1px solid #d9d9d9 !important;
+}
+
+.ant-input:hover {
+  border-color: #bfbfbf !important;
+}
+
+.ant-input:focus {
+  border-color: #1890ff !important;
+  box-shadow: none !important;
+}
+
+/* Spin */
+.ant-spin-dot-item {
+  background-color: #1890ff !important;
+}
+
+/* Alert */
+.ant-alert {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border-radius: 3px !important;
+}
+
+.ant-alert-info {
+  background: #e6f7ff !important;
+  border: 1px solid #91d5ff !important;
+}
+
+/* Space */
+.ant-space-item {
+  font-size: 12px !important;
+}
+
+/* Divider */
+.ant-divider {
+  margin: 12px 0 !important;
+}
+
+/* Typography */
+.ant-typography {
+  color: #262626 !important;
+  font-size: 12px !important;
+}
+
+.ant-typography-secondary {
+  color: #8c8c8c !important;
+}
+
+/* USUNIĘTE - PROBLEMATYCZNE FOCUS STYLE */
+/* NIE dodawaj żadnych globalnych *:focus reguł! */
+
+/* Disabled */
+.ant-btn[disabled] {
+  background: #f5f5f5 !important;
+  border-color: #d9d9d9 !important;
+  color: #bfbfbf !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+/* Remove all transitions for snappier feel */
+* {
+  transition-duration: 0.15s !important;
+}
+
+/* Compact layout */
+.ant-row {
+  margin-left: -4px !important;
+  margin-right: -4px !important;
+}
+
+.ant-col {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}

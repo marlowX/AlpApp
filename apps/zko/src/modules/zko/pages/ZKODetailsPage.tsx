@@ -39,7 +39,8 @@ import {
   AppstoreOutlined,
   InboxOutlined,
   PrinterOutlined,
-  ForkOutlined
+  ForkOutlined,
+  BugOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -300,6 +301,173 @@ export const ZKODetailsPage: React.FC = () => {
     },
   ];
 
+  // Przygotowanie items dla Tabs zamiast TabPane
+  const tabItems = [
+    {
+      key: 'pozycje',
+      label: (
+        <Space>
+          <BoxPlotOutlined />
+          <span>Pozycje</span>
+          <Badge 
+            count={pozycje.length} 
+            style={{ backgroundColor: '#52c41a' }}
+            title={`${pozycje.length} pozycji`}
+          />
+          {uniqueColors.length > 0 && (
+            <Space size={4} style={{ marginLeft: 8 }}>
+              <BgColorsOutlined style={{ fontSize: 12, color: '#999' }} />
+              {uniqueColors.slice(0, 3).map((color, idx) => (
+                <Tag 
+                  key={idx} 
+                  color="blue" 
+                  style={{ 
+                    margin: 0, 
+                    fontSize: 10,
+                    padding: '0 4px',
+                    height: 18,
+                    lineHeight: '16px'
+                  }}
+                >
+                  {color}
+                </Tag>
+              ))}
+              {uniqueColors.length > 3 && (
+                <Text type="secondary" style={{ fontSize: 10 }}>
+                  +{uniqueColors.length - 3}
+                </Text>
+              )}
+            </Space>
+          )}
+          <Tooltip title="Pozycje mogą mieć różne ścieżki produkcji">
+            <ForkOutlined style={{ fontSize: 12, color: '#1890ff', marginLeft: 8 }} />
+          </Tooltip>
+        </Space>
+      ),
+      children: pozycje.length > 0 ? (
+        <Table
+          columns={pozycjeColumns}
+          dataSource={pozycje}
+          rowKey="id"
+          size="small"
+          pagination={pozycje.length > 10 ? { pageSize: 10, showSizeChanger: true } : false}
+          scroll={{ x: 1400 }}
+        />
+      ) : (
+        <Alert
+          message="Brak pozycji"
+          description={
+            <Space direction="vertical">
+              <Text>To zlecenie nie ma jeszcze dodanych pozycji.</Text>
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => setShowAddPozycja(true)}
+              >
+                Dodaj pierwszą pozycję
+              </Button>
+            </Space>
+          }
+          type="info"
+          showIcon
+          style={{ textAlign: 'center' }}
+        />
+      )
+    },
+    {
+      key: 'palety-dnd',
+      label: (
+        <Space>
+          <DragOutlined style={{ color: '#1890ff' }} />
+          <span style={{ color: '#1890ff', fontWeight: 500 }}>
+            Palety (Drag & Drop)
+          </span>
+          <Badge 
+            count={palety.length} 
+            style={{ backgroundColor: '#1890ff' }}
+            title={`${palety.length} palet`}
+          />
+          {palety.length > 0 && (
+            <Space size={4} style={{ marginLeft: 8 }}>
+              {zamknietePalety.length > 0 && (
+                <Tooltip title={`${zamknietePalety.length} zamkniętych palet`}>
+                  <span style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '2px 6px',
+                    backgroundColor: '#f6ffed',
+                    border: '1px solid #b7eb8f',
+                    borderRadius: 4,
+                    fontSize: 11
+                  }}>
+                    <LockOutlined style={{ color: '#52c41a', fontSize: 11 }} />
+                    <span style={{ color: '#52c41a' }}>{zamknietePalety.length}</span>
+                  </span>
+                </Tooltip>
+              )}
+              {otwartePalety.length > 0 && (
+                <Tooltip title={`${otwartePalety.length} otwartych palet`}>
+                  <span style={{ 
+                    display: 'inline-flex', 
+                    alignItems: 'center',
+                    gap: 4,
+                    padding: '2px 6px',
+                    backgroundColor: '#fff7e6',
+                    border: '1px solid #ffd591',
+                    borderRadius: 4,
+                    fontSize: 11
+                  }}>
+                    <InboxOutlined style={{ color: '#faad14', fontSize: 11 }} />
+                    <span style={{ color: '#faad14' }}>{otwartePalety.length}</span>
+                  </span>
+                </Tooltip>
+              )}
+              {zamknietePalety.length > 0 && (
+                <Tooltip title="Możliwość drukowania etykiet">
+                  <PrinterOutlined style={{ color: '#1890ff', fontSize: 12 }} />
+                </Tooltip>
+              )}
+            </Space>
+          )}
+        </Space>
+      ),
+      children: (
+        <PaletyZko 
+          zkoId={Number(id)} 
+          onRefresh={refetch}
+        />
+      )
+    },
+    {
+      key: 'palety-old',
+      label: (
+        <Space>
+          <ExperimentOutlined style={{ color: '#999' }} />
+          <span style={{ color: '#999' }}>
+            Palety (wersja testowa)
+          </span>
+        </Space>
+      ),
+      disabled: true,
+      children: (
+        <>
+          <Alert
+            message="Wersja testowa"
+            description="To jest stara wersja modułu palet. Używaj nowej wersji z Drag & Drop."
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+          <PaletyManager 
+            zkoId={Number(id)} 
+            onRefresh={refetch}
+          />
+        </>
+      )
+    }
+  ];
+
   return (
     <div style={{ padding: '12px' }} className="zko-details-page">
       {/* Header - KOMPAKTOWY */}
@@ -379,7 +547,7 @@ export const ZKODetailsPage: React.FC = () => {
         />
       )}
 
-      {/* Szczegóły realizacji - ULEPSZONE TABS */}
+      {/* Szczegóły realizacji - ULEPSZONE TABS z items */}
       <Card 
         title={
           <Space>
@@ -403,170 +571,11 @@ export const ZKODetailsPage: React.FC = () => {
           </Button>
         }
       >
-        <Tabs defaultActiveKey="pozycje" size="small">
-          <Tabs.TabPane 
-            tab={
-              <Space>
-                <BoxPlotOutlined />
-                <span>Pozycje</span>
-                <Badge 
-                  count={pozycje.length} 
-                  style={{ backgroundColor: '#52c41a' }}
-                  title={`${pozycje.length} pozycji`}
-                />
-                {uniqueColors.length > 0 && (
-                  <Space size={4} style={{ marginLeft: 8 }}>
-                    <BgColorsOutlined style={{ fontSize: 12, color: '#999' }} />
-                    {uniqueColors.slice(0, 3).map((color, idx) => (
-                      <Tag 
-                        key={idx} 
-                        color="blue" 
-                        style={{ 
-                          margin: 0, 
-                          fontSize: 10,
-                          padding: '0 4px',
-                          height: 18,
-                          lineHeight: '16px'
-                        }}
-                      >
-                        {color}
-                      </Tag>
-                    ))}
-                    {uniqueColors.length > 3 && (
-                      <Text type="secondary" style={{ fontSize: 10 }}>
-                        +{uniqueColors.length - 3}
-                      </Text>
-                    )}
-                  </Space>
-                )}
-                <Tooltip title="Pozycje mogą mieć różne ścieżki produkcji">
-                  <ForkOutlined style={{ fontSize: 12, color: '#1890ff', marginLeft: 8 }} />
-                </Tooltip>
-              </Space>
-            } 
-            key="pozycje"
-          >
-            {pozycje.length > 0 ? (
-              <Table
-                columns={pozycjeColumns}
-                dataSource={pozycje}
-                rowKey="id"
-                size="small"
-                pagination={pozycje.length > 10 ? { pageSize: 10, showSizeChanger: true } : false}
-                scroll={{ x: 1400 }}
-              />
-            ) : (
-              <Alert
-                message="Brak pozycji"
-                description={
-                  <Space direction="vertical">
-                    <Text>To zlecenie nie ma jeszcze dodanych pozycji.</Text>
-                    <Button 
-                      type="primary" 
-                      icon={<PlusOutlined />}
-                      onClick={() => setShowAddPozycja(true)}
-                    >
-                      Dodaj pierwszą pozycję
-                    </Button>
-                  </Space>
-                }
-                type="info"
-                showIcon
-                style={{ textAlign: 'center' }}
-              />
-            )}
-          </Tabs.TabPane>
-          
-          <Tabs.TabPane 
-            tab={
-              <Space>
-                <DragOutlined style={{ color: '#1890ff' }} />
-                <span style={{ color: '#1890ff', fontWeight: 500 }}>
-                  Palety (Drag & Drop)
-                </span>
-                <Badge 
-                  count={palety.length} 
-                  style={{ backgroundColor: '#1890ff' }}
-                  title={`${palety.length} palet`}
-                />
-                {palety.length > 0 && (
-                  <Space size={4} style={{ marginLeft: 8 }}>
-                    {zamknietePalety.length > 0 && (
-                      <Tooltip title={`${zamknietePalety.length} zamkniętych palet`}>
-                        <span style={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '2px 6px',
-                          backgroundColor: '#f6ffed',
-                          border: '1px solid #b7eb8f',
-                          borderRadius: 4,
-                          fontSize: 11
-                        }}>
-                          <LockOutlined style={{ color: '#52c41a', fontSize: 11 }} />
-                          <span style={{ color: '#52c41a' }}>{zamknietePalety.length}</span>
-                        </span>
-                      </Tooltip>
-                    )}
-                    {otwartePalety.length > 0 && (
-                      <Tooltip title={`${otwartePalety.length} otwartych palet`}>
-                        <span style={{ 
-                          display: 'inline-flex', 
-                          alignItems: 'center',
-                          gap: 4,
-                          padding: '2px 6px',
-                          backgroundColor: '#fff7e6',
-                          border: '1px solid #ffd591',
-                          borderRadius: 4,
-                          fontSize: 11
-                        }}>
-                          <InboxOutlined style={{ color: '#faad14', fontSize: 11 }} />
-                          <span style={{ color: '#faad14' }}>{otwartePalety.length}</span>
-                        </span>
-                      </Tooltip>
-                    )}
-                    {zamknietePalety.length > 0 && (
-                      <Tooltip title="Możliwość drukowania etykiet">
-                        <PrinterOutlined style={{ color: '#1890ff', fontSize: 12 }} />
-                      </Tooltip>
-                    )}
-                  </Space>
-                )}
-              </Space>
-            } 
-            key="palety-dnd"
-          >
-            <PaletyZko 
-              zkoId={Number(id)} 
-              onRefresh={refetch}
-            />
-          </Tabs.TabPane>
-          
-          <Tabs.TabPane 
-            tab={
-              <Space>
-                <ExperimentOutlined style={{ color: '#999' }} />
-                <span style={{ color: '#999' }}>
-                  Palety (wersja testowa)
-                </span>
-              </Space>
-            } 
-            key="palety-old"
-            disabled
-          >
-            <Alert
-              message="Wersja testowa"
-              description="To jest stara wersja modułu palet. Używaj nowej wersji z Drag & Drop."
-              type="warning"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
-            <PaletyManager 
-              zkoId={Number(id)} 
-              onRefresh={refetch}
-            />
-          </Tabs.TabPane>
-        </Tabs>
+        <Tabs 
+          defaultActiveKey="pozycje" 
+          size="small"
+          items={tabItems}
+        />
       </Card>
 
       {/* Daty i operatorzy - KOMPAKTOWE */}

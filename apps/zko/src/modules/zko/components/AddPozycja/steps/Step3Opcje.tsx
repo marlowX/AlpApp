@@ -44,7 +44,6 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
     }, 0) : 0;
 
   // Oblicz szacowaną wagę formatek
-  // Zakładamy gęstość płyty ~700 kg/m³ dla płyty 18mm
   const obliczWageFormatek = () => {
     if (!selectedRozkroj) return 0;
     
@@ -52,15 +51,12 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
     kolorePlyty.forEach(kolor => {
       if (!kolor.kolor) return;
       
-      const grubosc = kolor.grubosc || 18; // mm
-      const gestosc = 700; // kg/m³ dla płyty wiórowej
+      const grubosc = kolor.grubosc || 18;
+      const gestosc = 700;
       
       selectedRozkroj.formatki.forEach(formatka => {
-        // Objętość formatki w m³
         const objetosc = (formatka.dlugosc / 1000) * (formatka.szerokosc / 1000) * (grubosc / 1000);
-        // Waga formatki w kg
         const wagaFormatki = objetosc * gestosc;
-        // Całkowita waga dla wszystkich sztuk
         totalWaga += wagaFormatki * formatka.ilosc_sztuk * kolor.ilosc;
       });
     });
@@ -75,7 +71,10 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
       {/* PODSUMOWANIE POZYCJI */}
       <Card 
         size="small"
-        style={{ marginBottom: 16 }}
+        style={{ 
+          marginBottom: 16,
+          border: '1px solid #d9d9d9'
+        }}
         styles={{ 
           header: { 
             background: '#fafafa', 
@@ -96,8 +95,10 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           <Col xs={24} md={8}>
             <Card 
               size="small" 
-              bordered={false}
-              style={{ background: '#f0f5ff' }}
+              style={{ 
+                background: '#f0f5ff',
+                border: '1px solid #d6e4ff'
+              }}
               styles={{ body: { padding: '12px' } }}
             >
               <Space direction="vertical" size="small" style={{ width: '100%' }}>
@@ -135,8 +136,10 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           <Col xs={24} md={8}>
             <Card 
               size="small" 
-              bordered={false}
-              style={{ background: '#f6ffed' }}
+              style={{ 
+                background: '#f6ffed',
+                border: '1px solid #d9f7be'
+              }}
               styles={{ body: { padding: '12px' } }}
             >
               <Space direction="vertical" size="small" style={{ width: '100%' }}>
@@ -176,8 +179,10 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           <Col xs={24} md={8}>
             <Card 
               size="small" 
-              bordered={false}
-              style={{ background: '#fff7e6' }}
+              style={{ 
+                background: '#fff7e6',
+                border: '1px solid #ffd591'
+              }}
               styles={{ body: { padding: '12px' } }}
             >
               <Space direction="vertical" size="small" style={{ width: '100%' }}>
@@ -213,7 +218,7 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
         </Row>
       </Card>
 
-      {/* ŚCIEŻKA PRODUKCJI */}
+      {/* ŚCIEŻKA PRODUKCJI - NAPRAWIONE */}
       <Card 
         title={
           <Space>
@@ -222,7 +227,10 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           </Space>
         }
         size="small"
-        style={{ marginBottom: 16 }}
+        style={{ 
+          marginBottom: 16,
+          border: '1px solid #d9d9d9'
+        }}
         styles={{ 
           header: { background: '#fafafa', padding: '8px 16px' },
           body: { padding: '12px' } 
@@ -235,14 +243,14 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           style={{ marginBottom: 8 }}
         >
           <SciezkaProdukcji
-            formatki={[]}
-            onSciezkaChange={(sciezka) => {
+            onChange={(sciezka) => {
+              console.log('Setting sciezka_produkcji in form:', sciezka);
               form.setFieldsValue({ sciezka_produkcji: sciezka });
             }}
           />
         </Form.Item>
-        <Text type="secondary" style={{ fontSize: '10px' }}>
-          Można zmienić później dla pojedynczych formatek
+        <Text type="secondary" style={{ fontSize: '11px' }}>
+          Można zmienić później dla pojedynczych formatek na palecie
         </Text>
       </Card>
 
@@ -255,6 +263,9 @@ export const Step3Opcje: React.FC<Step3OpcjeProps> = ({
           </Space>
         }
         size="small"
+        style={{ 
+          border: '1px solid #d9d9d9'
+        }}
         styles={{ 
           header: { background: '#fafafa', padding: '8px 16px' },
           body: { padding: '12px' } 

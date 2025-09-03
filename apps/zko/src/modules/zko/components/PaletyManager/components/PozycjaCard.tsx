@@ -5,7 +5,8 @@ import {
   StopOutlined, 
   FileTextOutlined, 
   BoxPlotOutlined,
-  DatabaseOutlined 
+  DatabaseOutlined,
+  CheckSquareOutlined
 } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -91,40 +92,62 @@ export const PozycjaCard: React.FC<PozycjaCardProps> = ({
       style={{
         borderColor: isSelected ? '#1890ff' : 
                     !canBeSelected ? '#ff4d4f' : undefined,
-        borderWidth: isSelected || !canBeSelected ? 2 : 1,
-        backgroundColor: !canBeSelected ? '#fff1f0' : 'white',
+        borderWidth: isSelected ? 3 : !canBeSelected ? 2 : 1,
+        backgroundColor: isSelected ? '#e6f4ff' : !canBeSelected ? '#fff1f0' : 'white',
         cursor: canBeSelected ? 'pointer' : 'not-allowed',
         opacity: !canBeSelected ? 0.8 : 1,
-        height: '100%'
+        height: '100%',
+        boxShadow: isSelected ? '0 4px 12px rgba(24,144,255,0.4)' : undefined,
+        transition: 'all 0.3s ease'
       }}
       bodyStyle={{ padding: 12 }}
     >
+      {/* Znacznik wyboru w rogu */}
+      {isSelected && (
+        <div style={{ 
+          position: 'absolute', 
+          top: 8, 
+          right: 8,
+          backgroundColor: '#1890ff',
+          color: 'white',
+          borderRadius: '50%',
+          width: 24,
+          height: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10
+        }}>
+          <CheckSquareOutlined style={{ fontSize: 14 }} />
+        </div>
+      )}
+
       {/* Nagłówek z ID pozycji z bazy danych */}
       <div style={{ marginBottom: 8 }}>
         <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-          {/* WYŚWIETLANIE ID Z BAZY DANYCH */}
+          {/* NAPRAWIONE: Wyświetlanie ID z bazy danych */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Tooltip title={`ID w bazie danych: ${dbId}`}>
-              <Badge 
-                count={dbId} 
-                style={{ 
-                  backgroundColor: isSelected ? '#1890ff' : '#52c41a',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  minWidth: '28px',
-                  height: '22px',
-                  lineHeight: '22px'
-                }}
-                overflowCount={999}
-              />
+            <Tooltip title={`ID pozycji w bazie danych`}>
+              <div style={{
+                backgroundColor: isSelected ? '#1890ff' : '#52c41a',
+                color: 'white',
+                borderRadius: '4px',
+                padding: '4px 8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                minWidth: '50px',
+                textAlign: 'center'
+              }}>
+                {dbId}
+              </div>
             </Tooltip>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Text strong style={{ fontSize: '14px', color: '#1890ff', lineHeight: 1 }}>
-                Poz. {dbId}
+              <Text strong style={{ fontSize: '14px', color: isSelected ? '#1890ff' : '#333', lineHeight: 1 }}>
+                ID {dbId}
               </Text>
               <Text type="secondary" style={{ fontSize: '10px', lineHeight: 1 }}>
                 <DatabaseOutlined style={{ fontSize: 9, marginRight: 2 }} />
-                Kolejność: {pozycja.numer_pozycji}
+                kolejność: {pozycja.numer_pozycji}
               </Text>
             </div>
           </div>
@@ -240,8 +263,8 @@ export const PozycjaCard: React.FC<PozycjaCardProps> = ({
         )}
 
         {isSelected && canBeSelected && (
-          <Tag color="blue" style={{ margin: 0, fontSize: '10px' }}>
-            Wybrana pozycja
+          <Tag color="blue" style={{ margin: 0, fontSize: '10px', fontWeight: 'bold' }}>
+            ✓ Wybrana pozycja
           </Tag>
         )}
 

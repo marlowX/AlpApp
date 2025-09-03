@@ -451,9 +451,12 @@ export const AddPozycjaModal: React.FC<ExtendedAddPozycjaModalProps> = ({
       width="90%"
       style={{ maxWidth: '1400px' }}
       footer={null}
-      destroyOnClose={true}
       maskClosable={false}
       keyboard={false}
+      // WAŻNE: Dodajemy getPopupContainer aby dropdowny renderowały się w modalach
+      getPopupContainer={() => document.body}
+      // Zapobiegamy problemom z z-index
+      zIndex={1000}
     >
       <Form form={form} layout="vertical">
         <div style={{ padding: '20px 0' }}>

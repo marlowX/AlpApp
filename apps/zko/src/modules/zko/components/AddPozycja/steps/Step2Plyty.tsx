@@ -8,7 +8,8 @@ import {
   CheckCircleOutlined,
   QuestionCircleOutlined,
   DownOutlined,
-  UpOutlined
+  UpOutlined,
+  ExclamationCircleOutlined  // DODANY BRAKUJĄCY IMPORT
 } from '@ant-design/icons';
 import { KolorePlytyTable } from '../KolorePlytyTable';
 import type { KolorPlyty, Plyta, Rozkroj } from '../types';
