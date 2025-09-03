@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Card, Space, Button, Typography, Badge, Tag, Collapse, Tooltip, Row, Col } from 'antd';
 import { 
-  PlusOutlined, 
   InfoCircleOutlined,
   BgColorsOutlined,
   WarningOutlined,
@@ -9,7 +8,7 @@ import {
   QuestionCircleOutlined,
   DownOutlined,
   UpOutlined,
-  ExclamationCircleOutlined  // DODANY BRAKUJĄCY IMPORT
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { KolorePlytyTable } from '../KolorePlytyTable';
 import type { KolorPlyty, Plyta, Rozkroj } from '../types';
@@ -39,10 +38,6 @@ export const Step2Plyty: React.FC<Step2PlytyProps> = ({
 }) => {
   const MAX_PLYT_NA_POZYCJE = 5;
   const [analizaExpanded, setAnalizaExpanded] = useState(false);
-  
-  const addKolorPlyty = () => {
-    setKolorePlyty([...kolorePlyty, { kolor: '', nazwa: '', ilosc: 1 }]);
-  };
 
   const removeKolorPlyty = (index: number) => {
     if (kolorePlyty.length > 1) {
@@ -193,15 +188,7 @@ export const Step2Plyty: React.FC<Step2PlytyProps> = ({
         maxPlytNaPozycje={MAX_PLYT_NA_POZYCJE}
       />
 
-      <Button
-        type="dashed"
-        onClick={addKolorPlyty}
-        icon={<PlusOutlined />}
-        style={{ width: '100%', marginTop: 12 }}
-        disabled={przekroczonyLimit}
-      >
-        Dodaj kolejny kolor płyty
-      </Button>
+      {/* USUNIĘTY ZBĘDNY PRZYCISK "Dodaj kolejny kolor płyty" */}
 
       {/* Ostrzeżenie o przekroczonym limicie */}
       {przekroczonyLimit && (
