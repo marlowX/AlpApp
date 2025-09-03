@@ -3,9 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import './styles/antd-fixes.css';
 
-// Tymczasowo wyłączamy StrictMode dla debugowania problemów z Select
+// UWAGA: Tymczasowo wyłączamy StrictMode - może powodować problemy z Ant Design 5
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  // <React.StrictMode>
-    <App />
-  // </React.StrictMode>
+  <App />
 );

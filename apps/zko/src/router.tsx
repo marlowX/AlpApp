@@ -7,6 +7,7 @@ import { ZKOCreatePage } from './modules/zko/pages/ZKOCreatePage';
 import { DashboardPage } from './modules/dashboard/pages/DashboardPage';
 import { WorkflowPage } from './modules/workflow/pages/WorkflowPage';
 import { CuttingPage } from './modules/production/pages/CuttingPage';
+import { SelectTestPage } from './modules/zko/pages/SelectTestPage';
 
 export const Router = () => {
   return (
@@ -15,6 +16,7 @@ export const Router = () => {
         <Route path="/" element={<Layout />}>
           <Route index element={<DashboardPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="test-select" element={<SelectTestPage />} />
           <Route path="zko">
             <Route index element={<ZKOListPage />} />
             <Route path="new" element={<ZKOCreatePage />} />

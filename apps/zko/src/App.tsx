@@ -33,10 +33,10 @@ export const App = () => {
               colorPrimary: '#1890ff',
             },
           }}
-          // Ważne - wyłączamy renderowanie wartości w Select, które może powodować problemy
-          select={{
-            showSearch: true,
-          }}
+          // KRYTYCZNE - wyłączamy virtual scroll w Select
+          virtual={false}
+          // Wymuszamy użycie portalu dla dropdown
+          getPopupContainer={() => document.body}
         >
           <AntApp>
             <Router />

@@ -4,7 +4,6 @@ import {
   Modal, 
   Form, 
   Input, 
-  Select, 
   DatePicker, 
   InputNumber,
   message,
@@ -12,6 +11,7 @@ import {
   Spin
 } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import { Select } from '../../../components/Select'; // Używamy naszego wrappera
 import { useKooperanci } from '../hooks';
 import dayjs from 'dayjs';
 
