@@ -8,7 +8,7 @@ import { Router } from './router';
 
 // WAŻNE: Import resetowania stylów Ant Design MUSI BYĆ PIERWSZY
 import 'antd/dist/reset.css';
-// Import naszych poprawek
+// Minimalne poprawki dla z-index
 import './styles/antd-fixes.css';
 
 // Konfiguracja dayjs

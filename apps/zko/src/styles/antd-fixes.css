@@ -1,35 +1,22 @@
-/* Podstawowe poprawki dla Ant Design Select */
+/* Minimalne poprawki dla Ant Design - tylko z-index */
 
-/* Fix z-index dla dropdown */
-.ant-select-dropdown {
-  z-index: 1050 !important;
+/* Upewnij się że dropdown w modalach jest nad modalem */
+.ant-modal .ant-select-dropdown,
+.ant-modal-wrap .ant-select-dropdown {
+  z-index: 1100;
 }
 
-/* Fix dla dropdown w modalach */
-.ant-modal .ant-select-dropdown {
-  z-index: 2050 !important;
+/* DatePicker w modalach */
+.ant-modal .ant-picker-dropdown,
+.ant-modal-wrap .ant-picker-dropdown {
+  z-index: 1100;
 }
 
-/* Fix dla modali */
+/* Upewnij się że modalne okna mają właściwy z-index */
 .ant-modal-wrap {
   z-index: 1000;
 }
 
 .ant-modal-mask {
   z-index: 1000;
-}
-
-/* Fix dla DatePicker */
-.ant-picker-dropdown {
-  z-index: 1050 !important;
-}
-
-/* Upewnij się że Select jest klikalny */
-.ant-select-selector {
-  cursor: pointer !important;
-}
-
-/* Fix dla opcji w dropdown */
-.ant-select-item-option {
-  cursor: pointer !important;
 }
