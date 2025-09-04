@@ -480,7 +480,7 @@ export const WorkerViewPila = () => {
         />
       </Card>
 
-      {/* Modal wyboru celu transportu */}
+      {/* Modal wyboru celu transportu - poprawione visible na open */}
       <Modal
         title={
           <Space>
@@ -488,7 +488,7 @@ export const WorkerViewPila = () => {
             <span>Wybierz cel transportu dla {selectedZko?.numer_zko}</span>
           </Space>
         }
-        visible={transportModalVisible}
+        open={transportModalVisible}
         onOk={handleTransport}
         onCancel={() => {
           setTransportModalVisible(false);

@@ -20,7 +20,6 @@ import {
   ClockCircleOutlined,
   TruckOutlined,
   InboxOutlined,
-  WarningOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -298,7 +297,7 @@ export const WorkerViewOkleiniarka = () => {
           type="warning"
           showIcon
           icon={<TruckOutlined />}
-          style={{ marginBottom: "20px" }}
+          style={{ marginBottom: 20 }}
         />
       )}
 
@@ -308,7 +307,7 @@ export const WorkerViewOkleiniarka = () => {
           description={`Masz ${stats.wBuforze} zleceń oczekujących na oklejanie`}
           type="warning"
           showIcon
-          style={{ marginBottom: "20px" }}
+          style={{ marginBottom: 20 }}
         />
       )}
 
