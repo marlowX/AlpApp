@@ -169,6 +169,19 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
             </Text>
           </div>
         )}
+
+        {/* Info o przeciąganiu - tylko dla formatek z ilością > 0 */}
+        {formatka.sztuki_dostepne > 0 && !isDragging && (
+          <div style={{ marginTop: '4px' }}>
+            <Text style={{ 
+              fontSize: '10px',
+              color: '#1890ff',
+              fontStyle: 'italic'
+            }}>
+              ↔ Przeciągnij aby przenieść wszystkie sztuki
+            </Text>
+          </div>
+        )}
       </div>
     </div>
   );

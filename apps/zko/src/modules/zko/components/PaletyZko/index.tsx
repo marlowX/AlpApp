@@ -1,5 +1,5 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko - z poprawnym odświeżaniem formatek
+ * @fileoverview Główny komponent modułu PaletyZko - bez auto-odświeżania
  * @module PaletyZko
  */
 
@@ -76,7 +76,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     obliczStatystyki
   } = useFormatki(selectedPozycjaId);
 
-  // Odświeżanie danych po zmianie pozycji lub refresh counter
+  // Odświeżanie danych po zmianie pozycji
   useEffect(() => {
     if (selectedPozycjaId) {
       fetchPalety();
@@ -107,11 +107,9 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     if (paleta) {
       setCreateModalVisible(false);
       message.success('Paleta utworzona pomyślnie');
-      // Odśwież formatki i palety
-      await fetchFormatki();
       setRefreshCounter(prev => prev + 1);
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPalete]);
 
   const handleCreateEmptyPaleta = useCallback(async () => {
     if (!selectedPozycjaId) {
@@ -135,11 +133,9 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   const handleDeletePaleta = useCallback(async (paletaId: number) => {
     const success = await usunPalete(paletaId);
     if (success) {
-      // Odśwież formatki po usunięciu palety (formatki wracają do puli)
-      await fetchFormatki();
       setRefreshCounter(prev => prev + 1);
     }
-  }, [usunPalete, fetchFormatki]);
+  }, [usunPalete]);
 
   const handleClosePaleta = useCallback(async (paletaId: number) => {
     const success = await zamknijPalete(paletaId);
@@ -162,11 +158,9 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
 
     const result = await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
     if (result) {
-      // Odśwież formatki po utworzeniu palet
-      await fetchFormatki();
       setRefreshCounter(prev => prev + 1);
     }
-  }, [selectedPozycjaId, utworzPaletyDlaPozostalych, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPaletyDlaPozostalych]);
 
   const handleDropFormatkaToEmptyArea = useCallback(async (
     formatka: any,
@@ -195,11 +189,9 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success(`Utworzono paletę z wszystkimi ${ilosc} sztukami formatki ${wymiary} - ${kolor}`);
-      // Odśwież formatki po utworzeniu palety
-      await fetchFormatki();
       setRefreshCounter(prev => prev + 1);
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPalete]);
 
   const handleDropFormatka = useCallback(async (
     formatka: any,
@@ -257,15 +249,13 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         const kolor = formatka.kolor || 'NIEZNANY';
         
         message.success(`Dodano wszystkie ${ilosc} szt. formatki ${wymiary} - ${kolor} do palety`);
-        // Odśwież formatki po dodaniu do palety
-        await fetchFormatki();
         setRefreshCounter(prev => prev + 1);
       }
     } catch (error) {
       console.error('Błąd podczas dodawania formatki:', error);
       message.error('Błąd podczas dodawania formatki do palety');
     }
-  }, [palety, edytujPalete, fetchFormatki]);
+  }, [palety, edytujPalete]);
 
   const formatkiDostepne = getFormatkiDostepne();
   const statystykiFormatek = obliczStatystyki();
@@ -334,12 +324,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   <Popconfirm
                     title="Usuń wszystkie palety"
                     description="Czy na pewno chcesz usunąć wszystkie palety?"
-                    onConfirm={async () => {
-                      const success = await usunWszystkiePalety();
-                      if (success) {
-                        await fetchFormatki(); // Odśwież formatki po usunięciu wszystkich palet
-                      }
-                    }}
+                    onConfirm={usunWszystkiePalety}
                     okText="Tak"
                     cancelText="Nie"
                     okButtonProps={{ danger: true, size: 'small' }}
@@ -436,6 +421,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   padding: `0 ${dimensions.spacingSm}px`
                 }}
                 bodyStyle={{ 
+                  height: '450px',
                   overflowY: 'auto',
                   padding: dimensions.spacingSm,
                   overflowX: 'hidden'
@@ -513,6 +499,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   padding: `0 ${dimensions.spacingSm}px`
                 }}
                 bodyStyle={{ 
+                  height: '450px',
                   overflowY: 'auto',
                   padding: dimensions.spacingSm,
                   overflowX: 'hidden'
