@@ -29,6 +29,12 @@ export const STATUS_PALETY = {
   ZAMKNIETA: 'zamknieta'
 } as const;
 
+// Typy dla Drag & Drop
+export const ItemTypes = {
+  FORMATKA: 'formatka',
+  PALETA: 'paleta'
+} as const;
+
 // ==================== TYPY ====================
 
 export type PrzeznaczeniePalety = keyof typeof PRZEZNACZENIE_PALETY;
@@ -53,6 +59,7 @@ export interface Formatka {
   nazwa_plyty?: string;
   numer_formatki?: string;
   data_produkcji?: string;
+  nazwa_formatki?: string;
 }
 
 export interface FormatkaZIloscia extends Formatka {
