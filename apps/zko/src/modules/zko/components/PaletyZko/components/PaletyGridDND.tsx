@@ -19,8 +19,8 @@ interface PaletyGridDNDProps {
   onShowDetails?: (paletaId: number) => void;
   onDropFormatka?: (formatka: any, ilosc: number, paletaId: number) => void;
   onDropToEmptyArea?: (formatka: any, ilosc: number) => void;
-  deleting?: Set<number>;
-  closing?: Set<number>;
+  deleting?: Set<number> | boolean;
+  closing?: Set<number> | boolean;
 }
 
 export const PaletyGridDND: React.FC<PaletyGridDNDProps> = ({
@@ -32,8 +32,8 @@ export const PaletyGridDND: React.FC<PaletyGridDNDProps> = ({
   onShowDetails,
   onDropFormatka,
   onDropToEmptyArea,
-  deleting = new Set(),
-  closing = new Set()
+  deleting = false,
+  closing = false
 }) => {
   // Setup drop dla pustego obszaru
   const [{ isOver }, drop] = useDrop({
@@ -48,6 +48,19 @@ export const PaletyGridDND: React.FC<PaletyGridDNDProps> = ({
       isOver: monitor.isOver({ shallow: true })
     })
   });
+
+  // Helper do sprawdzania czy paleta jest w trakcie operacji
+  const isPaletaDeleting = (paletaId: number): boolean => {
+    if (typeof deleting === 'boolean') return deleting;
+    if (deleting instanceof Set) return deleting.has(paletaId);
+    return false;
+  };
+
+  const isPaletaClosing = (paletaId: number): boolean => {
+    if (typeof closing === 'boolean') return closing;
+    if (closing instanceof Set) return closing.has(paletaId);
+    return false;
+  };
 
   if (!palety || palety.length === 0) {
     return (
@@ -108,8 +121,8 @@ export const PaletyGridDND: React.FC<PaletyGridDNDProps> = ({
               onPrint={onPrint}
               onShowDetails={onShowDetails}
               onDropFormatka={onDropFormatka}
-              deleting={deleting.has(paleta.id)}
-              closing={closing.has(paleta.id)}
+              deleting={isPaletaDeleting(paleta.id)}
+              closing={isPaletaClosing(paleta.id)}
             />
           </Col>
         ))}
