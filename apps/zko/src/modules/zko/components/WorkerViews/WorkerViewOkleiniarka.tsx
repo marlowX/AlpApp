@@ -1,329 +1,380 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Space, Badge, Tag, message, Row, Col, Statistic, Alert } from 'antd';
-import { 
+import React, { useEffect, useState } from "react";
+import {
+  Card,
+  Table,
+  Tag,
+  Button,
+  Space,
+  Statistic,
+  Row,
+  Col,
+  Badge,
+  message,
+  Typography,
+  Alert,
+} from "antd";
+import {
+  BgColorsOutlined,
   PlayCircleOutlined,
   CheckCircleOutlined,
-  BgColorsOutlined,
-  ReloadOutlined,
   ClockCircleOutlined,
-  PauseCircleOutlined
-} from '@ant-design/icons';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import 'dayjs/locale/pl';
+  TruckOutlined,
+  InboxOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
+import dayjs from "dayjs";
+import relativeTime from "dayjs/plugin/relativeTime";
+import "dayjs/locale/pl";
 
-// Konfiguracja dayjs
 dayjs.extend(relativeTime);
-dayjs.locale('pl');
+dayjs.locale("pl");
 
-interface ZKOItem {
-  id: number;
-  numer_zko: string;
-  status: string;
-  kooperant: string;
-  priorytet: number;
-  data_utworzenia: string;
-  ilosc_formatek: number;
-  ilosc_krawedzi?: number;
-}
+const { Title, Text } = Typography;
 
-// Style CSS dla animacji
-const animationStyles = `
-  .active-processing {
-    animation: pulse 2s infinite;
-  }
-  
-  @keyframes pulse {
-    0% {
-      box-shadow: 0 0 0 0 rgba(250, 140, 22, 0.7);
-    }
-    70% {
-      box-shadow: 0 0 0 10px rgba(250, 140, 22, 0);
-    }
-    100% {
-      box-shadow: 0 0 0 0 rgba(250, 140, 22, 0);
-    }
-  }
-`;
-
-export const WorkerViewOkleiniarka: React.FC = () => {
-  const [zkoList, setZkoList] = useState<ZKOItem[]>([]);
+export const WorkerViewOkleiniarka = () => {
+  const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [changingStatus, setChangingStatus] = useState<number | null>(null);
   const [stats, setStats] = useState({
-    w_buforze: 0,
-    w_oklejaniu: 0,
-    dzis_zakonczono: 0
+    wTransporcie: 0,
+    wBuforze: 0,
+    wTrakcie: 0,
+    dzisiejszeFormatki: 0,
   });
 
-  // Pobierz listę ZKO dla okleiniarki
-  const fetchZKOForOkleiniarka = async () => {
-    setLoading(true);
+  // Statusy widoczne dla pracownika okleiniarki
+  const STATUSY_OKLEINIARKA = [
+    "TRANSPORT_1",           // Transport z piły
+    "BUFOR_OKLEINIARKA",    // W buforze okleiniarki
+    "OKLEJANIE_START",      // Rozpoczęte oklejanie
+    "OKLEJANIE_STOP"        // Zakończone oklejanie
+  ];
+
+  const fetchZlecenia = async () => {
     try {
-      // Poprawiony endpoint - używamy /api/zko
-      const response = await fetch('/api/zko?limit=100');
+      setLoading(true);
+      const response = await fetch("/api/zko");
       const data = await response.json();
       
-      // Endpoint zwraca { data, total } zamiast { items }
-      const allZKOs = data.data || [];
-      
-      // Filtruj po stronie klienta
-      const filteredList = allZKOs.filter((zko: ZKOItem) => 
-        ['BUFOR_OKLEINIARKA', 'OKLEJANIE_START', 'OKLEJANIE'].includes(zko.status)
+      // Filtruj tylko zlecenia w odpowiednich statusach
+      const filtered = (data.data || []).filter((zko) =>
+        STATUSY_OKLEINIARKA.includes(zko.status)
       );
       
-      console.log('Fetched ZKOs:', allZKOs.length, 'Filtered for OKLEINIARKA:', filteredList.length);
+      console.log("Fetched ZKOs:", data.data?.length, "Filtered for OKLEINIARKA:", filtered.length);
       
-      setZkoList(filteredList);
+      setZlecenia(filtered);
       
-      // Oblicz statystyki
-      const w_buforze = filteredList.filter((z: ZKOItem) => 
-        z.status === 'BUFOR_OKLEINIARKA'
-      ).length;
-      const w_oklejaniu = filteredList.filter((z: ZKOItem) => 
-        z.status === 'OKLEJANIE_START' || z.status === 'OKLEJANIE'
-      ).length;
+      // Policz statystyki
+      const wTransporcie = filtered.filter(z => z.status === "TRANSPORT_1").length;
+      const wBuforze = filtered.filter(z => z.status === "BUFOR_OKLEINIARKA").length;
+      const wTrakcie = filtered.filter(z => z.status === "OKLEJANIE_START").length;
+      const zakonczonych = filtered.filter(z => z.status === "OKLEJANIE_STOP").length;
       
       setStats({
-        w_buforze,
-        w_oklejaniu,
-        dzis_zakonczono: 0
+        wTransporcie,
+        wBuforze,
+        wTrakcie,
+        zakonczonych,
+        dzisiejszeFormatki: filtered.reduce((sum, z) => 
+          sum + (z.formatki_count || 0), 0
+        ),
       });
     } catch (error) {
-      console.error('Błąd pobierania listy ZKO:', error);
-      message.error('Błąd pobierania listy ZKO');
+      console.error("Błąd pobierania zleceń:", error);
+      message.error("Błąd pobierania zleceń");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Dodaj style do head
-    const styleElement = document.createElement('style');
-    styleElement.textContent = animationStyles;
-    document.head.appendChild(styleElement);
+    fetchZlecenia();
+    const interval = setInterval(fetchZlecenia, 30000); // odświeżaj co 30s
     
-    fetchZKOForOkleiniarka();
-    const interval = setInterval(fetchZKOForOkleiniarka, 30000);
+    // Dodaj style dla animacji
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+      }
+      .processing-animation {
+        animation: pulse 2s infinite;
+      }
+      .transport-row {
+        background-color: #fff7e6;
+      }
+      .buffer-row {
+        background-color: #f6ffed;
+      }
+      .completed-row {
+        background-color: #f0f5ff;
+      }
+    `;
+    document.head.appendChild(style);
     
     return () => {
       clearInterval(interval);
-      // Usuń style przy odmontowaniu
-      if (styleElement.parentNode) {
-        styleElement.parentNode.removeChild(styleElement);
+      if (style.parentNode) {
+        style.parentNode.removeChild(style);
       }
     };
   }, []);
 
-  // Szybka zmiana statusu
-  const quickStatusChange = async (zkoId: number, currentStatus: string) => {
-    setChangingStatus(zkoId);
-    
-    let nextStatus = '';
-    if (currentStatus === 'BUFOR_OKLEINIARKA') {
-      nextStatus = 'OKLEJANIE_START';
-    } else if (currentStatus === 'OKLEJANIE_START' || currentStatus === 'OKLEJANIE') {
-      nextStatus = 'BUFOR_WIERTARKA';
-    }
-
+  const zmienStatus = async (zkoId, nowyStatus) => {
     try {
-      const response = await fetch('/api/zko/status/change', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/zko/status/change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           zko_id: zkoId,
-          nowy_etap_kod: nextStatus,
-          operator: localStorage.getItem('operator_name') || 'Operator okleiniarki',
-          lokalizacja: 'OKLEINIARKA',
-          komentarz: `Szybka zmiana statusu - stanowisko okleiniarki`,
-          uzytkownik: 'system'
-        })
+          nowy_etap_kod: nowyStatus,
+          uzytkownik: localStorage.getItem("operator") || "Operator Okleiniarki",
+          operator: localStorage.getItem("operator") || "Operator Okleiniarki",
+          lokalizacja: nowyStatus === "TRANSPORT_2" ? "TRANSPORT" : "OKLEINIARKA",
+          komentarz: `Zmiana statusu przez panel okleiniarki na ${nowyStatus}`
+        }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
       
-      if (response.ok && data.sukces) {
-        message.success('Status zmieniony pomyślnie');
-        fetchZKOForOkleiniarka();
-      } else {
-        message.error(data.komunikat || 'Błąd zmiany statusu');
+      if (!response.ok || !result.sukces) {
+        throw new Error(result.komunikat || "Błąd zmiany statusu");
       }
+
+      message.success(result.komunikat || "Status zmieniony pomyślnie");
+      fetchZlecenia();
     } catch (error) {
-      message.error('Błąd podczas zmiany statusu');
-    } finally {
-      setChangingStatus(null);
+      console.error("Błąd zmiany statusu:", error);
+      message.error(error.message || "Błąd zmiany statusu");
     }
   };
 
-  // Określ kolor statusu
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'BUFOR_OKLEINIARKA': return 'orange';
-      case 'OKLEJANIE_START':
-      case 'OKLEJANIE': return 'processing';
-      default: return 'default';
-    }
+  const getStatusColor = (status) => {
+    const colors = {
+      TRANSPORT_1: "purple",
+      BUFOR_OKLEINIARKA: "orange",
+      OKLEJANIE_START: "processing",
+      OKLEJANIE_STOP: "success",
+      TRANSPORT_2: "purple",
+    };
+    return colors[status] || "default";
   };
 
-  // Określ akcję przycisku
-  const getButtonAction = (status: string) => {
-    switch(status) {
-      case 'BUFOR_OKLEINIARKA': 
-        return { 
-          icon: <PlayCircleOutlined />, 
-          text: 'Rozpocznij oklejanie', 
-          type: 'primary' 
-        };
-      case 'OKLEJANIE_START':
-      case 'OKLEJANIE':
-        return { 
-          icon: <CheckCircleOutlined />, 
-          text: 'Zakończ oklejanie', 
-          type: 'success' 
-        };
-      default:
-        return { 
-          icon: <PlayCircleOutlined />, 
-          text: 'Akcja', 
-          type: 'default' 
-        };
-    }
+  const getStatusLabel = (status) => {
+    const labels = {
+      TRANSPORT_1: "W transporcie z piły",
+      BUFOR_OKLEINIARKA: "W buforze",
+      OKLEJANIE_START: "Oklejanie w toku",
+      OKLEJANIE_STOP: "Oklejanie zakończone",
+      TRANSPORT_2: "Transport do wiertarki",
+    };
+    return labels[status] || status;
   };
+
+  const getNextStatus = (currentStatus) => {
+    const flow = {
+      TRANSPORT_1: "BUFOR_OKLEINIARKA",
+      BUFOR_OKLEINIARKA: "OKLEJANIE_START",
+      OKLEJANIE_START: "OKLEJANIE_STOP",
+      OKLEJANIE_STOP: "TRANSPORT_2",
+    };
+    return flow[currentStatus];
+  };
+
+  const getActionButton = (record) => {
+    const nextStatus = getNextStatus(record.status);
+    if (!nextStatus) return null;
+
+    const labels = {
+      BUFOR_OKLEINIARKA: "📥 Przyjmij do bufora",
+      OKLEJANIE_START: "🎨 Rozpocznij oklejanie",
+      OKLEJANIE_STOP: "✅ Zakończ oklejanie",
+      TRANSPORT_2: "🚚 Wyślij do wiertarki",
+    };
+
+    const icons = {
+      BUFOR_OKLEINIARKA: <InboxOutlined />,
+      OKLEJANIE_START: <PlayCircleOutlined />,
+      OKLEJANIE_STOP: <CheckCircleOutlined />,
+      TRANSPORT_2: <TruckOutlined />,
+    };
+
+    const buttonType = {
+      BUFOR_OKLEINIARKA: "default",
+      OKLEJANIE_START: "primary",
+      OKLEJANIE_STOP: "primary",
+      TRANSPORT_2: "primary",
+    };
+
+    return (
+      <Button
+        type={buttonType[nextStatus] || "primary"}
+        danger={nextStatus === "TRANSPORT_2"}
+        icon={icons[nextStatus]}
+        onClick={() => zmienStatus(record.id, nextStatus)}
+        size="large"
+      >
+        {labels[nextStatus]}
+      </Button>
+    );
+  };
+
+  const columns = [
+    {
+      title: "ZKO",
+      dataIndex: "numer_zko",
+      key: "numer_zko",
+      render: (text, record) => (
+        <Space direction="vertical" size="small">
+          <Text strong style={{ fontSize: "16px" }}>{text}</Text>
+          {record.kooperant && (
+            <Text type="secondary">{record.kooperant}</Text>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => (
+        <Badge status={
+          status === "OKLEJANIE_START" ? "processing" : 
+          status === "TRANSPORT_1" ? "warning" :
+          "default"
+        }>
+          <Tag color={getStatusColor(status)} style={{ fontSize: "14px" }}>
+            {getStatusLabel(status)}
+          </Tag>
+        </Badge>
+      ),
+    },
+    {
+      title: "Formatki",
+      key: "formatki",
+      render: (_, record) => (
+        <Statistic
+          value={record.formatki_count || 0}
+          suffix="szt"
+          valueStyle={{ fontSize: "18px" }}
+        />
+      ),
+    },
+    {
+      title: "Czas w statusie",
+      key: "czas",
+      render: (_, record) => (
+        <Space direction="vertical" size="small">
+          <Text type="secondary">
+            <ClockCircleOutlined /> {getStatusLabel(record.status)}
+          </Text>
+          <Text>{dayjs(record.updated_at || record.data_utworzenia).fromNow()}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: "Akcja",
+      key: "akcja",
+      render: (_, record) => getActionButton(record),
+    },
+  ];
 
   return (
-    <div className="worker-view-okleiniarka" style={{ padding: '24px' }}>
-      {/* Nagłówek z statystykami */}
-      <Card style={{ marginBottom: 24 }}>
-        <Row gutter={16}>
-          <Col span={6}>
-            <Space>
-              <BgColorsOutlined style={{ fontSize: 32, color: '#fa8c16' }} />
-              <div>
-                <h2 style={{ margin: 0 }}>Stanowisko OKLEINIARKI</h2>
-                <p style={{ margin: 0, color: '#888' }}>Panel operatora</p>
-              </div>
-            </Space>
-          </Col>
-          <Col span={6}>
-            <Statistic 
-              title="W buforze" 
-              value={stats.w_buforze} 
-              prefix={<PauseCircleOutlined />}
-              valueStyle={{ color: '#fa8c16' }}
-            />
-          </Col>
-          <Col span={6}>
-            <Statistic 
-              title="W oklejaniu" 
-              value={stats.w_oklejaniu} 
-              prefix={<BgColorsOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Col>
-          <Col span={6}>
-            <Button 
-              icon={<ReloadOutlined />} 
-              onClick={fetchZKOForOkleiniarka}
-              loading={loading}
-            >
-              Odśwież
-            </Button>
-          </Col>
-        </Row>
-      </Card>
+    <div style={{ padding: "20px" }}>
+      <Row gutter={16} style={{ marginBottom: "20px" }}>
+        <Col span={24}>
+          <Title level={2}>
+            <BgColorsOutlined /> Panel Operatora Okleiniarki
+          </Title>
+        </Col>
+      </Row>
 
-      {/* Alert informacyjny */}
-      {stats.w_buforze > 3 && (
+      {stats.wTransporcie > 0 && (
         <Alert
-          message="Wysoka liczba zleceń w buforze"
-          description={`Masz ${stats.w_buforze} zleceń oczekujących na oklejanie. Rozważ przyśpieszenie pracy.`}
+          message={`${stats.wTransporcie} zleceń w transporcie z piły`}
+          description="Zlecenia są w drodze, przygotuj się na przyjęcie"
           type="warning"
           showIcon
-          style={{ marginBottom: 16 }}
+          icon={<TruckOutlined />}
+          style={{ marginBottom: "20px" }}
         />
       )}
 
-      {/* Lista ZKO */}
-      <Row gutter={[16, 16]}>
-        {zkoList.map(zko => {
-          const buttonAction = getButtonAction(zko.status);
-          const isChanging = changingStatus === zko.id;
-          
-          return (
-            <Col key={zko.id} xs={24} sm={12} lg={8}>
-              <Card
-                hoverable
-                className={zko.status === 'OKLEJANIE_START' ? 'active-processing' : ''}
-                style={{ 
-                  borderLeft: `4px solid ${
-                    zko.status === 'BUFOR_OKLEINIARKA' ? '#fa8c16' : 
-                    zko.status.includes('OKLEJANIE') ? '#52c41a' : '#d9d9d9'
-                  }`
-                }}
-              >
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  {/* Nagłówek karty */}
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center' 
-                  }}>
-                    <h3 style={{ margin: 0, fontSize: '18px' }}>
-                      {zko.numer_zko}
-                    </h3>
-                    <Tag color={getStatusColor(zko.status)}>
-                      {zko.status}
-                    </Tag>
-                  </div>
+      {stats.wBuforze > 3 && (
+        <Alert
+          message="Uwaga: Duża ilość zleceń w buforze!"
+          description={`Masz ${stats.wBuforze} zleceń oczekujących na oklejanie`}
+          type="warning"
+          showIcon
+          style={{ marginBottom: "20px" }}
+        />
+      )}
 
-                  {/* Informacje o ZKO */}
-                  <div style={{ color: '#666', fontSize: '14px' }}>
-                    <div>Kooperant: <strong>{zko.kooperant}</strong></div>
-                    <div>Formatek: <strong>{zko.ilosc_formatek || 0}</strong></div>
-                    {zko.ilosc_krawedzi && (
-                      <div>Krawędzi do oklejenia: <strong>{zko.ilosc_krawedzi}</strong></div>
-                    )}
-                    <div>
-                      Priorytet: <Badge count={zko.priorytet} style={{ backgroundColor: '#f50' }} />
-                    </div>
-                    <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                      {dayjs(zko.data_utworzenia).fromNow()}
-                    </div>
-                  </div>
-
-                  {/* Przycisk akcji */}
-                  <Button
-                    type={buttonAction.type as any}
-                    icon={buttonAction.icon}
-                    onClick={() => quickStatusChange(zko.id, zko.status)}
-                    loading={isChanging}
-                    block
-                    size="large"
-                    style={{ marginTop: '12px' }}
-                  >
-                    {buttonAction.text}
-                  </Button>
-                </Space>
-              </Card>
-            </Col>
-          );
-        })}
+      <Row gutter={16} style={{ marginBottom: "20px" }}>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="W transporcie"
+              value={stats.wTransporcie}
+              prefix={<TruckOutlined />}
+              valueStyle={{ color: "#722ed1" }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="W buforze"
+              value={stats.wBuforze}
+              prefix={<InboxOutlined />}
+              valueStyle={{ color: "#faad14" }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card className={stats.wTrakcie > 0 ? "processing-animation" : ""}>
+            <Statistic
+              title="W trakcie oklejania"
+              value={stats.wTrakcie}
+              prefix={<BgColorsOutlined />}
+              valueStyle={{ color: "#52c41a" }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
+          <Card>
+            <Statistic
+              title="Formatki dziś"
+              value={stats.dzisiejszeFormatki}
+              suffix="szt"
+              valueStyle={{ color: "#1890ff" }}
+            />
+          </Card>
+        </Col>
       </Row>
 
-      {/* Gdy brak zleceń */}
-      {zkoList.length === 0 && !loading && (
-        <Card style={{ textAlign: 'center', padding: '40px' }}>
-          <BgColorsOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
-          <h3 style={{ color: '#999', marginTop: 16 }}>
-            Brak zleceń do oklejania
-          </h3>
-          <p style={{ color: '#999' }}>
-            Wszystkie zlecenia zostały już oklejone lub czekają na inne operacje
-          </p>
-        </Card>
-      )}
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={zlecenia}
+          loading={loading}
+          rowKey="id"
+          pagination={false}
+          size="large"
+          locale={{
+            emptyText: "Brak zleceń do oklejania",
+          }}
+          rowClassName={(record) => {
+            if (record.status === "TRANSPORT_1") return "transport-row";
+            if (record.status === "BUFOR_OKLEINIARKA") return "buffer-row";
+            if (record.status === "OKLEJANIE_START") return "processing-animation";
+            if (record.status === "OKLEJANIE_STOP") return "completed-row";
+            return "";
+          }}
+        />
+      </Card>
     </div>
   );
 };
-
-export default WorkerViewOkleiniarka;

@@ -1,6 +1,4 @@
-// Eksport wszystkich widoków pracowników
+// Export all worker views
 export { WorkerViewPila } from './WorkerViewPila';
 export { WorkerViewOkleiniarka } from './WorkerViewOkleiniarka';
-// export { WorkerViewWiertarka } from './WorkerViewWiertarka';
-// export { WorkerViewMagazyn } from './WorkerViewMagazyn';
-// export { WorkerViewKompletowanie } from './WorkerViewKompletowanie';
+export { WorkerViewWiertarka } from './WorkerViewWiertarka';

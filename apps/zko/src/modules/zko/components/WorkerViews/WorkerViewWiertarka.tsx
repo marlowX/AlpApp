@@ -14,7 +14,7 @@ import {
   Alert,
 } from "antd";
 import {
-  ScissorOutlined,
+  ToolOutlined,
   PlayCircleOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -30,25 +30,23 @@ dayjs.locale("pl");
 
 const { Title, Text } = Typography;
 
-export const WorkerViewPila = () => {
+export const WorkerViewWiertarka = () => {
   const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
-    oczekujace: 0,
-    wTrakcie: 0,
+    wTransporcie: 0,
     wBuforze: 0,
-    dzisiejszeFormatki: 0,
+    wTrakcie: 0,
+    zakonczonych: 0,
+    dzisiejszeOtwory: 0,
   });
 
-  // Statusy widoczne dla pracownika piły
-  const STATUSY_PILA = [
-    "NOWE", 
-    "CIECIE_START", 
-    "OTWARCIE_PALETY", 
-    "PAKOWANIE_PALETY", 
-    "ZAMKNIECIE_PALETY", 
-    "CIECIE_STOP",
-    "BUFOR_PILA"
+  // Statusy widoczne dla pracownika wiertarki
+  const STATUSY_WIERTARKA = [
+    "TRANSPORT_2",          // Transport z okleiniarki
+    "BUFOR_WIERTARKA",     // W buforze wiertarki
+    "WIERCENIE_START",     // Rozpoczęte wiercenie
+    "WIERCENIE_STOP"       // Zakończone wiercenie
   ];
 
   const fetchZlecenia = async () => {
@@ -59,26 +57,26 @@ export const WorkerViewPila = () => {
       
       // Filtruj tylko zlecenia w odpowiednich statusach
       const filtered = (data.data || []).filter((zko) =>
-        STATUSY_PILA.includes(zko.status)
+        STATUSY_WIERTARKA.includes(zko.status)
       );
       
-      console.log("Fetched ZKOs:", data.data?.length, "Filtered for PILA:", filtered.length);
+      console.log("Fetched ZKOs:", data.data?.length, "Filtered for WIERTARKA:", filtered.length);
       
       setZlecenia(filtered);
       
       // Policz statystyki
-      const oczekujace = filtered.filter(z => z.status === "NOWE").length;
-      const wTrakcie = filtered.filter(z => 
-        ["CIECIE_START", "OTWARCIE_PALETY", "PAKOWANIE_PALETY", "ZAMKNIECIE_PALETY", "CIECIE_STOP"].includes(z.status)
-      ).length;
-      const wBuforze = filtered.filter(z => z.status === "BUFOR_PILA").length;
+      const wTransporcie = filtered.filter(z => z.status === "TRANSPORT_2").length;
+      const wBuforze = filtered.filter(z => z.status === "BUFOR_WIERTARKA").length;
+      const wTrakcie = filtered.filter(z => z.status === "WIERCENIE_START").length;
+      const zakonczonych = filtered.filter(z => z.status === "WIERCENIE_STOP").length;
       
       setStats({
-        oczekujace,
-        wTrakcie,
+        wTransporcie,
         wBuforze,
-        dzisiejszeFormatki: filtered.reduce((sum, z) => 
-          sum + (z.formatki_count || 0), 0
+        wTrakcie,
+        zakonczonych,
+        dzisiejszeOtwory: filtered.reduce((sum, z) => 
+          sum + (z.formatki_count || 0) * 4, 0  // Zakładamy średnio 4 otwory na formatkę
         ),
       });
     } catch (error) {
@@ -96,16 +94,25 @@ export const WorkerViewPila = () => {
     // Dodaj style dla animacji
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.6; }
-        100% { opacity: 1; }
+      @keyframes drilling {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
       }
-      .cutting-animation {
-        animation: pulse 2s infinite;
+      .drilling-icon {
+        animation: drilling 2s linear infinite;
+        display: inline-block;
+      }
+      .drilling-row {
+        background-color: #fff1f0;
+      }
+      .transport-row {
+        background-color: #fff7e6;
       }
       .buffer-row {
         background-color: #f6ffed;
+      }
+      .completed-row {
+        background-color: #f0f5ff;
       }
     `;
     document.head.appendChild(style);
@@ -126,10 +133,10 @@ export const WorkerViewPila = () => {
         body: JSON.stringify({
           zko_id: zkoId,
           nowy_etap_kod: nowyStatus,
-          uzytkownik: localStorage.getItem("operator") || "Operator Piły",
-          operator: localStorage.getItem("operator") || "Operator Piły",
-          lokalizacja: nowyStatus === "TRANSPORT_1" ? "TRANSPORT" : "PIŁA",
-          komentarz: `Zmiana statusu przez panel piły na ${nowyStatus}`
+          uzytkownik: localStorage.getItem("operator") || "Operator Wiertarki",
+          operator: localStorage.getItem("operator") || "Operator Wiertarki",
+          lokalizacja: nowyStatus === "TRANSPORT_3" ? "TRANSPORT" : "WIERTARKA",
+          komentarz: `Zmiana statusu przez panel wiertarki na ${nowyStatus}`
         }),
       });
 
@@ -149,41 +156,32 @@ export const WorkerViewPila = () => {
 
   const getStatusColor = (status) => {
     const colors = {
-      NOWE: "blue",
-      CIECIE_START: "processing",
-      OTWARCIE_PALETY: "orange",
-      PAKOWANIE_PALETY: "orange",
-      ZAMKNIECIE_PALETY: "green",
-      CIECIE_STOP: "success",
-      BUFOR_PILA: "lime",
-      TRANSPORT_1: "purple",
+      TRANSPORT_2: "purple",
+      BUFOR_WIERTARKA: "orange",
+      WIERCENIE_START: "processing",
+      WIERCENIE_STOP: "success",
+      TRANSPORT_3: "purple",
     };
     return colors[status] || "default";
   };
 
   const getStatusLabel = (status) => {
     const labels = {
-      NOWE: "Oczekuje",
-      CIECIE_START: "Rozpoczęto cięcie",
-      OTWARCIE_PALETY: "Otwarta paleta",
-      PAKOWANIE_PALETY: "Pakowanie",
-      ZAMKNIECIE_PALETY: "Zamknięta paleta",
-      CIECIE_STOP: "Zakończono cięcie",
-      BUFOR_PILA: "W buforze piły",
-      TRANSPORT_1: "Transport do okleiniarki",
+      TRANSPORT_2: "W transporcie z okleiniarki",
+      BUFOR_WIERTARKA: "W buforze",
+      WIERCENIE_START: "Wiercenie w toku",
+      WIERCENIE_STOP: "Wiercenie zakończone",
+      TRANSPORT_3: "Transport do magazynu",
     };
     return labels[status] || status;
   };
 
   const getNextStatus = (currentStatus) => {
     const flow = {
-      NOWE: "CIECIE_START",
-      CIECIE_START: "OTWARCIE_PALETY",
-      OTWARCIE_PALETY: "PAKOWANIE_PALETY",
-      PAKOWANIE_PALETY: "ZAMKNIECIE_PALETY",
-      ZAMKNIECIE_PALETY: "CIECIE_STOP",
-      CIECIE_STOP: "BUFOR_PILA",
-      BUFOR_PILA: "TRANSPORT_1",
+      TRANSPORT_2: "BUFOR_WIERTARKA",
+      BUFOR_WIERTARKA: "WIERCENIE_START",
+      WIERCENIE_START: "WIERCENIE_STOP",
+      WIERCENIE_STOP: "TRANSPORT_3",
     };
     return flow[currentStatus];
   };
@@ -193,29 +191,23 @@ export const WorkerViewPila = () => {
     if (!nextStatus) return null;
 
     const labels = {
-      CIECIE_START: "🚀 Rozpocznij cięcie",
-      OTWARCIE_PALETY: "📦 Otwórz paletę",
-      PAKOWANIE_PALETY: "📋 Pakuj formatki",
-      ZAMKNIECIE_PALETY: "✅ Zamknij paletę",
-      CIECIE_STOP: "🏁 Zakończ cięcie",
-      BUFOR_PILA: "📤 Przenieś do bufora",
-      TRANSPORT_1: "🚚 Wyślij do okleiniarki",
+      BUFOR_WIERTARKA: "📥 Przyjmij do bufora",
+      WIERCENIE_START: "🔧 Rozpocznij wiercenie",
+      WIERCENIE_STOP: "✅ Zakończ wiercenie",
+      TRANSPORT_3: "🚚 Wyślij do magazynu",
     };
 
     const icons = {
-      CIECIE_START: <PlayCircleOutlined />,
-      OTWARCIE_PALETY: <InboxOutlined />,
-      PAKOWANIE_PALETY: <InboxOutlined />,
-      ZAMKNIECIE_PALETY: <CheckCircleOutlined />,
-      CIECIE_STOP: <CheckCircleOutlined />,
-      BUFOR_PILA: <InboxOutlined />,
-      TRANSPORT_1: <TruckOutlined />,
+      BUFOR_WIERTARKA: <InboxOutlined />,
+      WIERCENIE_START: <ToolOutlined />,
+      WIERCENIE_STOP: <CheckCircleOutlined />,
+      TRANSPORT_3: <TruckOutlined />,
     };
 
     return (
       <Button
-        type={nextStatus === "TRANSPORT_1" ? "primary" : "primary"}
-        danger={nextStatus === "TRANSPORT_1"}
+        type="primary"
+        danger={nextStatus === "TRANSPORT_3"}
         icon={icons[nextStatus]}
         onClick={() => zmienStatus(record.id, nextStatus)}
         size="large"
@@ -244,8 +236,15 @@ export const WorkerViewPila = () => {
       dataIndex: "status",
       key: "status",
       render: (status) => (
-        <Badge status={status.includes("START") ? "processing" : "default"}>
+        <Badge status={
+          status === "WIERCENIE_START" ? "processing" : 
+          status === "TRANSPORT_2" ? "warning" :
+          "default"
+        }>
           <Tag color={getStatusColor(status)} style={{ fontSize: "14px" }}>
+            {status === "WIERCENIE_START" && (
+              <span className="drilling-icon">⚙️ </span>
+            )}
             {getStatusLabel(status)}
           </Tag>
         </Badge>
@@ -255,22 +254,27 @@ export const WorkerViewPila = () => {
       title: "Formatki",
       key: "formatki",
       render: (_, record) => (
-        <Statistic
-          value={record.formatki_count || 0}
-          suffix="szt"
-          valueStyle={{ fontSize: "18px" }}
-        />
+        <Space direction="vertical" size="small">
+          <Statistic
+            value={record.formatki_count || 0}
+            suffix="szt"
+            valueStyle={{ fontSize: "18px" }}
+          />
+          <Text type="secondary">
+            ~{(record.formatki_count || 0) * 4} otworów
+          </Text>
+        </Space>
       ),
     },
     {
-      title: "Czas",
+      title: "Czas w statusie",
       key: "czas",
       render: (_, record) => (
         <Space direction="vertical" size="small">
           <Text type="secondary">
-            <ClockCircleOutlined /> Utworzono
+            <ClockCircleOutlined /> {getStatusLabel(record.status)}
           </Text>
-          <Text>{dayjs(record.data_utworzenia).fromNow()}</Text>
+          <Text>{dayjs(record.updated_at || record.data_utworzenia).fromNow()}</Text>
         </Space>
       ),
     },
@@ -286,16 +290,16 @@ export const WorkerViewPila = () => {
       <Row gutter={16} style={{ marginBottom: "20px" }}>
         <Col span={24}>
           <Title level={2}>
-            <ScissorOutlined /> Panel Operatora Piły
+            <ToolOutlined /> Panel Operatora Wiertarki
           </Title>
         </Col>
       </Row>
 
-      {stats.wBuforze > 0 && (
+      {stats.wTransporcie > 0 && (
         <Alert
-          message={`Masz ${stats.wBuforze} zleceń gotowych do transportu`}
-          description="Zlecenia w buforze czekają na transport do okleiniarki"
-          type="info"
+          message={`${stats.wTransporcie} zleceń w transporcie z okleiniarki`}
+          description="Zlecenia są w drodze, przygotuj wiertarkę"
+          type="warning"
           showIcon
           icon={<TruckOutlined />}
           style={{ marginBottom: "20px" }}
@@ -306,20 +310,10 @@ export const WorkerViewPila = () => {
         <Col span={6}>
           <Card>
             <Statistic
-              title="Oczekujące"
-              value={stats.oczekujace}
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: "#1890ff" }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card className={stats.wTrakcie > 0 ? "cutting-animation" : ""}>
-            <Statistic
-              title="W trakcie cięcia"
-              value={stats.wTrakcie}
-              prefix={<ScissorOutlined />}
-              valueStyle={{ color: "#52c41a" }}
+              title="W transporcie"
+              value={stats.wTransporcie}
+              prefix={<TruckOutlined />}
+              valueStyle={{ color: "#722ed1" }}
             />
           </Card>
         </Col>
@@ -334,12 +328,22 @@ export const WorkerViewPila = () => {
           </Card>
         </Col>
         <Col span={6}>
+          <Card className={stats.wTrakcie > 0 ? "drilling-row" : ""}>
+            <Statistic
+              title="W trakcie wiercenia"
+              value={stats.wTrakcie}
+              prefix={<ToolOutlined />}
+              valueStyle={{ color: "#52c41a" }}
+            />
+          </Card>
+        </Col>
+        <Col span={6}>
           <Card>
             <Statistic
-              title="Formatki dziś"
-              value={stats.dzisiejszeFormatki}
+              title="Otwory dziś"
+              value={stats.dzisiejszeOtwory}
               suffix="szt"
-              valueStyle={{ color: "#722ed1" }}
+              valueStyle={{ color: "#1890ff" }}
             />
           </Card>
         </Col>
@@ -354,11 +358,13 @@ export const WorkerViewPila = () => {
           pagination={false}
           size="large"
           locale={{
-            emptyText: "Brak zleceń do cięcia",
+            emptyText: "Brak zleceń do wiercenia",
           }}
           rowClassName={(record) => {
-            if (record.status === "CIECIE_START") return "cutting-animation";
-            if (record.status === "BUFOR_PILA") return "buffer-row";
+            if (record.status === "TRANSPORT_2") return "transport-row";
+            if (record.status === "BUFOR_WIERTARKA") return "buffer-row";
+            if (record.status === "WIERCENIE_START") return "drilling-row";
+            if (record.status === "WIERCENIE_STOP") return "completed-row";
             return "";
           }}
         />

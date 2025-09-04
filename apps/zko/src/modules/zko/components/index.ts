@@ -10,5 +10,5 @@ export { ZKOListCard } from './ZKOListCard';
 export { ZKOListFilters } from './ZKOListFilters';
 export { ZKOListStats } from './ZKOListStats';
 
-// Worker Views - widoki dla pracowników
-export { WorkerViewPila, WorkerViewOkleiniarka } from './WorkerViews';
+// Worker Views
+export { WorkerViewPila, WorkerViewOkleiniarka, WorkerViewWiertarka } from './WorkerViews';
