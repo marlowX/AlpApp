@@ -1,11 +1,11 @@
 /**
- * @fileoverview Karta palety z drag & drop - kompaktowa wersja
+ * @fileoverview Karta palety z drag & drop - poprawiony widok kompaktowy
  * @module PaletyZko/components/PaletaCardDND
  */
 
 import React from 'react';
 import { useDrop } from 'react-dnd';
-import { Card, Tag, Space, Typography, Button, Popconfirm, Tooltip, Row, Col } from 'antd';
+import { Card, Tag, Space, Typography, Progress, Button, Popconfirm, Tooltip, Badge } from 'antd';
 import {
   DeleteOutlined,
   LockOutlined,
@@ -17,6 +17,7 @@ import {
   DragOutlined
 } from '@ant-design/icons';
 import { Paleta, ItemTypes } from '../types';
+import { colors, dimensions, componentStyles, styleHelpers } from '../styles/theme';
 
 const { Text } = Typography;
 
@@ -43,7 +44,7 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
   deleting,
   closing
 }) => {
-  // Setup drop target
+  // Setup drop target - używamy ItemTypes.FORMATKA
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemTypes.FORMATKA,
     drop: (item: any) => {
@@ -61,7 +62,7 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
   const isActive = isOver && canDrop;
   const isZamknieta = paleta.status === 'zamknieta' || paleta.status === 'gotowa_do_transportu';
   
-  // Pobierz dane
+  // Pobierz dane o formatkach - sprawdź różne możliwe pola
   const sztuk = Number(
     paleta.ilosc_formatek || 
     paleta.sztuk_total || 
@@ -77,192 +78,296 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
   
   const procentWagi = maxWaga > 0 ? Math.min(Math.round((waga / maxWaga) * 100), 100) : 0;
   const procentWysokosci = maxWysokosc > 0 ? Math.min(Math.round((wysokosc / maxWysokosc) * 100), 100) : 0;
+  const procentWypelnienia = Math.round((procentWagi + procentWysokosci) / 2);
 
-  // Formatuj numer palety
-  const formatujNumerPalety = (numer: string) => {
-    if (!numer) return 'BRAK';
-    const parts = numer.split('-');
-    if (parts.length >= 3) {
-      return parts.slice(-2).join('-'); // Ostatnie 2 części
+  // Pobierz kolory i formatki
+  const formatki = paleta.formatki_szczegoly || [];
+  
+  // Wyciągnij unikalne kolory z formatek
+  const kolory: string[] = [];
+  const uniqueColors = new Set<string>();
+  
+  formatki.forEach((f: any) => {
+    // Próbuj wyciągnąć kolor z nazwy formatki
+    if (f.nazwa_formatki && f.nazwa_formatki.includes(' - ')) {
+      const kolor = f.nazwa_formatki.split(' - ')[1];
+      if (kolor && !uniqueColors.has(kolor)) {
+        uniqueColors.add(kolor);
+        kolory.push(kolor);
+      }
+    } else if (f.kolor && !uniqueColors.has(f.kolor)) {
+      uniqueColors.add(f.kolor);
+      kolory.push(f.kolor);
     }
-    return numer;
-  };
+  });
+  
+  // Pobierz pierwszą formatkę dla wyświetlenia
+  const firstFormatka = formatki[0];
+  const formatkaInfo = firstFormatka ? (
+    firstFormatka.nazwa_formatki || 
+    (firstFormatka.wymiary && firstFormatka.kolor ? `${firstFormatka.wymiary} - ${firstFormatka.kolor}` : '') ||
+    (firstFormatka.dlugosc && firstFormatka.szerokosc ? `${firstFormatka.dlugosc}×${firstFormatka.szerokosc}` : '')
+  ) : '';
 
-  // Kolor ramki
-  const getBorderColor = () => {
-    if (isActive) return '#52c41a';
-    if (isZamknieta) return '#faad14';
-    if (sztuk === 0) return '#d9d9d9';
-    return '#1890ff';
-  };
-
-  // Styl karty
-  const cardStyle: React.CSSProperties = {
-    height: '140px', // OBNIŻONA WYSOKOŚĆ
-    cursor: 'pointer',
-    borderColor: getBorderColor(),
-    borderWidth: isActive ? 2 : 1,
-    borderStyle: sztuk === 0 && !isZamknieta ? 'dashed' : 'solid',
-    backgroundColor: isActive ? '#f6ffed' : isZamknieta ? '#fffbe6' : '#fff',
-    transition: 'all 0.2s ease',
-    position: 'relative' as const,
-    overflow: 'hidden'
+  // Określ kolor statusu
+  const getStatusStyle = () => {
+    if (isZamknieta) return { 
+      borderColor: colors.warning, 
+      backgroundColor: '#fffbe6',
+      borderWidth: 2
+    };
+    if (sztuk === 0) return { 
+      borderStyle: 'dashed' as const,
+      borderColor: colors.borderLight,
+      backgroundColor: colors.bgSecondary
+    };
+    if (isActive) return {
+      borderColor: colors.success,
+      backgroundColor: colors.bgHover,
+      borderWidth: 2,
+      boxShadow: `0 0 0 3px ${colors.success}20`
+    };
+    return {
+      borderColor: colors.borderBase
+    };
   };
 
   return (
-    <div ref={drop}>
+    <div ref={drop} style={{ height: '100%' }}>
       <Card
+        className={`paleta-card ${isActive ? 'drag-over' : ''} ${isZamknieta ? 'status-zamknieta' : sztuk === 0 ? 'empty' : 'status-otwarta'}`}
         size="small"
         hoverable
-        loading={deleting || closing}
         onClick={() => onShowDetails?.(paleta.id)}
-        style={cardStyle}
-        bodyStyle={{
-          padding: '6px',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column'
+        style={{
+          ...getStatusStyle(),
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          borderRadius: dimensions.cardBorderRadius,
+          minHeight: '180px', // Obniżona wysokość z 220px
+          maxHeight: '180px'  // Stała wysokość
+        }}
+        styles={{
+          body: {
+            padding: '6px', // Zmniejszony padding
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px' // Mniejsza przerwa
+          }
         }}
       >
-        {/* Nagłówek - bardzo kompaktowy */}
-        <Row justify="space-between" align="middle" style={{ marginBottom: 4 }}>
-          <Col>
-            <Space size={2}>
-              {isZamknieta ? (
-                <LockOutlined style={{ fontSize: 12, color: '#faad14' }} />
-              ) : (
-                <UnlockOutlined style={{ fontSize: 12, color: '#52c41a' }} />
-              )}
-              <Text strong style={{ fontSize: 12 }}>
-                PAL-{formatujNumerPalety(paleta.numer_palety)}
-              </Text>
-            </Space>
-          </Col>
-          <Col>
-            <Space size={0}>
-              {!isZamknieta && sztuk > 0 && (
-                <Tooltip title="Zamknij">
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CheckCircleOutlined />}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onClose?.(paleta.id);
-                    }}
-                    style={{ width: 22, height: 22, padding: 0, fontSize: 12 }}
-                  />
-                </Tooltip>
-              )}
-              {isZamknieta && (
-                <Tooltip title="Drukuj">
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<PrinterOutlined />}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPrint?.(paleta.id);
-                    }}
-                    style={{ width: 22, height: 22, padding: 0, fontSize: 12 }}
-                  />
-                </Tooltip>
-              )}
-              <Tooltip title="Usuń">
-                <Popconfirm
-                  title="Usunąć paletę?"
-                  onConfirm={(e) => {
-                    e?.stopPropagation();
-                    onDelete?.(paleta.id);
-                  }}
-                  okText="Tak"
-                  cancelText="Nie"
-                >
-                  <Button
-                    type="text"
-                    danger
-                    size="small"
-                    icon={<DeleteOutlined />}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ width: 22, height: 22, padding: 0, fontSize: 12 }}
-                  />
-                </Popconfirm>
-              </Tooltip>
-            </Space>
-          </Col>
-        </Row>
-
-        {/* Główna liczba - centrum */}
+        {/* Nagłówek z numerem palety i akcjami - bardziej kompaktowy */}
         <div style={{
-          flex: 1,
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 4
+          paddingBottom: '2px',
+          borderBottom: `1px solid ${colors.borderLight}`,
+          marginBottom: '2px'
+        }}>
+          <Space size={2} align="center">
+            {isZamknieta ? (
+              <LockOutlined style={{ fontSize: 11, color: colors.warning }} />
+            ) : sztuk === 0 ? (
+              <InboxOutlined style={{ fontSize: 11, color: colors.textSecondary }} />
+            ) : (
+              <UnlockOutlined style={{ fontSize: 11, color: colors.success }} />
+            )}
+            <Text strong style={{ fontSize: 12 }}>
+              {paleta.numer_palety}
+            </Text>
+          </Space>
+          
+          <Space size={0}>
+            {sztuk > 0 && !isZamknieta && (
+              <Tooltip title="Zamknij" placement="top">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CheckCircleOutlined />}
+                  loading={closing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClose?.(paleta.id);
+                  }}
+                  style={{ 
+                    width: 18, 
+                    height: 18,
+                    padding: 0,
+                    color: colors.success,
+                    fontSize: 10
+                  }}
+                />
+              </Tooltip>
+            )}
+            
+            {isZamknieta && (
+              <Tooltip title="Drukuj" placement="top">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<PrinterOutlined />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPrint?.(paleta.id);
+                  }}
+                  style={{ 
+                    width: 18, 
+                    height: 18,
+                    padding: 0,
+                    color: colors.info,
+                    fontSize: 10
+                  }}
+                />
+              </Tooltip>
+            )}
+
+            <Tooltip title="Szczegóły" placement="top">
+              <Button
+                type="text"
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowDetails?.(paleta.id);
+                }}
+                style={{ 
+                  width: 18, 
+                  height: 18,
+                  padding: 0,
+                  color: colors.textSecondary,
+                  fontSize: 10
+                }}
+              />
+            </Tooltip>
+
+            <Tooltip title="Usuń" placement="top">
+              <Popconfirm
+                title="Usunąć paletę?"
+                description={sztuk > 0 ? `Zawiera ${sztuk} formatek` : undefined}
+                onConfirm={(e) => {
+                  e?.stopPropagation();
+                  onDelete?.(paleta.id);
+                }}
+                okText="Tak"
+                cancelText="Nie"
+                placement="topRight"
+              >
+                <Button
+                  type="text"
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  loading={deleting}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ 
+                    width: 18, 
+                    height: 18,
+                    padding: 0,
+                    fontSize: 10
+                  }}
+                />
+              </Popconfirm>
+            </Tooltip>
+          </Space>
+        </div>
+
+        {/* Główna liczba sztuk - centrum uwagi ale kompaktowa */}
+        <div style={{
+          background: sztuk > 0 ? '#f0f9ff' : colors.bgSecondary,
+          padding: '4px', // Zmniejszony padding
+          borderRadius: 4,
+          textAlign: 'center',
+          border: `1px solid ${sztuk > 0 ? '#91d5ff' : colors.borderLight}`
         }}>
           <Text strong style={{ 
-            fontSize: 28,
-            lineHeight: 1,
-            color: sztuk > 0 ? '#1890ff' : '#d9d9d9'
+            fontSize: 18, // Zmniejszona czcionka
+            color: sztuk > 0 ? colors.primary : colors.textSecondary,
+            display: 'block'
           }}>
-            {sztuk}
+            {sztuk} szt.
           </Text>
-          <Text style={{ fontSize: 11, color: '#8c8c8c' }}>
+          <Text style={{ 
+            fontSize: 9, // Mniejszy tekst
+            color: colors.textSecondary
+          }}>
             formatek na palecie
           </Text>
         </div>
 
-        {/* Wskaźniki - bardzo kompaktowe */}
-        <Row gutter={4}>
-          <Col span={12}>
-            <Tooltip title={`Waga: ${waga.toFixed(0)}/${maxWaga} kg`}>
-              <div style={{ 
-                height: 3,
-                background: '#f0f0f0',
-                borderRadius: 2,
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  width: `${procentWagi}%`,
-                  height: '100%',
-                  background: procentWagi > 90 ? '#ff4d4f' : procentWagi > 70 ? '#faad14' : '#52c41a'
-                }} />
-              </div>
-            </Tooltip>
-          </Col>
-          <Col span={12}>
-            <Tooltip title={`Wysokość: ${wysokosc}/${maxWysokosc} mm`}>
-              <div style={{ 
-                height: 3,
-                background: '#f0f0f0',
-                borderRadius: 2,
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  width: `${procentWysokosci}%`,
-                  height: '100%',
-                  background: procentWysokosci > 90 ? '#ff4d4f' : procentWysokosci > 70 ? '#faad14' : '#52c41a'
-                }} />
-              </div>
-            </Tooltip>
-          </Col>
-        </Row>
+        {/* Informacja o formatkach - bardzo kompaktowa */}
+        {formatkaInfo && sztuk > 0 && (
+          <div style={{ 
+            fontSize: 10, // Zmniejszona czcionka
+            color: colors.textSecondary,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            padding: '0 2px'
+          }}>
+            {formatkaInfo}
+            {formatki.length > 1 && ` +${formatki.length - 1}`}
+          </div>
+        )}
 
-        {/* Drop indicator - tylko dla otwartych */}
+        {/* Wskaźnik wypełnienia - prosty pasek */}
+        <div style={{ padding: '0 2px' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            marginBottom: 1,
+            fontSize: 9, // Mniejsza czcionka
+            color: colors.textSecondary
+          }}>
+            <span>Wypełnienie</span>
+            <span style={{ 
+              color: styleHelpers.getCompletionColor(procentWypelnienia),
+              fontWeight: 'bold'
+            }}>
+              {procentWypelnienia}%
+            </span>
+          </div>
+          <div style={{
+            height: 3, // Niższy pasek
+            background: colors.borderLight,
+            borderRadius: 2,
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${procentWypelnienia}%`,
+              height: '100%',
+              background: styleHelpers.getCompletionColor(procentWypelnienia),
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          
+          {/* Mini info o wadze i wysokości */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            marginTop: 1,
+            fontSize: 8, // Bardzo mała czcionka
+            color: colors.textTertiary
+          }}>
+            <span>{waga.toFixed(1)}kg</span>
+            <span>{wysokosc}mm</span>
+          </div>
+        </div>
+
+        {/* Obszar drop - tylko dla otwartych palet */}
         {!isZamknieta && (
           <div style={{ 
-            marginTop: 4,
-            textAlign: 'center',
-            fontSize: 9,
-            color: isActive ? '#52c41a' : '#d9d9d9',
+            textAlign: 'center', 
+            fontSize: 9, // Mniejsza czcionka
+            color: isActive ? colors.success : colors.textTertiary,
             padding: '2px',
-            border: `1px dashed ${isActive ? '#52c41a' : '#f0f0f0'}`,
-            borderRadius: 2,
-            background: isActive ? '#f6ffed' : 'transparent'
+            border: `1px dashed ${isActive ? colors.success : colors.borderLight}`,
+            borderRadius: 4,
+            background: isActive ? `${colors.success}10` : 'transparent',
+            marginTop: 'auto'
           }}>
-            <DragOutlined style={{ fontSize: 10 }} />
-            {isActive ? ' Upuść tutaj' : ' Przeciągnij formatki'}
+            <DragOutlined style={{ fontSize: 9, marginRight: 2 }} />
+            {isActive ? 'Upuść tutaj' : 'Przeciągnij formatki'}
           </div>
         )}
       </Card>
