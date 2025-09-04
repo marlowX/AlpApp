@@ -278,20 +278,43 @@ export const handleGetPozycjaFormatki = async (req: Request, res: Response) => {
     }
     
     // Pobierz formatki z pozycji wraz z szczegółami
+    // WAŻNE: Wyciągamy kolor z nazwy formatki, nie z pozycji!
     const result = await db.query(`
       SELECT 
         pf.id,
-        pf.nazwa_formatki as nazwa,
-        pf.dlugosc as dlugosc,
-        pf.szerokosc as szerokosc,
-        18 as grubosc,  -- Domyślna grubość płyty
-        p.kolor_plyty as kolor,
+        pf.pozycja_id,
+        pf.nazwa_formatki,
+        pf.dlugosc,
+        pf.szerokosc,
         pf.ilosc_planowana,
         pf.sciezka_produkcji,
-        -- Oblicz wagę teoretyczną (dł × szer × grub × gęstość) / konwersja na kg
-        (pf.dlugosc * pf.szerokosc * 18 * 0.8) / 1000000000.0 as waga_sztuka,
         pf.typ_formatki,
-        p.id as pozycja_id,
+        pf.typ_plyty,
+        pf.kierunek_produkcji,
+        pf.wymaga_oklejania,
+        pf.wiercone,
+        -- Wyciągnij kolor z nazwy formatki (np. "494x368 - BIALY" -> "BIALY")
+        CASE 
+          WHEN pf.nazwa_formatki LIKE '% - %' THEN 
+            TRIM(SPLIT_PART(pf.nazwa_formatki, ' - ', 2))
+          ELSE 
+            'NIEZNANY'
+        END as kolor,
+        -- Wyciągnij wymiary z nazwy formatki
+        SPLIT_PART(pf.nazwa_formatki, ' - ', 1) as wymiary,
+        -- Znajdź nazwę płyty dla konkretnego koloru
+        CASE 
+          WHEN pf.nazwa_formatki LIKE '% - BIALY' THEN '18_BIALY'
+          WHEN pf.nazwa_formatki LIKE '% - WOTAN' THEN '18_WOTAN'
+          WHEN pf.nazwa_formatki LIKE '% - SONOMA' THEN '18_SONOMA'
+          WHEN pf.nazwa_formatki LIKE '% - CZARNY' THEN '18_CZARNY'
+          WHEN pf.nazwa_formatki LIKE '% - SZARY' THEN '18_SZARY'
+          ELSE CONCAT('18_', TRIM(SPLIT_PART(pf.nazwa_formatki, ' - ', 2)))
+        END as nazwa_plyty,
+        18 as grubosc,  -- Domyślna grubość płyty
+        -- Oblicz wagę teoretyczną (dł × szer × grub × gęstość) / konwersja na kg
+        (pf.dlugosc * pf.szerokosc * 18 * 0.8) / 1000000000.0 as waga_sztuki,
+        p.id as pozycja_id_parent,
         p.zko_id,
         -- Oblicz ile już jest przypisane do palet
         COALESCE((
@@ -300,7 +323,7 @@ export const handleGetPozycjaFormatki = async (req: Request, res: Response) => {
           JOIN zko.palety pal ON pal.id = pfi.paleta_id
           WHERE pfi.formatka_id = pf.id 
           AND pal.pozycja_id = p.id
-        ), 0) as ilosc_w_paletach
+        ), 0) as ilosc_na_paletach
       FROM zko.pozycje_formatki pf
       JOIN zko.pozycje p ON p.id = pf.pozycja_id
       WHERE pf.pozycja_id = $1
@@ -309,11 +332,33 @@ export const handleGetPozycjaFormatki = async (req: Request, res: Response) => {
     
     logger.info(`Found ${result.rows.length} formatki for pozycja ${pozycjaId}`);
     
-    // Dodaj informacje o dostępności
+    // Dodaj informacje o dostępności i mapuj nazwy pól dla kompatybilności
     const formatkiWithAvailability = result.rows.map(formatka => ({
-      ...formatka,
-      ilosc_dostepna: Math.max(0, formatka.ilosc_planowana - formatka.ilosc_w_paletach),
-      czy_w_pelni_przypisana: formatka.ilosc_planowana <= formatka.ilosc_w_paletach
+      id: formatka.id,
+      pozycja_id: formatka.pozycja_id,
+      nazwa_formatki: formatka.nazwa_formatki,
+      dlugosc: parseFloat(formatka.dlugosc),
+      szerokosc: parseFloat(formatka.szerokosc),
+      wymiar_x: parseFloat(formatka.dlugosc),
+      wymiar_y: parseFloat(formatka.szerokosc),
+      grubosc: formatka.grubosc,
+      kolor: formatka.kolor,
+      kolor_plyty: formatka.kolor,
+      nazwa_plyty: formatka.nazwa_plyty,
+      wymiary: formatka.wymiary,
+      ilosc_planowana: formatka.ilosc_planowana,
+      ilosc_na_paletach: formatka.ilosc_na_paletach,
+      ilosc_dostepna: Math.max(0, formatka.ilosc_planowana - formatka.ilosc_na_paletach),
+      sztuki_dostepne: Math.max(0, formatka.ilosc_planowana - formatka.ilosc_na_paletach),
+      waga_sztuki: formatka.waga_sztuki,
+      waga_sztuka: formatka.waga_sztuki,
+      typ_formatki: formatka.typ_formatki || 'standard',
+      typ_plyty: formatka.typ_plyty || 'laminat',
+      kierunek_produkcji: formatka.kierunek_produkcji || 'STANDARD',
+      sciezka_produkcji: formatka.sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN',
+      wymaga_oklejania: formatka.wymaga_oklejania !== false,
+      wiercone: formatka.wiercone === true,
+      czy_w_pelni_przypisana: formatka.ilosc_planowana <= formatka.ilosc_na_paletach
     }));
     
     res.json({
@@ -324,7 +369,7 @@ export const handleGetPozycjaFormatki = async (req: Request, res: Response) => {
       podsumowanie: {
         formatki_total: formatkiWithAvailability.length,
         sztuk_planowanych: formatkiWithAvailability.reduce((sum, f) => sum + f.ilosc_planowana, 0),
-        sztuk_w_paletach: formatkiWithAvailability.reduce((sum, f) => sum + f.ilosc_w_paletach, 0),
+        sztuk_na_paletach: formatkiWithAvailability.reduce((sum, f) => sum + f.ilosc_na_paletach, 0),
         sztuk_dostepnych: formatkiWithAvailability.reduce((sum, f) => sum + f.ilosc_dostepna, 0)
       }
     });
