@@ -18,6 +18,8 @@ import {
   List,
   Progress,
   Divider,
+  Empty,
+  Tooltip,
 } from "antd";
 import {
   ScissorOutlined,
@@ -32,6 +34,7 @@ import {
   AppstoreOutlined,
   LockOutlined,
   UnlockOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -50,11 +53,12 @@ export const WorkerViewPila = () => {
   const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(false);
   const [transportModalVisible, setTransportModalVisible] = useState(false);
-  const [paletyModalVisible, setPaletyModalVisible] = useState(false);
   const [selectedZko, setSelectedZko] = useState(null);
   const [selectedPaleta, setSelectedPaleta] = useState(null);
   const [transportDestination, setTransportDestination] = useState("BUFOR_OKLEINIARKA");
   const [paletyZko, setPaletyZko] = useState({});
+  const [activeTab, setActiveTab] = useState("zlecenia");
+  const [selectedZkoForPalety, setSelectedZkoForPalety] = useState(null);
   const [stats, setStats] = useState({
     oczekujace: 0,
     wTrakcie: 0,
@@ -94,14 +98,27 @@ export const WorkerViewPila = () => {
       const paletyData = {};
       for (const zko of filtered) {
         if (["OTWARCIE_PALETY", "PAKOWANIE_PALETY", "ZAMKNIECIE_PALETY", "CIECIE_STOP", "BUFOR_PILA"].includes(zko.status)) {
-          const paletyResponse = await fetch(`/api/zko/${zko.id}/palety`);
-          if (paletyResponse.ok) {
-            const palety = await paletyResponse.json();
-            paletyData[zko.id] = palety.data || [];
+          try {
+            const paletyResponse = await fetch(`/api/zko/${zko.id}/palety`);
+            if (paletyResponse.ok) {
+              const palety = await paletyResponse.json();
+              paletyData[zko.id] = palety.data || [];
+            }
+          } catch (error) {
+            console.error(`Error fetching palety for ZKO ${zko.id}:`, error);
+            paletyData[zko.id] = [];
           }
         }
       }
       setPaletyZko(paletyData);
+      
+      // Automatycznie wybierz pierwsze ZKO do zarządzania paletami jeśli jest w odpowiednim statusie
+      const zkoDoZarzadzania = filtered.find(z => 
+        ["OTWARCIE_PALETY", "PAKOWANIE_PALETY", "ZAMKNIECIE_PALETY"].includes(z.status)
+      );
+      if (zkoDoZarzadzania && !selectedZkoForPalety) {
+        setSelectedZkoForPalety(zkoDoZarzadzania);
+      }
       
       // Policz statystyki
       const oczekujace = filtered.filter(z => z.status === "NOWE").length;
@@ -159,9 +176,15 @@ export const WorkerViewPila = () => {
       .paleta-item {
         cursor: pointer;
         transition: all 0.3s;
+        padding: 8px;
+        border-radius: 4px;
       }
       .paleta-item:hover {
         background-color: #f0f5ff;
+      }
+      .selected-zko-card {
+        border: 2px solid #1890ff;
+        background-color: #f0f8ff;
       }
     `;
     document.head.appendChild(style);
@@ -196,16 +219,21 @@ export const WorkerViewPila = () => {
       }
 
       message.success(result.komunikat || "Status zmieniony pomyślnie");
+      
+      // Jeśli zmieniliśmy na OTWARCIE_PALETY, wybierz to ZKO do zarządzania paletami
+      if (nowyStatus === "OTWARCIE_PALETY") {
+        const zko = zlecenia.find(z => z.id === zkoId);
+        if (zko) {
+          setSelectedZkoForPalety(zko);
+          setActiveTab("palety");
+        }
+      }
+      
       fetchZlecenia();
     } catch (error) {
       console.error("Błąd zmiany statusu:", error);
       message.error(error.message || "Błąd zmiany statusu");
     }
-  };
-
-  const handleOpenPaletyManager = (record) => {
-    setSelectedZko(record);
-    setPaletyModalVisible(true);
   };
 
   const handleTransportClick = (record) => {
@@ -336,7 +364,10 @@ export const WorkerViewPila = () => {
           <Button
             type="primary"
             icon={<AppstoreOutlined />}
-            onClick={() => handleOpenPaletyManager(record)}
+            onClick={() => {
+              setSelectedZkoForPalety(record);
+              setActiveTab("palety");
+            }}
             size="large"
           >
             📦 Zarządzaj paletami ({palety.length})
@@ -409,7 +440,7 @@ export const WorkerViewPila = () => {
       return (
         <Alert
           message="Brak palet"
-          description="Kliknij 'Zarządzaj paletami' aby utworzyć palety"
+          description="Przejdź do zakładki 'Zarządzanie paletami'"
           type="warning"
           showIcon
           size="small"
@@ -528,6 +559,11 @@ export const WorkerViewPila = () => {
     },
   ];
 
+  // Lista ZKO do zarządzania paletami
+  const zkoDoZarzadzaniaPaletami = zlecenia.filter(z => 
+    ["OTWARCIE_PALETY", "PAKOWANIE_PALETY", "ZAMKNIECIE_PALETY"].includes(z.status)
+  );
+
   return (
     <div style={{ padding: "20px" }}>
       <Row gutter={16} style={{ marginBottom: "20px" }}>
@@ -538,17 +574,7 @@ export const WorkerViewPila = () => {
         </Col>
       </Row>
 
-      {stats.wBuforze > 0 && (
-        <Alert
-          message={`Masz ${stats.wBuforze} zleceń gotowych do transportu`}
-          description="Zlecenia w buforze czekają na decyzję o kierunku transportu"
-          type="info"
-          showIcon
-          icon={<TruckOutlined />}
-          style={{ marginBottom: "20px" }}
-        />
-      )}
-
+      {/* Statystyki */}
       <Row gutter={16} style={{ marginBottom: "20px" }}>
         <Col span={4}>
           <Card>
@@ -612,50 +638,178 @@ export const WorkerViewPila = () => {
         </Col>
       </Row>
 
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={zlecenia}
-          loading={loading}
-          rowKey="id"
-          pagination={false}
-          size="large"
-          locale={{
-            emptyText: "Brak zleceń do cięcia",
-          }}
-          rowClassName={(record) => {
-            if (record.status === "CIECIE_START") return "cutting-animation";
-            if (record.status === "BUFOR_PILA") return "buffer-row";
-            return "";
-          }}
+      {/* Alerty */}
+      {stats.wBuforze > 0 && (
+        <Alert
+          message={`Masz ${stats.wBuforze} zleceń gotowych do transportu`}
+          description="Zlecenia w buforze czekają na decyzję o kierunku transportu"
+          type="info"
+          showIcon
+          icon={<TruckOutlined />}
+          style={{ marginBottom: "20px" }}
         />
-      </Card>
+      )}
 
-      {/* Modal zarządzania paletami */}
-      <Modal
-        title={
-          <Space>
-            <AppstoreOutlined />
-            <span>Zarządzanie paletami - {selectedZko?.numer_zko}</span>
-          </Space>
-        }
-        visible={paletyModalVisible}
-        onCancel={() => {
-          setPaletyModalVisible(false);
-          setSelectedZko(null);
-          fetchZlecenia(); // Odśwież dane po zamknięciu
-        }}
-        width="90%"
-        footer={null}
-        bodyStyle={{ padding: 0 }}
-      >
-        {selectedZko && (
-          <PaletyZko 
-            zkoId={selectedZko.id} 
-            onRefresh={() => fetchZlecenia()}
-          />
-        )}
-      </Modal>
+      {zkoDoZarzadzaniaPaletami.length > 0 && activeTab !== "palety" && (
+        <Alert
+          message={`Masz ${zkoDoZarzadzaniaPaletami.length} zleceń wymagających zarządzania paletami`}
+          description="Przejdź do zakładki 'Zarządzanie paletami' aby utworzyć i zamknąć palety"
+          type="warning"
+          showIcon
+          icon={<AppstoreOutlined />}
+          action={
+            <Button
+              size="small"
+              type="primary"
+              onClick={() => setActiveTab("palety")}
+            >
+              Przejdź do palet
+            </Button>
+          }
+          style={{ marginBottom: "20px" }}
+        />
+      )}
+
+      {/* Główna zawartość - zakładki */}
+      <Card>
+        <Tabs 
+          activeKey={activeTab} 
+          onChange={setActiveTab}
+          tabBarExtraContent={
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchZlecenia}
+              loading={loading}
+            >
+              Odśwież
+            </Button>
+          }
+        >
+          <TabPane 
+            tab={
+              <span>
+                <ScissorOutlined />
+                Lista zleceń ({zlecenia.length})
+              </span>
+            } 
+            key="zlecenia"
+          >
+            <Table
+              columns={columns}
+              dataSource={zlecenia}
+              loading={loading}
+              rowKey="id"
+              pagination={false}
+              size="large"
+              locale={{
+                emptyText: "Brak zleceń do cięcia",
+              }}
+              rowClassName={(record) => {
+                if (record.status === "CIECIE_START") return "cutting-animation";
+                if (record.status === "BUFOR_PILA") return "buffer-row";
+                return "";
+              }}
+            />
+          </TabPane>
+
+          <TabPane 
+            tab={
+              <Badge count={zkoDoZarzadzaniaPaletami.length} offset={[10, 0]}>
+                <span>
+                  <AppstoreOutlined />
+                  Zarządzanie paletami
+                </span>
+              </Badge>
+            } 
+            key="palety"
+          >
+            {zkoDoZarzadzaniaPaletami.length > 0 ? (
+              <Row gutter={16}>
+                <Col span={6}>
+                  <Card title="Zlecenia do zarządzania" size="small">
+                    <List
+                      dataSource={zkoDoZarzadzaniaPaletami}
+                      renderItem={zko => (
+                        <List.Item
+                          className={`paleta-item ${selectedZkoForPalety?.id === zko.id ? 'selected-zko-card' : ''}`}
+                          onClick={() => setSelectedZkoForPalety(zko)}
+                        >
+                          <Space direction="vertical" style={{ width: '100%' }}>
+                            <Text strong>{zko.numer_zko}</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {zko.kooperant}
+                            </Text>
+                            <Space>
+                              <Tag color={getStatusColor(zko.status)}>
+                                {getStatusLabel(zko.status)}
+                              </Tag>
+                              {paletyZko[zko.id] && (
+                                <Tag color="blue">
+                                  {paletyZko[zko.id].length} palet
+                                </Tag>
+                              )}
+                            </Space>
+                            {paletyZko[zko.id]?.every(p => p.status === "gotowa_do_transportu") && (
+                              <Button
+                                type="primary"
+                                size="small"
+                                icon={<CheckCircleOutlined />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  zmienStatus(zko.id, "CIECIE_STOP");
+                                }}
+                                style={{ width: '100%', marginTop: 8 }}
+                              >
+                                Zakończ cięcie
+                              </Button>
+                            )}
+                          </Space>
+                        </List.Item>
+                      )}
+                    />
+                  </Card>
+                </Col>
+                <Col span={18}>
+                  {selectedZkoForPalety ? (
+                    <div>
+                      <Alert
+                        message={
+                          <Space>
+                            <Text strong>Zarządzanie paletami dla: {selectedZkoForPalety.numer_zko}</Text>
+                            {selectedZkoForPalety.kooperant && (
+                              <Text type="secondary">({selectedZkoForPalety.kooperant})</Text>
+                            )}
+                          </Space>
+                        }
+                        type="info"
+                        style={{ marginBottom: 16 }}
+                      />
+                      <PaletyZko 
+                        zkoId={selectedZkoForPalety.id} 
+                        onRefresh={() => fetchZlecenia()}
+                      />
+                    </div>
+                  ) : (
+                    <Empty description="Wybierz zlecenie z listy po lewej" />
+                  )}
+                </Col>
+              </Row>
+            ) : (
+              <Empty 
+                image={<AppstoreOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />}
+                description={
+                  <Space direction="vertical">
+                    <Text>Brak zleceń wymagających zarządzania paletami</Text>
+                    <Text type="secondary">
+                      Zlecenia muszą być w statusie "Zarządzanie paletami"
+                    </Text>
+                  </Space>
+                }
+              />
+            )}
+          </TabPane>
+        </Tabs>
+      </Card>
 
       {/* Modal wyboru celu transportu */}
       <Modal
@@ -707,7 +861,7 @@ export const WorkerViewPila = () => {
                     <Text strong>Do Okleiniarki</Text>
                     <br />
                     <Text type="secondary">
-                      Formatki wymagają oklejania krawędzi, następnie mogą iść do wiertarki
+                      Formatki wymagają oklejania krawędzi
                     </Text>
                   </div>
                 </Space>
@@ -728,7 +882,7 @@ export const WorkerViewPila = () => {
                     <Text strong>Do Wiertarki</Text>
                     <br />
                     <Text type="secondary">
-                      Formatki nie wymagają oklejania, tylko wiercenie otworów
+                      Formatki nie wymagają oklejania
                     </Text>
                   </div>
                 </Space>
@@ -749,7 +903,7 @@ export const WorkerViewPila = () => {
                     <Text strong>Do Magazynu</Text>
                     <br />
                     <Text type="secondary">
-                      Formatki gotowe, nie wymagają dalszej obróbki
+                      Formatki gotowe, bez dalszej obróbki
                     </Text>
                   </div>
                 </Space>
@@ -757,29 +911,6 @@ export const WorkerViewPila = () => {
             </Card>
           </Space>
         </Radio.Group>
-        
-        {selectedZko && (
-          <Alert
-            message="Informacje o zleceniu"
-            description={
-              <Space direction="vertical">
-                <Text>ZKO: {selectedZko.numer_zko}</Text>
-                <Text>Formatki: {selectedZko.formatki_count || 0} szt</Text>
-                <Text>Kooperant: {selectedZko.kooperant || "Brak"}</Text>
-                {selectedPaleta && (
-                  <>
-                    <Divider style={{ margin: "8px 0" }} />
-                    <Text strong>Wybrana paleta:</Text>
-                    <Text>Numer: {selectedPaleta.numer_palety}</Text>
-                    <Text>Formatki: {selectedPaleta.ilosc_formatek} szt</Text>
-                  </>
-                )}
-              </Space>
-            }
-            type="warning"
-            style={{ marginTop: 20 }}
-          />
-        )}
       </Modal>
     </div>
   );
