@@ -22,6 +22,7 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
     logger.info(`Fetching detailed pallets for ZKO ${zkoId}`);
     
     // Pobierz palety z ilościami i informacjami o pozycjach
+    // POPRAWIONE: Wyciągamy kolor z nazwy formatki, nie z pozycji
     const result = await db.query(`
       SELECT 
         p.id,
@@ -41,11 +42,26 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
               'formatka_id', pfi.formatka_id,
               'pozycja_id', pf.pozycja_id,
               'ilosc', pfi.ilosc,
-              'nazwa', pf.nazwa_formatki,
+              'nazwa_formatki', pf.nazwa_formatki,
               'dlugosc', pf.dlugosc,
               'szerokosc', pf.szerokosc,
-              'kolor', poz.kolor_plyty,
-              'nazwa_plyty', poz.nazwa_plyty
+              -- Wyciągnij kolor z nazwy formatki (np. "494x368 - BIALY" -> "BIALY")
+              'kolor', CASE 
+                WHEN pf.nazwa_formatki LIKE '% - %' 
+                THEN TRIM(SPLIT_PART(pf.nazwa_formatki, ' - ', 2))
+                ELSE 'NIEZNANY'
+              END,
+              -- Wyciągnij wymiary z nazwy formatki
+              'wymiary', SPLIT_PART(pf.nazwa_formatki, ' - ', 1),
+              -- Nazwa płyty odpowiednia dla koloru
+              'nazwa_plyty', CASE 
+                WHEN pf.nazwa_formatki LIKE '% - BIALY' THEN '18_BIALY'
+                WHEN pf.nazwa_formatki LIKE '% - WOTAN' THEN '18_WOTAN'
+                WHEN pf.nazwa_formatki LIKE '% - SONOMA' THEN '18_SONOMA'
+                WHEN pf.nazwa_formatki LIKE '% - CZARNY' THEN '18_CZARNY'
+                WHEN pf.nazwa_formatki LIKE '% - SZARY' THEN '18_SZARY'
+                ELSE CONCAT('18_', TRIM(SPLIT_PART(pf.nazwa_formatki, ' - ', 2)))
+              END
             ) ORDER BY pf.pozycja_id, pf.id
           ) FILTER (WHERE pfi.formatka_id IS NOT NULL),
           '[]'::jsonb
@@ -57,9 +73,14 @@ router.get('/zko/:zkoId/details', async (req: Request, res: Response) => {
           ),
           ''
         ) as pozycje_lista,
+        -- Kolory wyciągnięte z nazw formatek, nie z pozycji
         COALESCE(
           STRING_AGG(
-            DISTINCT poz.kolor_plyty,
+            DISTINCT CASE 
+              WHEN pf.nazwa_formatki LIKE '% - %' 
+              THEN TRIM(SPLIT_PART(pf.nazwa_formatki, ' - ', 2))
+              ELSE NULL
+            END,
             ', '
           ),
           ''

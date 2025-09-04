@@ -16,7 +16,7 @@ import {
   InboxOutlined,
   DragOutlined
 } from '@ant-design/icons';
-import { Paleta } from '../types';
+import { Paleta, ItemTypes } from '../types';
 import { colors, dimensions, componentStyles, styleHelpers } from '../styles/theme';
 
 const { Text } = Typography;
@@ -44,9 +44,9 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
   deleting,
   closing
 }) => {
-  // Setup drop target
+  // Setup drop target - używamy ItemTypes.FORMATKA
   const [{ isOver, canDrop }, drop] = useDrop({
-    accept: 'FORMATKA',
+    accept: ItemTypes.FORMATKA,
     drop: (item: any) => {
       if (onDropFormatka) {
         onDropFormatka(item.formatka, item.ilosc, paleta.id);
@@ -81,21 +81,40 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
   const procentWypelnienia = Math.round((procentWagi + procentWysokosci) / 2);
 
   // Pobierz kolory i formatki
-  const kolorRaw = paleta.kolory_na_palecie || paleta.kolor || '';
-  const kolory = kolorRaw.split(',').map(k => k.trim()).filter(k => k && k !== '-');
+  const formatki = paleta.formatki_szczegoly || [];
   
-  // Pobierz nazwy formatek
-  const formatki = paleta.formatki_szczegoly || paleta.formatki || [];
+  // Wyciągnij unikalne kolory z formatek
+  const kolory: string[] = [];
+  const uniqueColors = new Set<string>();
+  
+  formatki.forEach((f: any) => {
+    // Próbuj wyciągnąć kolor z nazwy formatki
+    if (f.nazwa_formatki && f.nazwa_formatki.includes(' - ')) {
+      const kolor = f.nazwa_formatki.split(' - ')[1];
+      if (kolor && !uniqueColors.has(kolor)) {
+        uniqueColors.add(kolor);
+        kolory.push(kolor);
+      }
+    } else if (f.kolor && !uniqueColors.has(f.kolor)) {
+      uniqueColors.add(f.kolor);
+      kolory.push(f.kolor);
+    }
+  });
+  
+  // Pobierz nazwy formatek z poprawnymi nazwami
   const formatkiNames = formatki.slice(0, 2).map((f: any) => {
-    if (f.wymiary) {
-      // Jeśli mamy wymiary, stwórz nazwę z wymiarów i koloru
-      const kolor = f.kolor || kolory[0] || '';
-      return `${f.wymiary}${kolor ? `-${kolor}` : ''}`;
-    } else if (f.nazwa) {
-      return f.nazwa;
-    } else if (f.szerokosc && f.dlugosc) {
-      const kolor = f.kolor || kolory[0] || '';
-      return `${f.szerokosc}x${f.dlugosc}${kolor ? `-${kolor}` : ''}`;
+    // Jeśli mamy pełną nazwę formatki z kolorem
+    if (f.nazwa_formatki) {
+      return f.nazwa_formatki;
+    }
+    // Jeśli mamy wymiary i kolor osobno
+    else if (f.wymiary && f.kolor) {
+      return `${f.wymiary} - ${f.kolor}`;
+    }
+    // Jeśli mamy długość i szerokość
+    else if (f.dlugosc && f.szerokosc) {
+      const kolor = f.kolor || '';
+      return `${f.dlugosc}x${f.szerokosc}${kolor ? ` - ${kolor}` : ''}`;
     }
     return 'Formatka';
   });
