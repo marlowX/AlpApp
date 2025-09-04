@@ -5,12 +5,13 @@ import { LoadingOutlined } from '@ant-design/icons';
 
 // Lazy load pages
 const ZKOListPage = lazy(() => import('./pages/ZKOListPage'));
-const ZKODetailPage = lazy(() => import('./pages/ZKODetailPage'));
+const ZKODetailsPage = lazy(() => import('./pages/ZKODetailsPage'));
 const ZKOCreatePage = lazy(() => import('./pages/ZKOCreatePage'));
 const ZKOModernListPage = lazy(() => import('./pages/ZKOModernListPage'));
 const WorkerPilaPage = lazy(() => import('./pages/WorkerPilaPage'));
 const WorkerOkleinarkaPage = lazy(() => import('./pages/WorkerOkleinarkaPage'));
 const WorkerWiertarkaPage = lazy(() => import('./pages/WorkerWiertarkaPage'));
+const WorkerZKODetailsPage = lazy(() => import('./pages/WorkerZKODetailsPage'));
 
 const loadingIcon = <LoadingOutlined style={{ fontSize: 48 }} spin />;
 
@@ -34,7 +35,7 @@ const ZKORoutes: React.FC = () => {
         <Route path="/modern-list" element={<ZKOModernListPage />} />
         
         {/* Szczegóły ZKO */}
-        <Route path="/:id" element={<ZKODetailPage />} />
+        <Route path="/:id" element={<ZKODetailsPage />} />
         
         {/* Tworzenie nowego ZKO */}
         <Route path="/create" element={<ZKOCreatePage />} />
@@ -43,6 +44,9 @@ const ZKORoutes: React.FC = () => {
         <Route path="/worker/pila" element={<WorkerPilaPage />} />
         <Route path="/worker/okleiniarka" element={<WorkerOkleinarkaPage />} />
         <Route path="/worker/wiertarka" element={<WorkerWiertarkaPage />} />
+        
+        {/* Szczegóły ZKO dla operatora */}
+        <Route path="/worker/zko/:id" element={<WorkerZKODetailsPage />} />
         
         {/* Domyślna ścieżka */}
         <Route path="/" element={<ZKOModernListPage />} />
