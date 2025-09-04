@@ -60,14 +60,19 @@ export const WorkerViewOkleiniarka: React.FC = () => {
   const fetchZKOForOkleiniarka = async () => {
     setLoading(true);
     try {
-      // Poprawiony endpoint - pobieramy wszystkie i filtrujemy po stronie klienta
-      const response = await fetch('/api/zko/list');
+      // Poprawiony endpoint - używamy /api/zko
+      const response = await fetch('/api/zko?limit=100');
       const data = await response.json();
       
+      // Endpoint zwraca { data, total } zamiast { items }
+      const allZKOs = data.data || [];
+      
       // Filtruj po stronie klienta
-      const filteredList = (data.items || []).filter((zko: ZKOItem) => 
+      const filteredList = allZKOs.filter((zko: ZKOItem) => 
         ['BUFOR_OKLEINIARKA', 'OKLEJANIE_START', 'OKLEJANIE'].includes(zko.status)
       );
+      
+      console.log('Fetched ZKOs:', allZKOs.length, 'Filtered for OKLEINIARKA:', filteredList.length);
       
       setZkoList(filteredList);
       

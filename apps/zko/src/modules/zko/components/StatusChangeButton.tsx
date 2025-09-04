@@ -25,11 +25,11 @@ interface StatusChangeButtonProps {
 }
 
 // Mapowanie statusów na możliwe następne kroki zgodnie z v_instrukcja_workflow
+// POPRAWKA: Usunięto CIECIE - używamy tylko CIECIE_START
 const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu: string}>> = {
-  // Start produkcji - dodajemy też CIECIE jako alternatywę dla CIECIE_START
+  // Start produkcji - tylko CIECIE_START jest w bazie
   'NOWE': [
     { kod_etapu: 'CIECIE_START', nazwa_etapu: 'Rozpocznij cięcie' },
-    { kod_etapu: 'CIECIE', nazwa_etapu: 'Rozpocznij cięcie' },
     { kod_etapu: 'ANULOWANE', nazwa_etapu: 'Anuluj zlecenie' }
   ],
   
@@ -37,14 +37,6 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   'CIECIE_START': [
     { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' },
     { kod_etapu: 'CIECIE_STOP', nazwa_etapu: 'Zakończ cięcie' }
-  ],
-  'CIECIE': [
-    { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' },
-    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
-    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' },
-    { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
-    { kod_etapu: 'BUFOR_PILA', nazwa_etapu: 'Do bufora piły' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
   ],
   'CIECIE_STOP': [
     { kod_etapu: 'OTWARCIE_PALETY', nazwa_etapu: 'Otwórz paletę' }
@@ -65,7 +57,7 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   // Bufor piła i transport
   'BUFOR_PILA': [
     { kod_etapu: 'TRANSPORT_1', nazwa_etapu: 'Transport do następnego etapu' },
-    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' },
+    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' },
     { kod_etapu: 'BUFOR_OKLEINIARKA', nazwa_etapu: 'Do bufora okleiniarki' },
     { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
     { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
@@ -79,18 +71,10 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   
   // Oklejanie
   'BUFOR_OKLEINIARKA': [
-    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' },
-    { kod_etapu: 'OKLEJANIE', nazwa_etapu: 'Rozpocznij oklejanie' }
+    { kod_etapu: 'OKLEJANIE_START', nazwa_etapu: 'Rozpocznij oklejanie' }
   ],
   'OKLEJANIE_START': [
     { kod_etapu: 'OKLEJANIE_STOP', nazwa_etapu: 'Zakończ oklejanie' }
-  ],
-  'OKLEJANIE': [
-    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' },
-    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
-    { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
-    { kod_etapu: 'BUFOR_WIERCENIE', nazwa_etapu: 'Do bufora wiertarki' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
   ],
   'OKLEJANIE_STOP': [
     { kod_etapu: 'BUFOR_WIERTARKA', nazwa_etapu: 'Do bufora wiertarki' },
@@ -100,20 +84,13 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   
   // Wiercenie
   'BUFOR_WIERTARKA': [
-    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
-    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' }
+    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' }
   ],
   'BUFOR_WIERCENIE': [
-    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' },
-    { kod_etapu: 'WIERCENIE', nazwa_etapu: 'Rozpocznij wiercenie' }
+    { kod_etapu: 'WIERCENIE_START', nazwa_etapu: 'Rozpocznij wiercenie' }
   ],
   'WIERCENIE_START': [
     { kod_etapu: 'WIERCENIE_STOP', nazwa_etapu: 'Zakończ wiercenie' }
-  ],
-  'WIERCENIE': [
-    { kod_etapu: 'PAKOWANIE', nazwa_etapu: 'Rozpocznij pakowanie' },
-    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' }
   ],
   'WIERCENIE_STOP': [
     { kod_etapu: 'BUFOR_KOMPLETOWANIE', nazwa_etapu: 'Do kompletowania' },
@@ -135,17 +112,10 @@ const WORKFLOW_TRANSITIONS: Record<string, Array<{kod_etapu: string, nazwa_etapu
   
   // Pakowanie finalne
   'BUFOR_PAKOWANIE': [
-    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' },
-    { kod_etapu: 'PAKOWANIE', nazwa_etapu: 'Rozpocznij pakowanie' }
+    { kod_etapu: 'PAKOWANIE_START', nazwa_etapu: 'Rozpocznij pakowanie' }
   ],
   'PAKOWANIE_START': [
     { kod_etapu: 'PAKOWANIE_STOP', nazwa_etapu: 'Zakończ pakowanie' }
-  ],
-  'PAKOWANIE': [
-    { kod_etapu: 'WYSYLKA', nazwa_etapu: 'Wyślij' },
-    { kod_etapu: 'TRANSPORT', nazwa_etapu: 'Transport' },
-    { kod_etapu: 'MAGAZYN', nazwa_etapu: 'Na magazyn' },
-    { kod_etapu: 'ZAKONCZONA', nazwa_etapu: 'Zakończ zlecenie' }
   ],
   'PAKOWANIE_STOP': [
     { kod_etapu: 'BUFOR_WYSYLKA', nazwa_etapu: 'Do wysyłki' },
@@ -347,7 +317,6 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       // Cięcie
       'CIECIE_START': '🔪 Rozpocznij cięcie',
       'CIECIE_STOP': '🔪 Zakończ cięcie',
-      'CIECIE': '🔪 Cięcie',
       
       // Palety
       'OTWARCIE_PALETY': '📦 Otwórz paletę',
@@ -366,12 +335,10 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       // Oklejanie
       'OKLEJANIE_START': '🎨 Rozpocznij oklejanie',
       'OKLEJANIE_STOP': '🎨 Zakończ oklejanie',
-      'OKLEJANIE': '🎨 Oklejanie',
       
       // Wiercenie
       'WIERCENIE_START': '🔩 Rozpocznij wiercenie',
       'WIERCENIE_STOP': '🔩 Zakończ wiercenie',
-      'WIERCENIE': '🔩 Wiercenie',
       
       // Kompletowanie
       'KOMPLETOWANIE_START': '📋 Rozpocznij kompletowanie',
@@ -380,7 +347,6 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       // Pakowanie
       'PAKOWANIE_START': '📦 Rozpocznij pakowanie',
       'PAKOWANIE_STOP': '📦 Zakończ pakowanie',
-      'PAKOWANIE': '📦 Pakowanie',
       
       // Transport i wysyłka
       'TRANSPORT_1': '🚚 Transport',
@@ -401,7 +367,6 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
     const descriptions: Record<string, string> = {
       'NOWE': 'Zlecenie oczekuje na rozpoczęcie produkcji',
       'CIECIE_START': 'Trwa cięcie formatek na pile',
-      'CIECIE': 'Rozpoczęcie cięcia formatek na pile formatowej',
       'OTWARCIE_PALETY': 'Paleta otwarta, gotowa do pakowania',
       'PAKOWANIE_PALETY': 'Trwa pakowanie formatek na paletę',
       'ZAMKNIECIE_PALETY': 'Paleta zamknięta',
@@ -409,18 +374,15 @@ export const StatusChangeButton: React.FC<StatusChangeButtonProps> = ({
       'TRANSPORT_1': 'Transport do następnego stanowiska',
       'BUFOR_OKLEINIARKA': 'Formatki czekają na oklejanie',
       'OKLEJANIE_START': 'Trwa oklejanie krawędzi',
-      'OKLEJANIE': 'Rozpoczęcie oklejania krawędzi na okleiniarce',
       'OKLEJANIE_STOP': 'Oklejanie zakończone',
       'BUFOR_WIERTARKA': 'Formatki czekają na wiercenie',
       'BUFOR_WIERCENIE': 'Formatki czekają na wiercenie',
       'WIERCENIE_START': 'Trwa wiercenie otworów',
-      'WIERCENIE': 'Rozpoczęcie wiercenia otworów na wiertarce',
       'WIERCENIE_STOP': 'Wiercenie zakończone',
       'BUFOR_KOMPLETOWANIE': 'Czeka na kompletowanie',
       'KOMPLETOWANIE_START': 'Trwa kompletowanie zamówienia',
       'BUFOR_PAKOWANIE': 'Czeka na pakowanie finalne',
       'PAKOWANIE_START': 'Trwa pakowanie do wysyłki',
-      'PAKOWANIE': 'Rozpoczęcie pakowania gotowych formatek',
       'PAKOWANIE_STOP': 'Pakowanie zakończone',
       'BUFOR_WYSYLKA': 'Czeka na wysyłkę',
       'WYSYLKA': 'Wysłane do klienta',

@@ -60,14 +60,19 @@ export const WorkerViewPila: React.FC = () => {
   const fetchZKOForPila = async () => {
     setLoading(true);
     try {
-      // Poprawiony endpoint - używamy osobnych zapytań lub pojedynczego statusu
-      const response = await fetch('/api/zko/list');
+      // Poprawiony endpoint - używamy /api/zko zamiast /api/zko/list
+      const response = await fetch('/api/zko?limit=100');
       const data = await response.json();
       
+      // Endpoint zwraca { data, total } zamiast { items }
+      const allZKOs = data.data || [];
+      
       // Filtruj po stronie klienta
-      const filteredList = (data.items || []).filter((zko: ZKOItem) => 
+      const filteredList = allZKOs.filter((zko: ZKOItem) => 
         ['NOWE', 'CIECIE_START', 'CIECIE'].includes(zko.status)
       );
+      
+      console.log('Fetched ZKOs:', allZKOs.length, 'Filtered for PILA:', filteredList.length);
       
       setZkoList(filteredList);
       
