@@ -8,6 +8,8 @@ import { ZKOCreatePage } from './modules/zko/pages/ZKOCreatePage';
 import { DashboardPage } from './modules/dashboard/pages/DashboardPage';
 import { WorkflowPage } from './modules/workflow/pages/WorkflowPage';
 import { CuttingPage } from './modules/production/pages/CuttingPage';
+import WorkerPilaPage from './modules/zko/pages/WorkerPilaPage';
+import WorkerOkleiniarkaPage from './modules/zko/pages/WorkerOkleiniarkaPage';
 
 export const Router = () => {
   return (
@@ -28,6 +30,17 @@ export const Router = () => {
             <Route path="cutting" element={<CuttingPage />} />
           </Route>
           <Route path="workflow" element={<WorkflowPage />} />
+          
+          {/* Widoki dla pracowników */}
+          <Route path="worker">
+            <Route path="pila" element={<WorkerPilaPage />} />
+            <Route path="okleiniarka" element={<WorkerOkleiniarkaPage />} />
+            {/* Przyszłe widoki:
+            <Route path="wiertarka" element={<WorkerWiertarkaPage />} />
+            <Route path="magazyn" element={<WorkerMagazynPage />} />
+            <Route path="kompletowanie" element={<WorkerKompletowaniePage />} />
+            */}
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>
