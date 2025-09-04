@@ -1,12 +1,12 @@
 /**
- * @fileoverview Pojedynczy element formatki - ULTRA KOMPAKTOWY z Drag & Drop
+ * @fileoverview Pojedynczy element formatki - tylko Drag & Drop wszystkich sztuk
  * @module PaletyZko/components/FormatkaItem
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useDrag } from 'react-dnd';
-import { Space, Tag, InputNumber, Button, Typography } from 'antd';
-import { DragOutlined, PlusOutlined } from '@ant-design/icons';
+import { Space, Tag, Typography } from 'antd';
+import { DragOutlined } from '@ant-design/icons';
 import { Formatka, ItemTypes } from '../types';
 
 const { Text } = Typography;
@@ -22,34 +22,20 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
   onSelectFormatka,
   disableDrag = false 
 }) => {
-  const [ilosc, setIlosc] = useState<number>(1);
-  const [isManualMode, setIsManualMode] = useState(false);
+  // ZAWSZE PRZECIĄGAMY WSZYSTKIE DOSTĘPNE FORMATKI
+  const iloscDoPrzeciagniecia = formatka.sztuki_dostepne;
 
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.FORMATKA,
     item: () => ({
       formatka,
-      ilosc: ilosc
+      ilosc: iloscDoPrzeciagniecia // Zawsze wszystkie dostępne
     }),
-    canDrag: !disableDrag && formatka.sztuki_dostepne > 0 && ilosc > 0,
+    canDrag: !disableDrag && formatka.sztuki_dostepne > 0,
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
     }),
-  }), [formatka, ilosc, disableDrag]);
-
-  const handleAdd = () => {
-    if (onSelectFormatka && ilosc > 0) {
-      onSelectFormatka(formatka, ilosc);
-      setIlosc(1);
-      setIsManualMode(false);
-    }
-  };
-
-  const handleQuickAdd = (qty: number) => {
-    if (onSelectFormatka) {
-      onSelectFormatka(formatka, qty);
-    }
-  };
+  }), [formatka, iloscDoPrzeciagniecia, disableDrag]);
 
   // Wyciągnij kolor z nazwy formatki lub użyj pola kolor
   const getKolorFromNazwa = () => {
@@ -77,7 +63,7 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
       style={{
         display: 'flex',
         alignItems: 'center',
-        padding: '6px',
+        padding: '8px',
         marginBottom: '4px',
         backgroundColor: isDragging ? '#e6f7ff' : formatka.sztuki_dostepne === 0 ? '#f5f5f5' : '#fff',
         border: '1px solid',
@@ -92,14 +78,17 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
         if (formatka.sztuki_dostepne > 0 && !disableDrag && !isDragging) {
           e.currentTarget.style.backgroundColor = '#fafafa';
           e.currentTarget.style.borderColor = '#d9d9d9';
+          e.currentTarget.style.transform = 'translateX(2px)';
         }
       }}
       onMouseLeave={(e) => {
         if (!isDragging && formatka.sztuki_dostepne > 0) {
           e.currentTarget.style.backgroundColor = '#fff';
           e.currentTarget.style.borderColor = '#e8e8e8';
+          e.currentTarget.style.transform = 'translateX(0)';
         }
       }}
+      title={`Przeciągnij wszystkie ${iloscDoPrzeciagniecia} sztuk formatki ${wymiary} - ${kolor}`}
     >
       {/* Ikona przeciągania */}
       <div 
@@ -109,17 +98,17 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
           transition: 'color 0.2s'
         }}
       >
-        <DragOutlined style={{ fontSize: '12px' }} />
+        <DragOutlined style={{ fontSize: '14px' }} />
       </div>
 
       {/* Główna zawartość */}
       <div style={{ flex: 1 }}>
-        <Space size={4} style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Space size={4} style={{ flex: 1, minWidth: 0 }}>
+        <Space size={4} style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Space size={6} style={{ flex: 1, minWidth: 0 }}>
             {/* Wymiary */}
             <Text strong style={{ 
-              fontSize: '12px', 
-              minWidth: '80px',
+              fontSize: '13px', 
+              minWidth: '90px',
               color: isDragging ? '#1890ff' : '#000',
               whiteSpace: 'nowrap'
             }}>
@@ -131,10 +120,10 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
               color={isDragging ? "blue" : "default"}
               style={{ 
                 margin: 0, 
-                fontSize: '10px',
-                padding: '0 4px',
-                height: '18px',
-                lineHeight: '16px',
+                fontSize: '11px',
+                padding: '0 6px',
+                height: '20px',
+                lineHeight: '18px',
                 whiteSpace: 'nowrap'
               }}
             >
@@ -143,127 +132,32 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
 
             {/* Grubość */}
             <Text type="secondary" style={{ 
-              fontSize: '10px',
+              fontSize: '11px',
               whiteSpace: 'nowrap'
             }}>
               {formatka.grubosc || 18}mm
             </Text>
           </Space>
 
-          {/* Ilości i przyciski */}
-          <Space size={2} style={{ flexShrink: 0 }}>
-            {/* Dostępna ilość */}
-            <Tag 
-              color={formatka.sztuki_dostepne > 0 ? 'green' : 'default'}
-              style={{ 
-                margin: 0, 
-                fontSize: '11px',
-                minWidth: '45px',
-                textAlign: 'center'
-              }}
-            >
-              {formatka.sztuki_dostepne} szt
-            </Tag>
-
-            {/* Tryb manualny lub szybkie przyciski */}
-            {formatka.sztuki_dostepne > 0 && !isDragging && (
-              isManualMode ? (
-                <Space size={2}>
-                  <InputNumber
-                    size="small"
-                    min={1}
-                    max={formatka.sztuki_dostepne}
-                    value={ilosc}
-                    onChange={(val) => setIlosc(val || 1)}
-                    style={{ width: '50px', fontSize: '11px' }}
-                    onPressEnter={handleAdd}
-                  />
-                  <Button
-                    size="small"
-                    type="primary"
-                    onClick={handleAdd}
-                    style={{ fontSize: '11px', padding: '0 6px' }}
-                  >
-                    OK
-                  </Button>
-                  <Button
-                    size="small"
-                    onClick={() => {
-                      setIsManualMode(false);
-                      setIlosc(1);
-                    }}
-                    style={{ fontSize: '11px', padding: '0 6px' }}
-                  >
-                    ✕
-                  </Button>
-                </Space>
-              ) : (
-                <Space size={1}>
-                  {/* Szybkie przyciski dostosowane do ilości */}
-                  <Button
-                    size="small"
-                    onClick={() => handleQuickAdd(1)}
-                    style={{ 
-                      fontSize: '10px', 
-                      padding: '0 4px',
-                      height: '20px',
-                      minWidth: '24px'
-                    }}
-                  >
-                    +1
-                  </Button>
-                  
-                  {formatka.sztuki_dostepne >= 5 && (
-                    <Button
-                      size="small"
-                      onClick={() => handleQuickAdd(5)}
-                      style={{ 
-                        fontSize: '10px', 
-                        padding: '0 4px',
-                        height: '20px',
-                        minWidth: '24px'
-                      }}
-                    >
-                      +5
-                    </Button>
-                  )}
-                  
-                  {formatka.sztuki_dostepne >= 10 && (
-                    <Button
-                      size="small"
-                      onClick={() => handleQuickAdd(10)}
-                      style={{ 
-                        fontSize: '10px', 
-                        padding: '0 4px',
-                        height: '20px',
-                        minWidth: '24px'
-                      }}
-                    >
-                      +10
-                    </Button>
-                  )}
-                  
-                  {/* Przycisk do trybu manualnego */}
-                  <Button
-                    size="small"
-                    icon={<PlusOutlined style={{ fontSize: '10px' }} />}
-                    onClick={() => setIsManualMode(true)}
-                    style={{ 
-                      fontSize: '10px', 
-                      padding: '0 4px',
-                      height: '20px'
-                    }}
-                    title="Podaj własną ilość"
-                  />
-                </Space>
-              )
-            )}
-          </Space>
+          {/* Dostępna ilość - wyróżniona */}
+          <Tag 
+            color={formatka.sztuki_dostepne > 0 ? 'green' : 'default'}
+            style={{ 
+              margin: 0, 
+              fontSize: '13px',
+              minWidth: '60px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              padding: '2px 8px'
+            }}
+          >
+            {formatka.sztuki_dostepne} szt
+          </Tag>
         </Space>
 
         {/* Dodatkowe informacje - druga linia */}
         {formatka.nazwa_plyty && (
-          <div style={{ marginTop: '2px' }}>
+          <div style={{ marginTop: '4px' }}>
             <Text type="secondary" style={{ 
               fontSize: '10px',
               whiteSpace: 'nowrap',
@@ -272,6 +166,19 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
               display: 'block'
             }}>
               Płyta: {formatka.nazwa_plyty}
+            </Text>
+          </div>
+        )}
+
+        {/* Info o przeciąganiu - tylko dla formatek z ilością > 0 */}
+        {formatka.sztuki_dostepne > 0 && !isDragging && (
+          <div style={{ marginTop: '4px' }}>
+            <Text style={{ 
+              fontSize: '10px',
+              color: '#1890ff',
+              fontStyle: 'italic'
+            }}>
+              ↔ Przeciągnij aby przenieść wszystkie sztuki
             </Text>
           </div>
         )}

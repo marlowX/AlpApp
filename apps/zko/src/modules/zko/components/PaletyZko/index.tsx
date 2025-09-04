@@ -1,5 +1,5 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko - minimalistyczny design z auto-odświeżaniem
+ * @fileoverview Główny komponent modułu PaletyZko - bez auto-odświeżania
  * @module PaletyZko
  */
 
@@ -49,7 +49,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [detailsPaletaId, setDetailsPaletaId] = useState<number>();
   const [refreshCounter, setRefreshCounter] = useState(0);
-  const [lastAutoRefresh, setLastAutoRefresh] = useState(Date.now());
 
   // ========== HOOKS ==========
   const {
@@ -76,19 +75,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     getFormatkiDostepne,
     obliczStatystyki
   } = useFormatki(selectedPozycjaId);
-
-  // Auto-odświeżanie co 10 sekund gdy komponent jest aktywny
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (selectedPozycjaId) {
-        fetchPalety();
-        fetchFormatki();
-        setLastAutoRefresh(Date.now());
-      }
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [selectedPozycjaId, fetchPalety, fetchFormatki]);
 
   // Odświeżanie danych po zmianie pozycji
   useEffect(() => {
@@ -185,18 +171,24 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       return;
     }
 
+    const wymiary = formatka.nazwa_formatki 
+      ? formatka.nazwa_formatki.split(' - ')[0] 
+      : `${formatka.dlugosc}×${formatka.szerokosc}`;
+    
+    const kolor = formatka.kolor || 'NIEZNANY';
+
     const data: PaletaFormData = {
       przeznaczenie: 'MAGAZYN',
       formatki: [{
         formatka_id: formatka.id,
         ilosc: ilosc
       }],
-      uwagi: 'Paleta utworzona automatycznie'
+      uwagi: `Automatycznie utworzona paleta z formatkami ${wymiary} - ${kolor}`
     };
 
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
-      message.success('Automatycznie utworzono paletę z formatkami');
+      message.success(`Utworzono paletę z wszystkimi ${ilosc} sztukami formatki ${wymiary} - ${kolor}`);
       setRefreshCounter(prev => prev + 1);
     }
   }, [selectedPozycjaId, utworzPalete]);
@@ -251,7 +243,12 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       });
       
       if (success) {
-        message.success(`Dodano ${ilosc} szt. formatki do palety`);
+        const wymiary = formatka.nazwa_formatki 
+          ? formatka.nazwa_formatki.split(' - ')[0] 
+          : `${formatka.dlugosc}×${formatka.szerokosc}`;
+        const kolor = formatka.kolor || 'NIEZNANY';
+        
+        message.success(`Dodano wszystkie ${ilosc} szt. formatki ${wymiary} - ${kolor} do palety`);
         setRefreshCounter(prev => prev + 1);
       }
     } catch (error) {
@@ -314,9 +311,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                 )}
               </Space>
               <Space size={dimensions.spacingXs}>
-                <Text style={{ fontSize: 10, color: colors.textSecondary }}>
-                  Auto-odświeżanie: {new Date(lastAutoRefresh).toLocaleTimeString('pl-PL')}
-                </Text>
                 <Tooltip title="Odśwież dane">
                   <Button 
                     icon={<ReloadOutlined />} 
@@ -399,7 +393,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       Formatki ({formatkiDostepne.length})
                     </span>
                     <Tooltip 
-                      title="Przeciągnij formatki na palety"
+                      title="Przeciągnij formatki na palety - przenosi wszystkie sztuki"
                       placement="right"
                     >
                       <InfoCircleOutlined style={{ 
@@ -418,7 +412,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       disabled={!selectedPozycjaId}
                       style={componentStyles.button.small}
                     >
-                      Wszystkie
+                      Wszystkie na palety
                     </Button>
                   )
                 }

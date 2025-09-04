@@ -35,8 +35,9 @@
 
 /* ========== PALETY - KARTY ========== */
 .paleta-card {
-  min-height: 200px;
-  height: 100%;
+  /* Zmniejszono minimalną wysokość ze 200px na auto - karta dostosuje się do zawartości */
+  min-height: auto;
+  height: auto;
   transition: all 0.3s ease;
   position: relative;
   overflow: visible;
@@ -45,6 +46,13 @@
 .paleta-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Wyrównaj wysokości kart w gridzie */
+.paleta-card .ant-card-body {
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Stan gdy przeciągamy nad paletą */
@@ -114,18 +122,21 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
   padding: 8px;
+  align-items: start; /* Wyrównaj karty do góry */
 }
 
 /* ========== GŁÓWNE KARTY Z ZAWARTOŚCIĄ ========== */
 /* Popraw wysokość i padding dla kart z formatkami i paletami */
 .formatki-container .ant-card-body {
   min-height: 450px !important;
+  max-height: 450px !important;
   padding: 12px !important;
 }
 
 /* Specyficzne dla kart z paletami */
 .palety-container .ant-card-body {
   min-height: 450px !important;
+  max-height: 450px !important;
   padding: 12px !important;
 }
 
@@ -271,6 +282,11 @@
   .palety-stats > div {
     flex: 1;
     min-width: 80px;
+  }
+  
+  /* Karty palet na mobile */
+  .paleta-card .ant-card-body {
+    min-height: 120px;
   }
 }
 

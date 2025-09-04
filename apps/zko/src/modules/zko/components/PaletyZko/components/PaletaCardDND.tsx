@@ -1,5 +1,5 @@
 /**
- * @fileoverview Karta palety z drag & drop - poprawiony widok
+ * @fileoverview Karta palety z drag & drop - poprawiony widok kompaktowy
  * @module PaletyZko/components/PaletaCardDND
  */
 
@@ -101,23 +101,13 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
     }
   });
   
-  // Pobierz nazwy formatek z poprawnymi nazwami
-  const formatkiNames = formatki.slice(0, 2).map((f: any) => {
-    // Jeśli mamy pełną nazwę formatki z kolorem
-    if (f.nazwa_formatki) {
-      return f.nazwa_formatki;
-    }
-    // Jeśli mamy wymiary i kolor osobno
-    else if (f.wymiary && f.kolor) {
-      return `${f.wymiary} - ${f.kolor}`;
-    }
-    // Jeśli mamy długość i szerokość
-    else if (f.dlugosc && f.szerokosc) {
-      const kolor = f.kolor || '';
-      return `${f.dlugosc}x${f.szerokosc}${kolor ? ` - ${kolor}` : ''}`;
-    }
-    return 'Formatka';
-  });
+  // Pobierz pierwszą formatkę dla wyświetlenia
+  const firstFormatka = formatki[0];
+  const formatkaInfo = firstFormatka ? (
+    firstFormatka.nazwa_formatki || 
+    (firstFormatka.wymiary && firstFormatka.kolor ? `${firstFormatka.wymiary} - ${firstFormatka.kolor}` : '') ||
+    (firstFormatka.dlugosc && firstFormatka.szerokosc ? `${firstFormatka.dlugosc}×${firstFormatka.szerokosc}` : '')
+  ) : '';
 
   // Określ kolor statusu
   const getStatusStyle = () => {
@@ -150,55 +140,44 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
         hoverable
         onClick={() => onShowDetails?.(paleta.id)}
         style={{
-          ...componentStyles.paleta.base,
           ...getStatusStyle(),
           cursor: 'pointer',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: 'all 0.2s ease'
+          transition: 'all 0.2s ease',
+          borderRadius: dimensions.cardBorderRadius
         }}
         styles={{
           body: {
-            padding: dimensions.spacingSm,
-            height: '100%',
+            padding: '8px',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            gap: '4px'
           }
         }}
       >
-        {/* Nagłówek z numerem palety i akcjami */}
+        {/* Nagłówek z numerem palety i akcjami - bardziej kompaktowy */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: dimensions.spacingSm,
-          paddingBottom: dimensions.spacingXs,
+          paddingBottom: '4px',
           borderBottom: `1px solid ${colors.borderLight}`
         }}>
-          <Space size={dimensions.spacingXs}>
+          <Space size={2} align="center">
             {isZamknieta ? (
-              <Tooltip title="Paleta zamknięta">
-                <LockOutlined style={{ fontSize: dimensions.iconSizeSmall, color: colors.warning }} />
-              </Tooltip>
+              <LockOutlined style={{ fontSize: 12, color: colors.warning }} />
             ) : sztuk === 0 ? (
-              <Tooltip title="Pusta paleta">
-                <InboxOutlined style={{ fontSize: dimensions.iconSizeSmall, color: colors.textSecondary }} />
-              </Tooltip>
+              <InboxOutlined style={{ fontSize: 12, color: colors.textSecondary }} />
             ) : (
-              <Tooltip title="Paleta otwarta">
-                <UnlockOutlined style={{ fontSize: dimensions.iconSizeSmall, color: colors.success }} />
-              </Tooltip>
+              <UnlockOutlined style={{ fontSize: 12, color: colors.success }} />
             )}
-            <Text strong style={{ fontSize: dimensions.fontSizeBase }}>
+            <Text strong style={{ fontSize: 13 }}>
               {paleta.numer_palety}
             </Text>
           </Space>
           
-          <Space size={2}>
-            {/* Przycisk zamknięcia - widoczny dla otwartych palet ze sztukami */}
+          <Space size={1}>
             {sztuk > 0 && !isZamknieta && (
-              <Tooltip title="Zamknij paletę" placement="top">
+              <Tooltip title="Zamknij" placement="top">
                 <Button
                   type="text"
                   size="small"
@@ -209,18 +188,18 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
                     onClose?.(paleta.id);
                   }}
                   style={{ 
-                    width: dimensions.buttonHeightSmall, 
-                    height: dimensions.buttonHeightSmall,
+                    width: 20, 
+                    height: 20,
                     padding: 0,
-                    color: colors.success
+                    color: colors.success,
+                    fontSize: 11
                   }}
                 />
               </Tooltip>
             )}
             
-            {/* Przycisk drukowania - tylko dla zamkniętych */}
             {isZamknieta && (
-              <Tooltip title="Drukuj etykietę" placement="top">
+              <Tooltip title="Drukuj" placement="top">
                 <Button
                   type="text"
                   size="small"
@@ -230,17 +209,17 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
                     onPrint?.(paleta.id);
                   }}
                   style={{ 
-                    width: dimensions.buttonHeightSmall, 
-                    height: dimensions.buttonHeightSmall,
+                    width: 20, 
+                    height: 20,
                     padding: 0,
-                    color: colors.info
+                    color: colors.info,
+                    fontSize: 11
                   }}
                 />
               </Tooltip>
             )}
 
-            {/* Przycisk szczegółów */}
-            <Tooltip title="Pokaż szczegóły" placement="top">
+            <Tooltip title="Szczegóły" placement="top">
               <Button
                 type="text"
                 size="small"
@@ -250,16 +229,16 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
                   onShowDetails?.(paleta.id);
                 }}
                 style={{ 
-                  width: dimensions.buttonHeightSmall, 
-                  height: dimensions.buttonHeightSmall,
+                  width: 20, 
+                  height: 20,
                   padding: 0,
-                  color: colors.textSecondary
+                  color: colors.textSecondary,
+                  fontSize: 11
                 }}
               />
             </Tooltip>
 
-            {/* Przycisk usuwania */}
-            <Tooltip title="Usuń paletę" placement="top">
+            <Tooltip title="Usuń" placement="top">
               <Popconfirm
                 title="Usunąć paletę?"
                 description={sztuk > 0 ? `Zawiera ${sztuk} formatek` : undefined}
@@ -279,9 +258,10 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
                   loading={deleting}
                   onClick={(e) => e.stopPropagation()}
                   style={{ 
-                    width: dimensions.buttonHeightSmall, 
-                    height: dimensions.buttonHeightSmall,
-                    padding: 0
+                    width: 20, 
+                    height: 20,
+                    padding: 0,
+                    fontSize: 11
                   }}
                 />
               </Popconfirm>
@@ -289,171 +269,103 @@ export const PaletaCardDND: React.FC<PaletaCardDNDProps> = ({
           </Space>
         </div>
 
-        {/* Status zamknięcia */}
-        {isZamknieta && (
-          <Badge 
-            status="warning" 
-            text="ZAMKNIĘTA"
-            style={{ 
-              marginBottom: dimensions.spacingSm,
-              fontSize: dimensions.fontSizeSmall,
-              fontWeight: dimensions.fontWeightBold
-            }}
-          />
+        {/* Główna liczba sztuk - centrum uwagi */}
+        <div style={{
+          background: sztuk > 0 ? '#f0f9ff' : colors.bgSecondary,
+          padding: '6px',
+          borderRadius: 4,
+          textAlign: 'center',
+          border: `1px solid ${sztuk > 0 ? '#91d5ff' : colors.borderLight}`
+        }}>
+          <Text strong style={{ 
+            fontSize: 20,
+            color: sztuk > 0 ? colors.primary : colors.textSecondary,
+            display: 'block'
+          }}>
+            {sztuk} szt.
+          </Text>
+          <Text style={{ 
+            fontSize: 10,
+            color: colors.textSecondary
+          }}>
+            formatek na palecie
+          </Text>
+        </div>
+
+        {/* Informacja o formatkach - bardzo kompaktowa */}
+        {formatkaInfo && sztuk > 0 && (
+          <div style={{ 
+            fontSize: 11,
+            color: colors.textSecondary,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
+            {formatkaInfo}
+            {formatki.length > 1 && ` +${formatki.length - 1}`}
+          </div>
         )}
 
-        {/* Główna zawartość */}
-        <Space direction="vertical" style={{ width: '100%', flex: 1 }} size={dimensions.spacingXs}>
-          {/* Liczba sztuk - główna informacja */}
-          <div style={{
-            background: sztuk > 0 ? '#f0f9ff' : colors.bgSecondary,
-            padding: dimensions.spacingXs,
-            borderRadius: dimensions.buttonBorderRadius,
-            textAlign: 'center',
-            border: `1px solid ${sztuk > 0 ? '#91d5ff' : colors.borderLight}`
+        {/* Wskaźnik wypełnienia - prosty pasek */}
+        <div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            marginBottom: 2,
+            fontSize: 10,
+            color: colors.textSecondary
           }}>
-            <Text strong style={{ 
-              fontSize: dimensions.fontSizeLarge,
-              color: sztuk > 0 ? colors.primary : colors.textSecondary
+            <span>Wypełnienie</span>
+            <span style={{ 
+              color: styleHelpers.getCompletionColor(procentWypelnienia),
+              fontWeight: 'bold'
             }}>
-              {sztuk} szt.
-            </Text>
-            {sztuk === 0 ? (
-              <Text style={{ 
-                fontSize: dimensions.fontSizeSmall, 
-                color: colors.textSecondary,
-                display: 'block'
-              }}>
-                Pusta paleta
-              </Text>
-            ) : (
-              <Text style={{ 
-                fontSize: 10,
-                color: colors.textSecondary,
-                display: 'block'
-              }}>
-                formatek na palecie
-              </Text>
-            )}
+              {procentWypelnienia}%
+            </span>
           </div>
-
-          {/* Nazwy formatek */}
-          {formatkiNames.length > 0 && sztuk > 0 && (
-            <div style={{ 
-              padding: '2px 4px',
-              background: colors.bgSecondary,
-              borderRadius: 2,
-              fontSize: 10
-            }}>
-              {formatkiNames.map((name, idx) => (
-                <div key={idx} style={{ color: colors.textSecondary }}>
-                  • {name}
-                </div>
-              ))}
-              {formatki.length > 2 && (
-                <div style={{ color: colors.textTertiary }}>
-                  + {formatki.length - 2} więcej...
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Kolory jako małe tagi */}
-          {kolory.length > 0 && sztuk > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-              {kolory.slice(0, 3).map((kolor, idx) => (
-                <Tag 
-                  key={idx} 
-                  style={{ 
-                    fontSize: 9, 
-                    margin: 0,
-                    padding: '0 4px',
-                    height: 14,
-                    lineHeight: '14px'
-                  }}
-                >
-                  {kolor}
-                </Tag>
-              ))}
-              {kolory.length > 3 && (
-                <Tag style={{ 
-                  fontSize: 9, 
-                  margin: 0,
-                  padding: '0 4px',
-                  height: 14,
-                  lineHeight: '14px'
-                }}>
-                  +{kolory.length - 3}
-                </Tag>
-              )}
-            </div>
-          )}
-
-          {/* Wskaźnik wypełnienia */}
-          <div style={{ marginTop: 'auto' }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              marginBottom: 2
-            }}>
-              <Text style={{ fontSize: 10, color: colors.textSecondary }}>
-                Wypełnienie
-              </Text>
-              <Text style={{ 
-                fontSize: 10, 
-                color: styleHelpers.getCompletionColor(procentWypelnienia),
-                fontWeight: dimensions.fontWeightBold
-              }}>
-                {procentWypelnienia}%
-              </Text>
-            </div>
+          <div style={{
+            height: 4,
+            background: colors.borderLight,
+            borderRadius: 2,
+            overflow: 'hidden'
+          }}>
             <div style={{
-              ...componentStyles.progress.base,
-              position: 'relative'
-            }}>
-              <div style={{
-                ...componentStyles.progress.bar,
-                width: `${procentWypelnienia}%`,
-                background: styleHelpers.getCompletionColor(procentWypelnienia)
-              }} />
-            </div>
-            
-            {/* Szczegóły wagi i wysokości */}
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              marginTop: 4,
-              fontSize: 10,
-              color: colors.textSecondary
-            }}>
-              <span>{waga.toFixed(1)}kg</span>
-              <span>{wysokosc.toFixed(0)}mm</span>
-            </div>
+              width: `${procentWypelnienia}%`,
+              height: '100%',
+              background: styleHelpers.getCompletionColor(procentWypelnienia),
+              transition: 'width 0.3s ease'
+            }} />
           </div>
+          
+          {/* Mini info o wadze i wysokości */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            marginTop: 2,
+            fontSize: 9,
+            color: colors.textTertiary
+          }}>
+            <span>{waga.toFixed(1)}kg</span>
+            <span>{wysokosc}mm</span>
+          </div>
+        </div>
 
-          {/* Obszar drop dla drag & drop */}
-          {!isZamknieta && canDrop && (
-            <Tooltip title="Przeciągnij formatki tutaj">
-              <div style={{ 
-                textAlign: 'center', 
-                fontSize: 10, 
-                color: isActive ? colors.success : colors.textSecondary,
-                padding: dimensions.spacingXs,
-                border: `1px dashed ${isActive ? colors.success : colors.borderLight}`,
-                borderRadius: dimensions.buttonBorderRadius,
-                background: isActive ? `${colors.success}10` : 'transparent',
-                marginTop: dimensions.spacingXs,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: dimensions.spacingXs
-              }}>
-                <DragOutlined style={{ fontSize: dimensions.iconSizeSmall }} />
-                {isActive ? 'Upuść tutaj' : 'Przeciągnij formatki'}
-              </div>
-            </Tooltip>
-          )}
-        </Space>
+        {/* Obszar drop - tylko dla otwartych palet */}
+        {!isZamknieta && (
+          <div style={{ 
+            textAlign: 'center', 
+            fontSize: 10, 
+            color: isActive ? colors.success : colors.textTertiary,
+            padding: '4px',
+            border: `1px dashed ${isActive ? colors.success : colors.borderLight}`,
+            borderRadius: 4,
+            background: isActive ? `${colors.success}10` : 'transparent',
+            marginTop: 'auto'
+          }}>
+            <DragOutlined style={{ fontSize: 10, marginRight: 4 }} />
+            {isActive ? 'Upuść tutaj' : 'Przeciągnij formatki'}
+          </div>
+        )}
       </Card>
     </div>
   );

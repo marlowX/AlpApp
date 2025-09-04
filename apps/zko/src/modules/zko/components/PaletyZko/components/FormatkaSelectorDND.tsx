@@ -44,7 +44,7 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
       const search = searchText.toLowerCase();
       return (
         `${f.dlugosc} × ${f.szerokosc}`.includes(search) ||
-        (f.nazwa_plyty && f.nazwa_plyty.toLowerCase().includes(search)) ||
+        (f.nazwa_formatki && f.nazwa_formatki.toLowerCase().includes(search)) ||
         (f.kolor && f.kolor.toLowerCase().includes(search))
       );
     })
@@ -60,7 +60,7 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
 
   return (
     <div className="formatka-selector-ultra-compact">
-      {/* Mini statystyki */}
+      {/* PRZYWRÓCONE ORYGINALNE Mini statystyki */}
       <div style={{ 
         marginBottom: '8px', 
         padding: '4px 8px',
@@ -78,7 +78,7 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
         </Tag>
       </div>
 
-      {/* Filtry - jeden wiersz, kompaktowe */}
+      {/* PRZYWRÓCONE ORYGINALNE Filtry - jeden wiersz, kompaktowe */}
       <div style={{ marginBottom: '8px' }}>
         <Space style={{ width: '100%' }}>
           <Input
