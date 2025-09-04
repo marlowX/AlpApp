@@ -1,9 +1,9 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko - zawsze odświeża formatki po operacjach
+ * @fileoverview Główny komponent modułu PaletyZko - poprawione odświeżanie
  * @module PaletyZko
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, Row, Col, Space, Typography, Button, Badge, message, Spin, Empty, Tooltip, Popconfirm } from 'antd';
 import {
   AppstoreOutlined,
@@ -48,7 +48,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
   const [selectedPozycjaId, setSelectedPozycjaId] = useState<number>();
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [detailsPaletaId, setDetailsPaletaId] = useState<number>();
-  const [refreshCounter, setRefreshCounter] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Ref do śledzenia czy komponent jest zamontowany
+  const isMounted = useRef(true);
 
   // ========== HOOKS ==========
   const {
@@ -59,6 +62,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     closing,
     podsumowanie,
     fetchPalety,
+    refreshPaletySilently,
     utworzPalete,
     edytujPalete,
     usunPalete,
@@ -76,22 +80,60 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     obliczStatystyki
   } = useFormatki(selectedPozycjaId);
 
-  // Odświeżanie danych po zmianie pozycji lub refresh counter
+  // Cleanup przy odmontowaniu
   useEffect(() => {
-    if (selectedPozycjaId) {
-      fetchPalety();
-      fetchFormatki();
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // Odświeżanie danych po zmianie pozycji - BEZ MIGANIA
+  useEffect(() => {
+    if (selectedPozycjaId && isMounted.current) {
+      // Użyj Promise.all aby wykonać oba zapytania jednocześnie
+      Promise.all([
+        fetchPalety(),
+        fetchFormatki()
+      ]).catch(err => console.error('Błąd podczas ładowania danych:', err));
     }
-  }, [selectedPozycjaId, refreshCounter, fetchPalety, fetchFormatki]);
+  }, [selectedPozycjaId]);
+
+  // Funkcja do cichego odświeżania danych w tle - ZAWSZE ODŚWIEŻA FORMATKI
+  const refreshDataSilently = useCallback(async () => {
+    if (!isMounted.current) return;
+    
+    try {
+      // WAŻNE: Zawsze odświeżaj oba - palety i formatki
+      await Promise.all([
+        refreshPaletySilently(),
+        fetchFormatki() // TO JEST KLUCZOWE - formatki muszą się odświeżyć
+      ]);
+    } catch (err) {
+      console.error('Błąd podczas odświeżania:', err);
+    }
+  }, [refreshPaletySilently, fetchFormatki]);
 
   // ========== HANDLERS ==========
-  const handleRefresh = useCallback(() => {
-    setRefreshCounter(prev => prev + 1);
-    fetchPalety();
-    fetchFormatki();
-    if (onRefresh) onRefresh();
-    message.success('Odświeżono dane', 1);
-  }, [fetchPalety, fetchFormatki, onRefresh]);
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchPalety(false), // false = z loaderem
+        fetchFormatki()
+      ]);
+      if (onRefresh) onRefresh();
+      message.success('Odświeżono dane', 1);
+    } catch (error) {
+      console.error('Błąd odświeżania:', error);
+      message.error('Błąd podczas odświeżania');
+    } finally {
+      if (isMounted.current) {
+        setIsRefreshing(false);
+      }
+    }
+  }, [fetchPalety, fetchFormatki, onRefresh, isRefreshing]);
 
   const handleSelectPozycja = useCallback((pozycjaId: number) => {
     setSelectedPozycjaId(pozycjaId);
@@ -107,11 +149,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     if (paleta) {
       setCreateModalVisible(false);
       message.success('Paleta utworzona pomyślnie');
-      // Zawsze odśwież formatki i palety
-      await fetchFormatki();
-      await fetchPalety();
+      // Odśwież dane w tle - formatki się zaktualizują
+      await refreshDataSilently();
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki, fetchPalety]);
+  }, [selectedPozycjaId, utworzPalete, refreshDataSilently]);
 
   const handleCreateEmptyPaleta = useCallback(async () => {
     if (!selectedPozycjaId) {
@@ -128,18 +169,18 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success('Utworzono pustą paletę');
-      await fetchPalety();
+      // Tylko odśwież palety w tle (pusta paleta nie zmienia formatek)
+      await refreshPaletySilently();
     }
-  }, [selectedPozycjaId, utworzPalete, fetchPalety]);
+  }, [selectedPozycjaId, utworzPalete, refreshPaletySilently]);
 
   const handleDeletePaleta = useCallback(async (paletaId: number) => {
     const success = await usunPalete(paletaId);
     if (success) {
-      // Zawsze odśwież formatki i palety po usunięciu
-      await fetchFormatki();
-      await fetchPalety();
+      // Odśwież dane w tle - formatki wrócą do listy
+      await refreshDataSilently();
     }
-  }, [usunPalete, fetchFormatki, fetchPalety]);
+  }, [usunPalete, refreshDataSilently]);
 
   const handleClosePaleta = useCallback(async (paletaId: number) => {
     const success = await zamknijPalete(paletaId);
@@ -162,11 +203,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
 
     const result = await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
     if (result) {
-      // Zawsze odśwież formatki i palety
-      await fetchFormatki();
-      await fetchPalety();
+      // Odśwież dane w tle - wszystkie formatki powinny zniknąć
+      await refreshDataSilently();
     }
-  }, [selectedPozycjaId, utworzPaletyDlaPozostalych, fetchFormatki, fetchPalety]);
+  }, [selectedPozycjaId, utworzPaletyDlaPozostalych, refreshDataSilently]);
 
   const handleDropFormatkaToEmptyArea = useCallback(async (
     formatka: any,
@@ -195,11 +235,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success(`Utworzono paletę z wszystkimi ${ilosc} sztukami formatki ${wymiary} - ${kolor}`);
-      // Zawsze odśwież formatki i palety
-      await fetchFormatki();
-      await fetchPalety();
+      // WAŻNE: Odśwież dane - formatki muszą zniknąć z listy
+      await refreshDataSilently();
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki, fetchPalety]);
+  }, [selectedPozycjaId, utworzPalete, refreshDataSilently]);
 
   const handleDropFormatka = useCallback(async (
     formatka: any,
@@ -257,19 +296,21 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         const kolor = formatka.kolor || 'NIEZNANY';
         
         message.success(`Dodano wszystkie ${ilosc} szt. formatki ${wymiary} - ${kolor} do palety`);
-        // Zawsze odśwież formatki i palety po dodaniu
-        await fetchFormatki();
-        await fetchPalety();
+        // WAŻNE: Odśwież dane - formatki muszą zniknąć z listy
+        await refreshDataSilently();
       }
     } catch (error) {
       console.error('Błąd podczas dodawania formatki:', error);
       message.error('Błąd podczas dodawania formatki do palety');
     }
-  }, [palety, edytujPalete, fetchFormatki, fetchPalety]);
+  }, [palety, edytujPalete, refreshDataSilently]);
 
   const formatkiDostepne = getFormatkiDostepne();
   const statystykiFormatek = obliczStatystyki();
-  const loading = paletyLoading || formatkiLoading;
+  
+  // Loading tylko przy pierwszym ładowaniu lub przełączaniu pozycji
+  const isInitialLoading = paletyLoading && palety.length === 0 && !selectedPozycjaId;
+  const loading = isInitialLoading || isRefreshing;
 
   // ========== RENDER ==========
   return (
@@ -325,7 +366,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   <Button 
                     icon={<ReloadOutlined />} 
                     onClick={handleRefresh}
-                    loading={loading}
+                    loading={isRefreshing}
                     size="small"
                     style={componentStyles.button.small}
                   />
@@ -337,7 +378,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     onConfirm={async () => {
                       const success = await usunWszystkiePalety();
                       if (success) {
-                        await fetchFormatki(); // Odśwież formatki po usunięciu wszystkich palet
+                        await refreshDataSilently();
                       }
                     }}
                     okText="Tak"
@@ -349,7 +390,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                       <Button
                         danger
                         icon={<DeleteOutlined />}
-                        loading={loading}
                         size="small"
                         style={componentStyles.button.small}
                       />
@@ -367,13 +407,12 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
               </Space>
             </div>
 
-            {/* Selektor pozycji z refresh triggerem */}
+            {/* Selektor pozycji */}
             <PozycjaSelector
               zkoId={zkoId}
               selectedPozycjaId={selectedPozycjaId}
               onSelect={handleSelectPozycja}
-              loading={loading}
-              refreshTrigger={refreshCounter}
+              loading={false}
             />
 
             {/* Statystyki - kompaktowe */}
@@ -441,14 +480,14 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   overflowX: 'hidden'
                 }}
               >
-                {loading ? (
+                {formatkiLoading && !formatki.length ? (
                   <div style={{ textAlign: 'center', padding: 50 }}>
                     <Spin size="large" />
                   </div>
                 ) : formatkiDostepne.length > 0 ? (
                   <FormatkaSelectorDND
                     formatki={formatkiDostepne}
-                    loading={formatkiLoading}
+                    loading={false}
                     onSelectFormatka={() => {}}
                   />
                 ) : (
@@ -518,7 +557,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   overflowX: 'hidden'
                 }}
               >
-                {loading ? (
+                {paletyLoading && !palety.length ? (
                   <div style={{ textAlign: 'center', padding: 50 }}>
                     <Spin size="large" />
                   </div>
