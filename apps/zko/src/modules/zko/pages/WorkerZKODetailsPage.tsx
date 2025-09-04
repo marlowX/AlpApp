@@ -2,7 +2,8 @@ import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Space } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { ZKODetailsPage } from '../ZKODetailsPage';
+// Import bezpośrednio komponentu, nie jako default
+import ZKODetailsPage from '../pages/ZKODetailsPage';
 
 /**
  * Strona szczegółów ZKO dla operatora piły

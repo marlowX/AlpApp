@@ -10,6 +10,7 @@ import { WorkflowPage } from './modules/workflow/pages/WorkflowPage';
 import { CuttingPage } from './modules/production/pages/CuttingPage';
 import WorkerPilaPage from './modules/zko/pages/WorkerPilaPage';
 import WorkerOkleiniarkaPage from './modules/zko/pages/WorkerOkleiniarkaPage';
+import WorkerZKODetailsPage from './modules/zko/pages/WorkerZKODetailsPage';
 
 export const Router = () => {
   return (
@@ -35,6 +36,8 @@ export const Router = () => {
           <Route path="worker">
             <Route path="pila" element={<WorkerPilaPage />} />
             <Route path="okleiniarka" element={<WorkerOkleiniarkaPage />} />
+            {/* Szczegóły ZKO dla operatora - DODANE! */}
+            <Route path="zko/:id" element={<WorkerZKODetailsPage />} />
             {/* Przyszłe widoki:
             <Route path="wiertarka" element={<WorkerWiertarkaPage />} />
             <Route path="magazyn" element={<WorkerMagazynPage />} />
