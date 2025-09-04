@@ -8,8 +8,13 @@ import {
   ReloadOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons';
-import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import 'dayjs/locale/pl';
+
+// Konfiguracja dayjs
+dayjs.extend(relativeTime);
+dayjs.locale('pl');
 
 interface ZKOItem {
   id: number;
@@ -202,10 +207,7 @@ export const WorkerViewPila: React.FC = () => {
                     <div>Formatek: <strong>{zko.ilosc_formatek || 0}</strong></div>
                     <div>Priorytet: <Badge count={zko.priorytet} style={{ backgroundColor: '#f50' }} /></div>
                     <div style={{ fontSize: '12px', marginTop: '4px' }}>
-                      {formatDistanceToNow(new Date(zko.data_utworzenia), { 
-                        locale: pl, 
-                        addSuffix: true 
-                      })}
+                      {dayjs(zko.data_utworzenia).fromNow()}
                     </div>
                   </div>
 
