@@ -1,118 +1,435 @@
-/**
- * BEZPIECZNY CSS dla PaletyZko - BEZ globalnych selektorów które psują Select
+/* 
+ * PaletyZko - Style modułu zarządzania paletami
+ * Design: minimalistyczny, kompaktowy, czysty
  */
 
-/* Kontener główny */
+/* ========== GŁÓWNE KONTENERY ========== */
 .palety-zko {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  color: #262626;
-}
-
-/* Nagłówek sekcji */
-.palety-header {
-  background: #ffffff;
-  border: 1px solid #f0f0f0;
-  border-radius: 4px;
-  margin-bottom: 16px;
-}
-
-/* Formatki do przeciągania */
-.formatka-item {
-  background: #ffffff;
-  border: 1px solid #e8e8e8;
-  border-radius: 3px;
-  padding: 6px 10px;
-  margin-bottom: 4px;
-  cursor: grab;
-  transition: all 0.15s ease;
-  font-size: 12px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.formatka-item:hover {
+  padding: 0;
   background: #fafafa;
-  border-color: #d9d9d9;
+  min-height: 100vh;
 }
 
-.formatka-item.dragging {
-  opacity: 0.5;
-  cursor: grabbing;
+.palety-header {
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-/* Palety - karty drop zone */
+/* ========== FORMATKI - DRAG & DROP ========== */
+.formatka-ultra-compact-item {
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.formatka-ultra-compact-item:hover {
+  z-index: 10;
+}
+
+.formatka-ultra-compact-item.dragging {
+  z-index: 1000;
+  cursor: grabbing !important;
+}
+
+/* Animacja pulsowania dla przeciąganych elementów */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Animacja świecenia dla obszarów drop */
+@keyframes glow {
+  0% {
+    box-shadow: 0 0 5px rgba(24, 144, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(24, 144, 255, 0.8), 0 0 30px rgba(24, 144, 255, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(24, 144, 255, 0.5);
+  }
+}
+
+/* ========== PALETY - KARTY ========== */
 .paleta-card {
-  background: #ffffff;
-  border: 1px solid #e8e8e8;
-  border-radius: 4px;
-  padding: 10px;
-  min-height: 100px;
-  transition: all 0.15s ease;
+  height: 100%;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: visible;
 }
 
+.paleta-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Stan gdy przeciągamy nad paletą */
 .paleta-card.drag-over {
-  border-color: #1890ff;
-  background: #f0f9ff;
-  border-width: 2px;
+  transform: scale(1.02);
+  animation: glow 1.5s ease-in-out infinite;
+  border-color: #1890ff !important;
+  background: linear-gradient(to bottom, #e6f7ff, #ffffff) !important;
+}
+
+.paleta-card.drag-over::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  background: linear-gradient(45deg, 
+    transparent, 
+    rgba(24, 144, 255, 0.1), 
+    rgba(24, 144, 255, 0.2),
+    rgba(24, 144, 255, 0.1),
+    transparent
+  );
+  border-radius: 10px;
+  opacity: 0;
+  animation: slideGradient 2s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes slideGradient {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+/* Status palety */
+.paleta-card.status-zamknieta {
+  background: linear-gradient(to bottom, #fffbe6, #ffffff);
+  border: 2px solid #faad14;
+}
+
+.paleta-card.empty {
+  border: 2px dashed #d9d9d9;
+  background: #fafafa;
+}
+
+.paleta-card.empty.drag-over {
+  border: 2px dashed #1890ff !important;
+  background: #e6f7ff !important;
 }
 
 .paleta-card.status-otwarta {
-  border-left: 3px solid #52c41a;
+  border: 2px solid #e8e8e8;
 }
 
-.paleta-card.status-zamknieta {
-  background: #fffbe6;
-  border-left: 3px solid #faad14;
-}
-
-/* Empty state */
+/* ========== OBSZAR DROP DLA PUSTEGO MIEJSCA ========== */
 .empty-pallets-section {
-  min-height: 300px;
+  min-height: 400px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px dashed #d9d9d9;
+  border: 3px dashed #e8e8e8;
+  border-radius: 8px;
+  background: #fafafa;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.empty-pallets-section:hover {
+  border-color: #d0d0d0;
+  background: #f5f5f5;
+}
+
+/* Stan gdy przeciągamy nad pustym obszarem */
+.empty-pallets-section.drag-over {
+  border: 3px dashed #1890ff;
+  background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%);
+  animation: pulseBackground 2s ease-in-out infinite;
+}
+
+@keyframes pulseBackground {
+  0% {
+    background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%);
+  }
+  50% {
+    background: linear-gradient(135deg, #bae7ff 0%, #e6f7ff 100%);
+  }
+  100% {
+    background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%);
+  }
+}
+
+.empty-pallets-section.drag-over::before {
+  content: '📦 Upuść tutaj aby utworzyć nową paletę';
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1890ff;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: bold;
+  animation: slideDown 0.3s ease;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.empty-pallets-content {
+  text-align: center;
+  padding: 40px;
+  transition: all 0.3s ease;
+}
+
+.empty-pallets-section.drag-over .empty-pallets-content {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+
+.empty-pallets-icon {
+  font-size: 64px;
+  color: #d9d9d9;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.empty-pallets-section.drag-over .empty-pallets-icon {
+  color: #1890ff;
+  transform: scale(1.2);
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: scale(1.2) translateY(0);
+  }
+  50% {
+    transform: scale(1.2) translateY(-10px);
+  }
+}
+
+/* ========== SELEKTOR POZYCJI ========== */
+.pozycja-selector {
+  margin-bottom: 12px;
+}
+
+.pozycja-selector .ant-radio-button-wrapper {
+  transition: all 0.2s;
+}
+
+.pozycja-selector .ant-radio-button-wrapper:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.pozycja-selector .ant-radio-button-wrapper-checked {
+  background: linear-gradient(to right, #1890ff, #40a9ff);
+  color: white;
+  font-weight: bold;
+}
+
+/* ========== STATYSTYKI ========== */
+.palety-stats {
+  padding: 8px;
+  background: #f5f5f5;
   border-radius: 4px;
-  background: #fafafa;
+  font-size: 11px;
 }
 
-/* Scrollbar - tylko dla WebKit */
-.palety-zko ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.palety-stats .ant-statistic-title {
+  font-size: 10px;
+  margin-bottom: 2px;
 }
 
-.palety-zko ::-webkit-scrollbar-track {
-  background: #fafafa;
+.palety-stats .ant-statistic-content {
+  font-size: 14px;
 }
 
-.palety-zko ::-webkit-scrollbar-thumb {
-  background: #d9d9d9;
-  border-radius: 3px;
+/* ========== GRID PALET ========== */
+.palety-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  padding: 4px;
 }
 
-/* Pozycje selector */
-.position-tile {
-  background: #ffffff;
+@media (max-width: 768px) {
+  .palety-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========== MODAL TWORZENIA PALETY ========== */
+.create-paleta-modal .ant-modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.create-paleta-modal .formatka-selector {
+  max-height: 300px;
+  overflow-y: auto;
   border: 1px solid #e8e8e8;
-  cursor: pointer;
-  transition: all 0.15s ease;
   border-radius: 4px;
-  padding: 10px;
-}
-
-.position-tile:hover {
+  padding: 8px;
   background: #fafafa;
-  border-color: #d9d9d9;
 }
 
-.position-tile.selected {
-  background: #f0f9ff;
-  border: 2px solid #1890ff;
+/* ========== SZCZEGÓŁY PALETY ========== */
+.paleta-details-modal .ant-modal-body {
+  padding: 0;
 }
 
-/* USUNIĘTE - żadne globalne reguły focus, outline, box-shadow */
-/* USUNIĘTE - żadne reguły *:focus które mogłyby blokować Ant Design */
-/* USUNIĘTE - żadne !important na elementach Ant Design */
+.paleta-details-header {
+  background: linear-gradient(to right, #1890ff, #40a9ff);
+  color: white;
+  padding: 16px;
+  margin: -24px -24px 16px -24px;
+}
+
+.paleta-details-content {
+  padding: 16px;
+}
+
+/* ========== WSKAŹNIKI WIZUALNE DND ========== */
+.dnd-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0.8;
+  transform: rotate(-2deg);
+}
+
+/* Kursor podczas przeciągania */
+.dragging * {
+  cursor: grabbing !important;
+}
+
+/* Animacja dla liczników podczas aktualizacji */
+@keyframes numberChange {
+  0% {
+    transform: scale(1);
+    color: inherit;
+  }
+  50% {
+    transform: scale(1.2);
+    color: #52c41a;
+  }
+  100% {
+    transform: scale(1);
+    color: inherit;
+  }
+}
+
+.number-update {
+  animation: numberChange 0.5s ease;
+}
+
+/* ========== TOOLTIPS ========== */
+.ant-tooltip-inner {
+  font-size: 12px;
+  min-height: auto;
+  padding: 4px 8px;
+}
+
+/* ========== PRZYCISKI ========== */
+.ant-btn-sm {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.ant-btn-icon-only.ant-btn-sm {
+  width: 24px;
+  padding: 0;
+}
+
+/* ========== SCROLLBAR ========== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* ========== RESPONSYWNOŚĆ ========== */
+@media (max-width: 1200px) {
+  .palety-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .palety-zko {
+    padding: 8px;
+  }
+  
+  .palety-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .formatka-ultra-compact-item {
+    font-size: 11px;
+  }
+}
+
+/* ========== DARK MODE SUPPORT ========== */
+@media (prefers-color-scheme: dark) {
+  .palety-zko {
+    background: #141414;
+  }
+  
+  .paleta-card {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+  
+  .formatka-ultra-compact-item {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+  
+  .empty-pallets-section {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+}
