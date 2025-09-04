@@ -277,10 +277,8 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
             borderRadius: dimensions.cardBorderRadius,
             overflow: 'hidden'
           }}
-          styles={{ 
-            body: { 
-              padding: dimensions.spacingMd 
-            } 
+          bodyStyle={{ 
+            padding: dimensions.spacingMd 
           }}
         >
           <Space direction="vertical" style={{ width: '100%' }} size={dimensions.spacingSm}>
@@ -393,6 +391,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
             <Col xs={24} lg={8}>
               <Card 
                 size="small"
+                className="formatki-container"
                 title={
                   <Space size={dimensions.spacingXs}>
                     <DragOutlined style={{ fontSize: dimensions.iconSizeBase }} />
@@ -423,16 +422,15 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     </Button>
                   )
                 }
-                styles={{ 
-                  header: {
-                    minHeight: dimensions.headerHeightSmall,
-                    padding: `0 ${dimensions.spacingSm}px`
-                  },
-                  body: { 
-                    height: '450px',
-                    overflowY: 'auto',
-                    padding: dimensions.spacingSm
-                  }
+                headStyle={{ 
+                  minHeight: dimensions.headerHeightSmall,
+                  padding: `0 ${dimensions.spacingSm}px`
+                }}
+                bodyStyle={{ 
+                  height: '450px',
+                  overflowY: 'auto',
+                  padding: dimensions.spacingSm,
+                  overflowX: 'hidden'
                 }}
               >
                 {loading ? (
@@ -465,6 +463,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
             <Col xs={24} lg={16}>
               <Card 
                 size="small"
+                className="palety-container"
                 title={
                   <Space size={dimensions.spacingXs}>
                     <AppstoreOutlined style={{ fontSize: dimensions.iconSizeBase }} />
@@ -501,16 +500,15 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     </Button>
                   </Space>
                 }
-                styles={{ 
-                  header: {
-                    minHeight: dimensions.headerHeightSmall,
-                    padding: `0 ${dimensions.spacingSm}px`
-                  },
-                  body: { 
-                    height: '450px',
-                    overflowY: 'auto',
-                    padding: dimensions.spacingSm
-                  }
+                headStyle={{ 
+                  minHeight: dimensions.headerHeightSmall,
+                  padding: `0 ${dimensions.spacingSm}px`
+                }}
+                bodyStyle={{ 
+                  height: '450px',
+                  overflowY: 'auto',
+                  padding: dimensions.spacingSm,
+                  overflowX: 'hidden'
                 }}
               >
                 {loading ? (

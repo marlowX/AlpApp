@@ -8,7 +8,6 @@ import { useDrag } from 'react-dnd';
 import { Space, Tag, InputNumber, Button, Typography } from 'antd';
 import { DragOutlined, PlusOutlined } from '@ant-design/icons';
 import { Formatka, ItemTypes } from '../types';
-import { formatujWage } from '../utils';
 
 const { Text } = Typography;
 
@@ -23,7 +22,7 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
   onSelectFormatka,
   disableDrag = false 
 }) => {
-  const [ilosc, setIlosc] = useState<number>(formatka.sztuki_dostepne || 1);
+  const [ilosc, setIlosc] = useState<number>(1);
   const [isManualMode, setIsManualMode] = useState(false);
 
   const [{ isDragging }, drag] = useDrag(() => ({
@@ -102,7 +101,7 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
         }
       }}
     >
-      {/* Ikona przeciągania - wizualny wskaźnik */}
+      {/* Ikona przeciągania */}
       <div 
         style={{ 
           marginRight: '8px',
@@ -116,12 +115,13 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
       {/* Główna zawartość */}
       <div style={{ flex: 1 }}>
         <Space size={4} style={{ width: '100%', justifyContent: 'space-between' }}>
-          <Space size={4}>
+          <Space size={4} style={{ flex: 1, minWidth: 0 }}>
             {/* Wymiary */}
             <Text strong style={{ 
               fontSize: '12px', 
               minWidth: '80px',
-              color: isDragging ? '#1890ff' : '#000'
+              color: isDragging ? '#1890ff' : '#000',
+              whiteSpace: 'nowrap'
             }}>
               {wymiary}
             </Text>
@@ -134,20 +134,24 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
                 fontSize: '10px',
                 padding: '0 4px',
                 height: '18px',
-                lineHeight: '16px'
+                lineHeight: '16px',
+                whiteSpace: 'nowrap'
               }}
             >
               {kolor}
             </Tag>
 
             {/* Grubość */}
-            <Text type="secondary" style={{ fontSize: '10px' }}>
+            <Text type="secondary" style={{ 
+              fontSize: '10px',
+              whiteSpace: 'nowrap'
+            }}>
               {formatka.grubosc || 18}mm
             </Text>
           </Space>
 
           {/* Ilości i przyciski */}
-          <Space size={2}>
+          <Space size={2} style={{ flexShrink: 0 }}>
             {/* Dostępna ilość */}
             <Tag 
               color={formatka.sztuki_dostepne > 0 ? 'green' : 'default'}
@@ -195,24 +199,49 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
                 </Space>
               ) : (
                 <Space size={1}>
-                  {/* Szybkie przyciski dla typowych ilości */}
-                  {[1, 5, 10].map(qty => (
-                    qty <= formatka.sztuki_dostepne && (
-                      <Button
-                        key={qty}
-                        size="small"
-                        onClick={() => handleQuickAdd(qty)}
-                        style={{ 
-                          fontSize: '10px', 
-                          padding: '0 4px',
-                          height: '20px',
-                          minWidth: '24px'
-                        }}
-                      >
-                        +{qty}
-                      </Button>
-                    )
-                  ))}
+                  {/* Szybkie przyciski dostosowane do ilości */}
+                  <Button
+                    size="small"
+                    onClick={() => handleQuickAdd(1)}
+                    style={{ 
+                      fontSize: '10px', 
+                      padding: '0 4px',
+                      height: '20px',
+                      minWidth: '24px'
+                    }}
+                  >
+                    +1
+                  </Button>
+                  
+                  {formatka.sztuki_dostepne >= 5 && (
+                    <Button
+                      size="small"
+                      onClick={() => handleQuickAdd(5)}
+                      style={{ 
+                        fontSize: '10px', 
+                        padding: '0 4px',
+                        height: '20px',
+                        minWidth: '24px'
+                      }}
+                    >
+                      +5
+                    </Button>
+                  )}
+                  
+                  {formatka.sztuki_dostepne >= 10 && (
+                    <Button
+                      size="small"
+                      onClick={() => handleQuickAdd(10)}
+                      style={{ 
+                        fontSize: '10px', 
+                        padding: '0 4px',
+                        height: '20px',
+                        minWidth: '24px'
+                      }}
+                    >
+                      +10
+                    </Button>
+                  )}
                   
                   {/* Przycisk do trybu manualnego */}
                   <Button
@@ -235,7 +264,13 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
         {/* Dodatkowe informacje - druga linia */}
         {formatka.nazwa_plyty && (
           <div style={{ marginTop: '2px' }}>
-            <Text type="secondary" style={{ fontSize: '10px' }}>
+            <Text type="secondary" style={{ 
+              fontSize: '10px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: 'block'
+            }}>
               Płyta: {formatka.nazwa_plyty}
             </Text>
           </div>
