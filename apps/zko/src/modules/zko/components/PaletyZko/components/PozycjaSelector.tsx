@@ -8,7 +8,7 @@ import { Space, Typography, Tag, Spin, Row, Col, Card, Progress, Badge, Empty, B
 import { CheckCircleOutlined, ReloadOutlined, InboxOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { PozycjaZKO } from '../types';
-import { componentStyles, colors, dimensions, styleHelpers } from '../styles/theme';
+import { colors, dimensions } from '../styles/theme';
 
 const { Text, Title } = Typography;
 
@@ -20,7 +20,6 @@ interface PozycjaSelectorProps {
   refreshTrigger?: number;
 }
 
-// Używamy proxy z Vite - /api jest przekierowane na localhost:5001
 const API_URL = '/api';
 
 export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
@@ -45,19 +44,13 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
       
       if (response.data && response.data.pozycje) {
         const pozycjeData = response.data.pozycje || [];
+        setPozycje(pozycjeData);
         
-        const pozycjeWithNumbers = pozycjeData.map((p: any, index: number) => ({
-          ...p,
-          numer_pozycji: p.numer_pozycji || index + 1
-        }));
-        
-        setPozycje(pozycjeWithNumbers);
-        
-        if (!selectedPozycjaId && pozycjeWithNumbers.length > 0) {
-          onSelect(pozycjeWithNumbers[0].id);
-        } else if (selectedPozycjaId && !pozycjeWithNumbers.find((p: any) => p.id === selectedPozycjaId)) {
-          if (pozycjeWithNumbers.length > 0) {
-            onSelect(pozycjeWithNumbers[0].id);
+        if (!selectedPozycjaId && pozycjeData.length > 0) {
+          onSelect(pozycjeData[0].id);
+        } else if (selectedPozycjaId && !pozycjeData.find((p: any) => p.id === selectedPozycjaId)) {
+          if (pozycjeData.length > 0) {
+            onSelect(pozycjeData[0].id);
           }
         }
       }
@@ -96,11 +89,21 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
     };
   };
 
+  // Oblicz szerokość kafelka na podstawie ilości pozycji
+  const getCardWidth = () => {
+    const count = pozycje.length;
+    if (count <= 2) return '50%';
+    if (count === 3) return '33.33%';
+    if (count === 4) return '25%';
+    if (count === 5) return '20%';
+    return '16.66%'; // 6 lub więcej
+  };
+
   if (loadingPozycje && pozycje.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: dimensions.spacingXl }}>
+      <div style={{ textAlign: 'center', padding: 20 }}>
         <Spin size="large" />
-        <Text style={{ display: 'block', marginTop: dimensions.spacingMd }}>
+        <Text style={{ display: 'block', marginTop: 8 }}>
           Ładowanie pozycji ZKO...
         </Text>
       </div>
@@ -110,7 +113,7 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
   if (pozycje.length === 0 && !loadingPozycje) {
     return (
       <Empty
-        image={<InboxOutlined style={{ fontSize: 48, color: colors.borderBase }} />}
+        image={<InboxOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />}
         description={
           <Space direction="vertical">
             <Text>Brak pozycji w tym ZKO</Text>
@@ -128,18 +131,18 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
   }
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={dimensions.spacingMd}>
+    <Space direction="vertical" style={{ width: '100%' }} size={8}>
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        marginBottom: dimensions.spacingSm
+        marginBottom: 8
       }}>
-        <Text strong style={{ fontSize: dimensions.fontSizeBase }}>
+        <Text strong style={{ fontSize: 14 }}>
           Wybierz pozycję ZKO:
         </Text>
-        <Space size={dimensions.spacingSm}>
-          <Text style={{ fontSize: 10, color: colors.textSecondary }}>
+        <Space size={8}>
+          <Text style={{ fontSize: 10, color: '#8c8c8c' }}>
             Ostatnie odświeżenie: {new Date(lastRefresh).toLocaleTimeString('pl-PL')}
           </Text>
           <Button
@@ -147,118 +150,154 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
             onClick={handleRefresh}
             size="small"
             loading={loadingPozycje}
-            style={{ height: dimensions.buttonHeightSmall }}
           >
             Odśwież
           </Button>
         </Space>
       </div>
 
-      <Row gutter={[dimensions.spacingSm, dimensions.spacingSm]}>
+      <div style={{ 
+        display: 'flex', 
+        flexWrap: 'wrap', 
+        gap: '8px',
+        width: '100%'
+      }}>
         {pozycje.map(pozycja => {
           const isSelected = pozycja.id === selectedPozycjaId;
           const progress = calculateProgress(pozycja);
-          const numerPozycji = pozycja.numer_pozycji || pozycja.id;
+          const cardWidth = getCardWidth();
+          
+          // Pobierz formatki dla tej pozycji
+          const formatki = pozycja.formatki || [];
+          const formatkiSummary = formatki.slice(0, 2).map(f => 
+            `${f.dlugosc}×${f.szerokosc} ${f.kolor || pozycja.kolor_plyty} - ${f.sztuki || 0}szt`
+          );
           
           return (
-            <Col key={pozycja.id} xs={12} sm={8} md={6} lg={4}>
+            <div
+              key={pozycja.id}
+              style={{
+                width: `calc(${cardWidth} - 8px)`,
+                minWidth: '150px'
+              }}
+            >
               <Card
                 hoverable
                 onClick={() => onSelect(pozycja.id)}
                 style={{
-                  minHeight: '140px',
-                  height: '140px', // Stała wysokość
-                  width: '100%', // Pełna szerokość
+                  height: '160px',
                   position: 'relative',
                   border: isSelected ? '2px solid #1890ff' : '1px solid #e8e8e8',
                   background: isSelected ? '#e6f7ff' : 'white',
                   cursor: 'pointer',
-                  overflow: 'hidden' // Ukryj nadmiar
+                  overflow: 'hidden'
                 }}
                 bodyStyle={{
                   padding: '10px',
                   height: '100%',
-                  width: '100%', 
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px',
-                  overflow: 'hidden'
+                  gap: '4px'
                 }}
               >
-                {/* Numer pozycji */}
+                {/* Nagłówek - ID pozycji */}
                 <div style={{ 
                   display: 'flex', 
                   justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexShrink: 0
+                  alignItems: 'center'
                 }}>
                   <Text 
                     strong 
                     style={{ 
                       fontSize: '14px',
-                      color: isSelected ? colors.primary : colors.textPrimary,
-                      whiteSpace: 'nowrap'
+                      color: isSelected ? '#1890ff' : '#000'
                     }}
                   >
-                    Poz. {numerPozycji}
+                    Pozycja {pozycja.id}
                   </Text>
                   {isSelected && (
                     <CheckCircleOutlined 
                       style={{ 
-                        color: colors.primary,
+                        color: '#1890ff',
                         fontSize: '12px'
                       }} 
                     />
                   )}
                 </div>
 
-                {/* Kolor płyty */}
-                <div style={{ flexShrink: 0 }}>
+                {/* Kolor i nazwa płyty */}
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '4px', 
+                  alignItems: 'center',
+                  flexWrap: 'wrap'
+                }}>
                   <Tag 
                     color={pozycja.kolor_plyty?.toLowerCase() === 'biały' ? 'default' : 'blue'}
                     style={{
                       fontSize: '10px',
                       padding: '0 4px',
                       margin: 0,
-                      maxWidth: '100%',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
+                      height: '18px',
+                      lineHeight: '16px'
                     }}
                   >
-                    {pozycja.kolor_plyty || 'Brak koloru'}
+                    {pozycja.kolor_plyty || 'BRAK'}
                   </Tag>
+                  <Text 
+                    style={{ 
+                      fontSize: '10px',
+                      color: '#8c8c8c',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      flex: 1
+                    }}
+                    title={pozycja.nazwa_plyty}
+                  >
+                    {pozycja.nazwa_plyty || '-'}
+                  </Text>
                 </div>
-
-                {/* Nazwa płyty */}
-                <Text 
-                  style={{ 
-                    fontSize: '11px',
-                    color: colors.textSecondary,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}
-                  title={pozycja.nazwa_plyty}
-                >
-                  {pozycja.nazwa_plyty || 'Brak nazwy'}
-                </Text>
 
                 {/* Ilość płyt */}
                 <Text style={{ 
-                  fontSize: '10px', 
-                  color: colors.textSecondary,
-                  flexShrink: 0
+                  fontSize: '11px', 
+                  color: '#595959'
                 }}>
                   {pozycja.ilosc_plyt || 0} płyt
                 </Text>
 
-                {/* Progress bar - na dole */}
+                {/* Lista formatek */}
                 <div style={{ 
-                  marginTop: 'auto',
-                  flexShrink: 0
+                  flex: 1,
+                  overflow: 'hidden',
+                  fontSize: '10px',
+                  color: '#8c8c8c'
                 }}>
+                  {formatkiSummary.length > 0 ? (
+                    formatkiSummary.map((f, idx) => (
+                      <div key={idx} style={{ 
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {f}
+                      </div>
+                    ))
+                  ) : (
+                    <Text style={{ fontSize: '10px', color: '#bfbfbf' }}>
+                      Brak formatek
+                    </Text>
+                  )}
+                  {formatki.length > 2 && (
+                    <Text style={{ fontSize: '9px', color: '#bfbfbf' }}>
+                      +{formatki.length - 2} więcej...
+                    </Text>
+                  )}
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ marginTop: 'auto' }}>
                   <Progress 
                     percent={progress.percent}
                     size="small"
@@ -266,42 +305,39 @@ export const PozycjaSelector: React.FC<PozycjaSelectorProps> = ({
                     showInfo={false}
                     style={{ marginBottom: '2px' }}
                   />
-                  <Text style={{ fontSize: '9px', color: colors.textSecondary }}>
+                  <Text style={{ fontSize: '9px', color: '#8c8c8c' }}>
                     {progress.percent}% na paletach
                   </Text>
                 </div>
               </Card>
-            </Col>
+            </div>
           );
         })}
-      </Row>
+      </div>
 
       {/* Podsumowanie wybranej pozycji */}
       {selectedPozycjaId && pozycje.length > 0 && (
         <Card
           size="small"
           style={{
-            backgroundColor: colors.bgSecondary,
-            marginTop: dimensions.spacingSm,
-            borderRadius: dimensions.buttonBorderRadius
+            backgroundColor: '#f5f5f5',
+            marginTop: 8,
+            borderRadius: 4
           }}
           bodyStyle={{
-            padding: dimensions.spacingSm
+            padding: 8
           }}
         >
           <Space size="small">
-            <Text type="secondary" style={{ fontSize: dimensions.fontSizeSmall }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
               Wybrano:
             </Text>
-            <Tag 
-              color="green" 
-              style={{ margin: 0 }}
-            >
-              Poz. {pozycje.find(p => p.id === selectedPozycjaId)?.numer_pozycji || selectedPozycjaId}
+            <Tag color="green" style={{ margin: 0 }}>
+              Pozycja {selectedPozycjaId}
             </Tag>
             {pozycje.find(p => p.id === selectedPozycjaId) && (
               <>
-                <Text style={{ fontSize: dimensions.fontSizeSmall }}>
+                <Text style={{ fontSize: 12 }}>
                   {pozycje.find(p => p.id === selectedPozycjaId)?.nazwa_plyty}
                 </Text>
                 <Tag style={{ margin: 0 }}>
