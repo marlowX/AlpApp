@@ -1,12 +1,12 @@
 /* 
  * PaletyZko - Style modułu zarządzania paletami
- * Design: minimalistyczny, kompaktowy, czysty
+ * Design: minimalistyczny, kompaktowy, responsywny
  */
 
 /* ========== GŁÓWNE KONTENERY ========== */
 .palety-zko {
   padding: 0;
-  background: #fafafa;
+  background: transparent;
   min-height: 100vh;
 }
 
@@ -32,35 +32,6 @@
   cursor: grabbing !important;
 }
 
-/* Animacja pulsowania dla przeciąganych elementów */
-@keyframes pulse {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.02);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Animacja świecenia dla obszarów drop */
-@keyframes glow {
-  0% {
-    box-shadow: 0 0 5px rgba(24, 144, 255, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(24, 144, 255, 0.8), 0 0 30px rgba(24, 144, 255, 0.4);
-  }
-  100% {
-    box-shadow: 0 0 5px rgba(24, 144, 255, 0.5);
-  }
-}
-
 /* ========== PALETY - KARTY ========== */
 .paleta-card {
   height: 100%;
@@ -76,45 +47,8 @@
 
 /* Stan gdy przeciągamy nad paletą */
 .paleta-card.drag-over {
-  transform: scale(1.02);
-  animation: glow 1.5s ease-in-out infinite;
   border-color: #1890ff !important;
-  background: linear-gradient(to bottom, #e6f7ff, #ffffff) !important;
-}
-
-.paleta-card.drag-over::before {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  background: linear-gradient(45deg, 
-    transparent, 
-    rgba(24, 144, 255, 0.1), 
-    rgba(24, 144, 255, 0.2),
-    rgba(24, 144, 255, 0.1),
-    transparent
-  );
-  border-radius: 10px;
-  opacity: 0;
-  animation: slideGradient 2s linear infinite;
-  pointer-events: none;
-  z-index: -1;
-}
-
-@keyframes slideGradient {
-  0% {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(100%);
-  }
+  background: #e6f7ff !important;
 }
 
 /* Status palety */
@@ -134,11 +68,11 @@
 }
 
 .paleta-card.status-otwarta {
-  border: 2px solid #e8e8e8;
+  border: 1px solid #e8e8e8;
 }
 
 /* ========== OBSZAR DROP DLA PUSTEGO MIEJSCA ========== */
-.empty-pallets-section {
+.empty-pallets-drop-area {
   min-height: 400px;
   display: flex;
   align-items: center;
@@ -148,91 +82,11 @@
   background: #fafafa;
   transition: all 0.3s ease;
   position: relative;
-  overflow: hidden;
 }
 
-.empty-pallets-section:hover {
-  border-color: #d0d0d0;
-  background: #f5f5f5;
-}
-
-/* Stan gdy przeciągamy nad pustym obszarem */
-.empty-pallets-section.drag-over {
+.empty-pallets-drop-area.drag-over {
   border: 3px dashed #1890ff;
-  background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%);
-  animation: pulseBackground 2s ease-in-out infinite;
-}
-
-@keyframes pulseBackground {
-  0% {
-    background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%);
-  }
-  50% {
-    background: linear-gradient(135deg, #bae7ff 0%, #e6f7ff 100%);
-  }
-  100% {
-    background: linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%);
-  }
-}
-
-.empty-pallets-section.drag-over::before {
-  content: '📦 Upuść tutaj aby utworzyć nową paletę';
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1890ff;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 14px;
-  font-weight: bold;
-  animation: slideDown 0.3s ease;
-  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.3);
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.empty-pallets-content {
-  text-align: center;
-  padding: 40px;
-  transition: all 0.3s ease;
-}
-
-.empty-pallets-section.drag-over .empty-pallets-content {
-  transform: scale(0.95);
-  opacity: 0.8;
-}
-
-.empty-pallets-icon {
-  font-size: 64px;
-  color: #d9d9d9;
-  margin-bottom: 16px;
-  transition: all 0.3s ease;
-}
-
-.empty-pallets-section.drag-over .empty-pallets-icon {
-  color: #1890ff;
-  transform: scale(1.2);
-  animation: bounce 1s ease-in-out infinite;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: scale(1.2) translateY(0);
-  }
-  50% {
-    transform: scale(1.2) translateY(-10px);
-  }
+  background: #e6f7ff;
 }
 
 /* ========== SELEKTOR POZYCJI ========== */
@@ -242,6 +96,7 @@
 
 .pozycja-selector .ant-radio-button-wrapper {
   transition: all 0.2s;
+  margin-bottom: 8px;
 }
 
 .pozycja-selector .ant-radio-button-wrapper:hover {
@@ -280,12 +135,6 @@
   padding: 4px;
 }
 
-@media (max-width: 768px) {
-  .palety-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* ========== MODAL TWORZENIA PALETY ========== */
 .create-paleta-modal .ant-modal-body {
   max-height: 70vh;
@@ -315,40 +164,6 @@
 
 .paleta-details-content {
   padding: 16px;
-}
-
-/* ========== WSKAŹNIKI WIZUALNE DND ========== */
-.dnd-preview {
-  position: fixed;
-  pointer-events: none;
-  z-index: 10000;
-  opacity: 0.8;
-  transform: rotate(-2deg);
-}
-
-/* Kursor podczas przeciągania */
-.dragging * {
-  cursor: grabbing !important;
-}
-
-/* Animacja dla liczników podczas aktualizacji */
-@keyframes numberChange {
-  0% {
-    transform: scale(1);
-    color: inherit;
-  }
-  50% {
-    transform: scale(1.2);
-    color: #52c41a;
-  }
-  100% {
-    transform: scale(1);
-    color: inherit;
-  }
-}
-
-.number-update {
-  animation: numberChange 0.5s ease;
 }
 
 /* ========== TOOLTIPS ========== */
@@ -391,15 +206,52 @@
 }
 
 /* ========== RESPONSYWNOŚĆ ========== */
-@media (max-width: 1200px) {
+/* Tablet */
+@media (max-width: 992px) {
   .palety-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
+  
+  /* Kolumny formatek i palet jedna pod drugą */
+  .ant-col-lg-8 {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+  
+  .ant-col-lg-16 {
+    max-width: 100%;
+    flex: 0 0 100%;
+    margin-top: 16px;
+  }
+  
+  /* Zmniejsz wysokość kart */
+  .ant-card-body {
+    max-height: 350px !important;
+  }
 }
 
-@media (max-width: 768px) {
+/* Mobile */
+@media (max-width: 576px) {
   .palety-zko {
     padding: 8px;
+  }
+  
+  .palety-header {
+    margin-bottom: 8px;
+  }
+  
+  .palety-header .ant-card-body {
+    padding: 8px !important;
+  }
+  
+  /* Tytuł mniejszy na mobile */
+  .palety-header h5 {
+    font-size: 14px !important;
+  }
+  
+  /* Ukryj auto-odświeżanie na małych ekranach */
+  .palety-header .ant-space > span:first-of-type {
+    display: none;
   }
   
   .palety-grid {
@@ -407,29 +259,135 @@
     gap: 8px;
   }
   
+  /* Kafelki pozycji w jednej kolumnie */
+  .pozycja-selector .ant-radio-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .pozycja-selector .ant-radio-button-wrapper {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  
+  /* Formatki - kompaktowe */
   .formatka-ultra-compact-item {
     font-size: 11px;
+    padding: 4px;
+  }
+  
+  /* Karty palet pełna szerokość */
+  .ant-col-xs-24 {
+    padding: 0 4px !important;
+  }
+  
+  /* Zmniejsz wysokość obszarów */
+  .ant-card-body {
+    height: 300px !important;
+    padding: 8px !important;
+  }
+  
+  /* Przyciski mniejsze */
+  .ant-btn-sm {
+    height: 22px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+  
+  /* Statystyki w jednej linii */
+  .palety-stats {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  
+  .palety-stats > div {
+    flex: 1;
+    min-width: 80px;
   }
 }
 
-/* ========== DARK MODE SUPPORT ========== */
-@media (prefers-color-scheme: dark) {
-  .palety-zko {
-    background: #141414;
+/* Bardzo małe ekrany */
+@media (max-width: 375px) {
+  /* Ukryj ikony w nagłówku */
+  .palety-header .anticon:not(.anticon-reload) {
+    display: none;
   }
   
-  .paleta-card {
-    background: #1f1f1f;
-    border-color: #303030;
+  /* Tylko najważniejsze informacje */
+  .palety-stats {
+    font-size: 10px;
   }
   
   .formatka-ultra-compact-item {
-    background: #1f1f1f;
-    border-color: #303030;
+    font-size: 10px;
+    padding: 3px;
   }
   
-  .empty-pallets-section {
-    background: #1f1f1f;
-    border-color: #303030;
+  /* Zmniejsz odstępy */
+  .ant-row {
+    margin-left: -4px !important;
+    margin-right: -4px !important;
+  }
+  
+  .ant-col {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+}
+
+/* ========== POPRAWKI DLA LEPSZEGO UKŁADU ========== */
+/* Usuń overflow z kart */
+.ant-card {
+  overflow: visible;
+}
+
+/* Popraw wyrównanie w nagłówku */
+.palety-header .ant-space-item {
+  display: flex;
+  align-items: center;
+}
+
+/* Lepsze wyrównanie przycisków */
+.ant-card-head-extra {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Popraw layout dla drag & drop */
+.ant-card-body {
+  position: relative;
+}
+
+/* Zapewnij widoczność tooltipów */
+.ant-tooltip {
+  z-index: 10000;
+}
+
+/* Popraw modalne */
+.ant-modal-wrap {
+  z-index: 10000;
+}
+
+/* Usuń niepotrzebne paddingi */
+.palety-zko > div {
+  padding: 0;
+}
+
+/* Popraw wyrównanie w pustym obszarze */
+.empty-pallets-content {
+  text-align: center;
+  padding: 20px;
+}
+
+/* Responsywne marginesy */
+@media (max-width: 768px) {
+  .ant-space-compact {
+    gap: 4px !important;
+  }
+  
+  .ant-badge {
+    transform: scale(0.8);
   }
 }
