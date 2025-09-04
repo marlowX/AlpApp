@@ -12,6 +12,8 @@ import {
   message,
   Typography,
   Alert,
+  Modal,
+  Radio,
 } from "antd";
 import {
   ScissorOutlined,
@@ -20,6 +22,9 @@ import {
   ClockCircleOutlined,
   TruckOutlined,
   InboxOutlined,
+  BgColorsOutlined,
+  ToolOutlined,
+  HomeOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -33,6 +38,9 @@ const { Title, Text } = Typography;
 export const WorkerViewPila = () => {
   const [zlecenia, setZlecenia] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [transportModalVisible, setTransportModalVisible] = useState(false);
+  const [selectedZko, setSelectedZko] = useState(null);
+  const [transportDestination, setTransportDestination] = useState("BUFOR_OKLEINIARKA");
   const [stats, setStats] = useState({
     oczekujace: 0,
     wTrakcie: 0,
@@ -147,6 +155,63 @@ export const WorkerViewPila = () => {
     }
   };
 
+  const handleTransportClick = (record) => {
+    setSelectedZko(record);
+    setTransportModalVisible(true);
+    // Domyślnie sugeruj cel na podstawie typu formatek
+    // TODO: Sprawdzić w bazie czy formatki wymagają oklejania/wiercenia
+    setTransportDestination("BUFOR_OKLEINIARKA");
+  };
+
+  const handleTransport = async () => {
+    if (!selectedZko) return;
+
+    try {
+      // Najpierw zmień status na TRANSPORT_1
+      await zmienStatus(selectedZko.id, "TRANSPORT_1");
+      
+      // Następnie przenieś do odpowiedniego bufora
+      setTimeout(async () => {
+        const response = await fetch("/api/zko/status/change", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            zko_id: selectedZko.id,
+            nowy_etap_kod: transportDestination,
+            uzytkownik: localStorage.getItem("operator") || "Operator Piły",
+            operator: localStorage.getItem("operator") || "Transport",
+            lokalizacja: transportDestination.replace("BUFOR_", ""),
+            komentarz: `Transport z piły do ${transportDestination}`
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (!response.ok || !result.sukces) {
+          throw new Error(result.komunikat || "Błąd zmiany statusu");
+        }
+
+        message.success(`ZKO ${selectedZko.numer_zko} przetransportowane do ${getDestinationLabel(transportDestination)}`);
+        fetchZlecenia();
+      }, 1000);
+
+      setTransportModalVisible(false);
+      setSelectedZko(null);
+    } catch (error) {
+      console.error("Błąd transportu:", error);
+      message.error(error.message || "Błąd transportu");
+    }
+  };
+
+  const getDestinationLabel = (destination) => {
+    const labels = {
+      BUFOR_OKLEINIARKA: "Okleiniarki",
+      BUFOR_WIERTARKA: "Wiertarki",
+      MAGAZYN: "Magazynu",
+    };
+    return labels[destination] || destination;
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       NOWE: "blue",
@@ -170,7 +235,7 @@ export const WorkerViewPila = () => {
       ZAMKNIECIE_PALETY: "Zamknięta paleta",
       CIECIE_STOP: "Zakończono cięcie",
       BUFOR_PILA: "W buforze piły",
-      TRANSPORT_1: "Transport do okleiniarki",
+      TRANSPORT_1: "Transport",
     };
     return labels[status] || status;
   };
@@ -183,7 +248,7 @@ export const WorkerViewPila = () => {
       PAKOWANIE_PALETY: "ZAMKNIECIE_PALETY",
       ZAMKNIECIE_PALETY: "CIECIE_STOP",
       CIECIE_STOP: "BUFOR_PILA",
-      BUFOR_PILA: "TRANSPORT_1",
+      BUFOR_PILA: "TRANSPORT_CHOICE", // Specjalny status dla wyboru
     };
     return flow[currentStatus];
   };
@@ -192,6 +257,21 @@ export const WorkerViewPila = () => {
     const nextStatus = getNextStatus(record.status);
     if (!nextStatus) return null;
 
+    // Specjalna obsługa dla wyboru transportu
+    if (nextStatus === "TRANSPORT_CHOICE") {
+      return (
+        <Button
+          type="primary"
+          danger
+          icon={<TruckOutlined />}
+          onClick={() => handleTransportClick(record)}
+          size="large"
+        >
+          🚚 Wybierz cel transportu
+        </Button>
+      );
+    }
+
     const labels = {
       CIECIE_START: "🚀 Rozpocznij cięcie",
       OTWARCIE_PALETY: "📦 Otwórz paletę",
@@ -199,7 +279,6 @@ export const WorkerViewPila = () => {
       ZAMKNIECIE_PALETY: "✅ Zamknij paletę",
       CIECIE_STOP: "🏁 Zakończ cięcie",
       BUFOR_PILA: "📤 Przenieś do bufora",
-      TRANSPORT_1: "🚚 Wyślij do okleiniarki",
     };
 
     const icons = {
@@ -209,13 +288,11 @@ export const WorkerViewPila = () => {
       ZAMKNIECIE_PALETY: <CheckCircleOutlined />,
       CIECIE_STOP: <CheckCircleOutlined />,
       BUFOR_PILA: <InboxOutlined />,
-      TRANSPORT_1: <TruckOutlined />,
     };
 
     return (
       <Button
-        type={nextStatus === "TRANSPORT_1" ? "primary" : "primary"}
-        danger={nextStatus === "TRANSPORT_1"}
+        type="primary"
         icon={icons[nextStatus]}
         onClick={() => zmienStatus(record.id, nextStatus)}
         size="large"
@@ -255,11 +332,19 @@ export const WorkerViewPila = () => {
       title: "Formatki",
       key: "formatki",
       render: (_, record) => (
-        <Statistic
-          value={record.formatki_count || 0}
-          suffix="szt"
-          valueStyle={{ fontSize: "18px" }}
-        />
+        <Space direction="vertical" size="small">
+          <Statistic
+            value={record.formatki_count || 0}
+            suffix="szt"
+            valueStyle={{ fontSize: "18px" }}
+          />
+          {record.wymaga_oklejania && (
+            <Tag color="orange" icon={<BgColorsOutlined />}>Oklejanie</Tag>
+          )}
+          {record.wymaga_wiercenia && (
+            <Tag color="blue" icon={<ToolOutlined />}>Wiercenie</Tag>
+          )}
+        </Space>
       ),
     },
     {
@@ -294,7 +379,7 @@ export const WorkerViewPila = () => {
       {stats.wBuforze > 0 && (
         <Alert
           message={`Masz ${stats.wBuforze} zleceń gotowych do transportu`}
-          description="Zlecenia w buforze czekają na transport do okleiniarki"
+          description="Zlecenia w buforze czekają na decyzję o kierunku transportu"
           type="info"
           showIcon
           icon={<TruckOutlined />}
@@ -363,6 +448,119 @@ export const WorkerViewPila = () => {
           }}
         />
       </Card>
+
+      {/* Modal wyboru celu transportu */}
+      <Modal
+        title={
+          <Space>
+            <TruckOutlined />
+            <span>Wybierz cel transportu dla {selectedZko?.numer_zko}</span>
+          </Space>
+        }
+        visible={transportModalVisible}
+        onOk={handleTransport}
+        onCancel={() => {
+          setTransportModalVisible(false);
+          setSelectedZko(null);
+        }}
+        okText="Wyślij transport"
+        cancelText="Anuluj"
+        width={600}
+      >
+        <Alert
+          message="Wybierz gdzie przetransportować palety"
+          description="Na podstawie typu formatek zdecyduj o dalszym procesie produkcji"
+          type="info"
+          showIcon
+          style={{ marginBottom: 20 }}
+        />
+        
+        <Radio.Group
+          value={transportDestination}
+          onChange={(e) => setTransportDestination(e.target.value)}
+          style={{ width: "100%" }}
+        >
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Card 
+              hoverable
+              style={{ 
+                borderColor: transportDestination === "BUFOR_OKLEINIARKA" ? "#1890ff" : undefined,
+                borderWidth: transportDestination === "BUFOR_OKLEINIARKA" ? 2 : 1
+              }}
+            >
+              <Radio value="BUFOR_OKLEINIARKA">
+                <Space>
+                  <BgColorsOutlined style={{ fontSize: 24, color: "#fa8c16" }} />
+                  <div>
+                    <Text strong>Do Okleiniarki</Text>
+                    <br />
+                    <Text type="secondary">
+                      Formatki wymagają oklejania krawędzi, następnie mogą iść do wiertarki
+                    </Text>
+                  </div>
+                </Space>
+              </Radio>
+            </Card>
+            
+            <Card 
+              hoverable
+              style={{ 
+                borderColor: transportDestination === "BUFOR_WIERTARKA" ? "#1890ff" : undefined,
+                borderWidth: transportDestination === "BUFOR_WIERTARKA" ? 2 : 1
+              }}
+            >
+              <Radio value="BUFOR_WIERTARKA">
+                <Space>
+                  <ToolOutlined style={{ fontSize: 24, color: "#1890ff" }} />
+                  <div>
+                    <Text strong>Do Wiertarki</Text>
+                    <br />
+                    <Text type="secondary">
+                      Formatki nie wymagają oklejania, tylko wiercenie otworów
+                    </Text>
+                  </div>
+                </Space>
+              </Radio>
+            </Card>
+            
+            <Card 
+              hoverable
+              style={{ 
+                borderColor: transportDestination === "MAGAZYN" ? "#1890ff" : undefined,
+                borderWidth: transportDestination === "MAGAZYN" ? 2 : 1
+              }}
+            >
+              <Radio value="MAGAZYN">
+                <Space>
+                  <HomeOutlined style={{ fontSize: 24, color: "#52c41a" }} />
+                  <div>
+                    <Text strong>Do Magazynu</Text>
+                    <br />
+                    <Text type="secondary">
+                      Formatki gotowe, nie wymagają dalszej obróbki
+                    </Text>
+                  </div>
+                </Space>
+              </Radio>
+            </Card>
+          </Space>
+        </Radio.Group>
+        
+        {selectedZko && (
+          <Alert
+            message="Informacje o zleceniu"
+            description={
+              <Space direction="vertical">
+                <Text>ZKO: {selectedZko.numer_zko}</Text>
+                <Text>Formatki: {selectedZko.formatki_count || 0} szt</Text>
+                <Text>Kooperant: {selectedZko.kooperant || "Brak"}</Text>
+              </Space>
+            }
+            type="warning"
+            style={{ marginTop: 20 }}
+          />
+        )}
+      </Modal>
     </div>
   );
 };

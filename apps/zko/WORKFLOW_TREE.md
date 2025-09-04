@@ -76,15 +76,27 @@
 │   │
 │   └─[9] BUFOR_PILA 🏭
 │       ├─ Palety czekają na transport
-│       └─➡️ Akcja: "🚚 Wyślij do okleiniarki" → TRANSPORT_1
+│       └─➡️ 🚦 DECYZJA O KIERUNKU TRANSPORTU:
+│           │
+│           ├─📍 Opcja A: Do Okleiniarki
+│           │   └─ TRANSPORT_1 → BUFOR_OKLEINIARKA
+│           │       (formatki wymagają oklejania krawędzi)
+│           │
+│           ├─📍 Opcja B: Do Wiertarki  
+│           │   └─ TRANSPORT_1 → BUFOR_WIERTARKA
+│           │       (formatki nie wymagają oklejania, tylko wiercenie)
+│           │
+│           └─📍 Opcja C: Do Magazynu
+│               └─ TRANSPORT_1 → MAGAZYN
+│                   (formatki gotowe, bez dalszej obróbki)
 │
-├─🚚 TRANSPORT_1 (automatyczny lub ręczny)
+├─🚚 TRANSPORT_1 (z wyborem celu)
 │   ├─ Funkcja: tracking.rozpocznij_transport_uniwersalny()
-│   ├─ Transport palet z piły
-│   └─➡️ Cel zależny od typu formatek:
-│       ├─ Formatki oklejane → BUFOR_OKLEINIARKA
-│       ├─ Formatki tylko wiercone → BUFOR_WIERTARKA
-│       └─ Formatki gotowe → MAGAZYN
+│   ├─ Operator wybiera cel transportu w panelu
+│   └─➡️ Możliwe cele:
+│       ├─ BUFOR_OKLEINIARKA (→ proces oklejania)
+│       ├─ BUFOR_WIERTARKA (→ proces wiercenia)
+│       └─ MAGAZYN (→ gotowe do wysyłki)
 │
 ├─🎨 STANOWISKO OKLEINIARKI (/worker/okleiniarka)
 │   │
@@ -101,7 +113,9 @@
 │   │
 │   └─[10.2] OKLEJANIE_STOP
 │       ├─ Zakończenie oklejania
-│       └─➡️ Akcja: "🚚 Wyślij do wiertarki" → TRANSPORT_2
+│       └─➡️ 🚦 DECYZJA O KIERUNKU:
+│           ├─ TRANSPORT_2 → BUFOR_WIERTARKA (jeśli wymaga wiercenia)
+│           └─ TRANSPORT_2 → MAGAZYN (jeśli gotowe)
 │
 ├─🚚 TRANSPORT_2
 │   ├─ Transport z okleiniarki
@@ -182,14 +196,17 @@
 - ✅ Rozpoczęcie cięcia (NOWE → CIECIE_START)
 - ✅ Zarządzanie paletami (otwarcie/pakowanie/zamknięcie)
 - ✅ Zgłaszanie uszkodzeń podczas cięcia
-- ✅ Transport do okleiniarki (BUFOR_PILA → TRANSPORT_1)
+- ✅ **DECYZJA O KIERUNKU TRANSPORTU:**
+  - → Do Okleiniarki (BUFOR_PILA → TRANSPORT_1 → BUFOR_OKLEINIARKA)
+  - → Do Wiertarki (BUFOR_PILA → TRANSPORT_1 → BUFOR_WIERTARKA)
+  - → Do Magazynu (BUFOR_PILA → TRANSPORT_1 → MAGAZYN)
 
 ### 🎨 OPERATOR OKLEINIARKI (/worker/okleiniarka)
 - ✅ Widzi: TRANSPORT_1, BUFOR_OKLEINIARKA, OKLEJANIE_START, OKLEJANIE_STOP
 - ✅ Przyjęcie z transportu (TRANSPORT_1 → BUFOR_OKLEINIARKA)
 - ✅ Rozpoczęcie/zakończenie oklejania
 - ✅ Zgłaszanie uszkodzeń podczas oklejania
-- ✅ Transport do wiertarki (OKLEJANIE_STOP → TRANSPORT_2)
+- ✅ Transport do wiertarki lub magazynu (OKLEJANIE_STOP → TRANSPORT_2)
 
 ### 🔧 OPERATOR WIERTARKI (/worker/wiertarka)
 - ✅ Widzi: TRANSPORT_2, BUFOR_WIERTARKA, WIERCENIE_START, WIERCENIE_STOP
@@ -210,23 +227,43 @@
 
 ### WARIANT A: Pełna produkcja (cięcie + oklejanie + wiercenie)
 ```
-NOWE → CIECIE → OKLEJANIE → WIERCENIE → MAGAZYN → WYSYŁKA
+NOWE → CIECIE → BUFOR_PILA → [Wybór: Okleiniarka] → OKLEJANIE → WIERCENIE → MAGAZYN → WYSYŁKA
 ```
 
 ### WARIANT B: Tylko cięcie i oklejanie
 ```
-NOWE → CIECIE → OKLEJANIE → MAGAZYN → WYSYŁKA
+NOWE → CIECIE → BUFOR_PILA → [Wybór: Okleiniarka] → OKLEJANIE → [Wybór: Magazyn] → WYSYŁKA
 ```
 
 ### WARIANT C: Tylko cięcie i wiercenie (bez oklejania)
 ```
-NOWE → CIECIE → TRANSPORT_1 → WIERCENIE → MAGAZYN → WYSYŁKA
+NOWE → CIECIE → BUFOR_PILA → [Wybór: Wiertarka] → WIERCENIE → MAGAZYN → WYSYŁKA
 ```
 
 ### WARIANT D: Tylko cięcie
 ```
-NOWE → CIECIE → MAGAZYN → WYSYŁKA
+NOWE → CIECIE → BUFOR_PILA → [Wybór: Magazyn] → WYSYŁKA
 ```
+
+---
+
+## 🚦 PUNKTY DECYZYJNE W WORKFLOW
+
+### 1️⃣ **BUFOR_PILA → TRANSPORT_1** (Panel Piły)
+**Decyzja:** Gdzie wysłać pocięte formatki?
+- **Do Okleiniarki** - jeśli formatki wymagają oklejania krawędzi
+- **Do Wiertarki** - jeśli formatki wymagają tylko wiercenia (bez oklejania)
+- **Do Magazynu** - jeśli formatki są gotowe (bez dalszej obróbki)
+
+### 2️⃣ **OKLEJANIE_STOP → TRANSPORT_2** (Panel Okleiniarki)
+**Decyzja:** Gdzie wysłać oklejone formatki?
+- **Do Wiertarki** - jeśli formatki wymagają wiercenia
+- **Do Magazynu** - jeśli formatki są gotowe
+
+### 3️⃣ **WIERCENIE_STOP → TRANSPORT_3** (Panel Wiertarki)
+**Decyzja:** Gdzie wysłać wywierconej formatki?
+- **Do Kompletowania** - jeśli trzeba skompletować zamówienie
+- **Do Magazynu** - jeśli gotowe do wysyłki
 
 ---
 
@@ -256,8 +293,8 @@ NOWE → CIECIE → MAGAZYN → WYSYŁKA
 - ✅ PAKOWANIE_PALETY
 - ✅ ZAMKNIECIE_PALETY
 - ✅ CIECIE_STOP
-- ✅ BUFOR_PILA
-- ✅ TRANSPORT_1
+- ✅ BUFOR_PILA (z wyborem celu transportu)
+- ✅ TRANSPORT_1 (z możliwością wyboru celu)
 - ✅ BUFOR_OKLEINIARKA
 - ✅ OKLEJANIE_START
 - ✅ OKLEJANIE_STOP
@@ -287,9 +324,10 @@ NOWE → CIECIE → MAGAZYN → WYSYŁKA
 2. **Tracking jednostek** - automatyczne tworzenie przy CIECIE_START
 3. **Bufory** - opcjonalne, można przeskoczyć jeśli stanowisko gotowe
 4. **Uszkodzenia** - można zgłaszać na każdym etapie produkcji
-5. **Transport** - może być automatyczny lub ręczny
+5. **Transport** - operator decyduje o celu na podstawie typu formatek
 6. **Walidacja** - system sprawdza czy zmiana statusu jest dozwolona
 7. **WebSocket** - real-time aktualizacje w panelach
+8. **Decyzje transportowe** - operator piły decyduje o dalszej ścieżce produkcji
 
 ---
 
@@ -301,7 +339,7 @@ NOWE → CIECIE → MAGAZYN → WYSYŁKA
 - `/zko/:id` - Szczegóły i edycja ZKO
 
 ### Panele produkcyjne:
-- `/worker/pila` - Panel operatora piły
+- `/worker/pila` - Panel operatora piły (z wyborem celu transportu)
 - `/worker/okleiniarka` - Panel operatora okleiniarki
 - `/worker/wiertarka` - Panel operatora wiertarki
 - `/worker/magazyn` - Panel magazynu [TODO]
