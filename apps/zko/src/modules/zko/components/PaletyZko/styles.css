@@ -17,10 +17,36 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+/* ========== KAFELKI POZYCJI ========== */
+.pozycja-selector {
+  margin-bottom: 12px;
+}
+
+/* Responsywne kafelki pozycji - POPRAWIONE */
+.pozycja-tile {
+  min-height: 140px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 1px solid #e8e8e8;
+  background: white;
+}
+
+.pozycja-tile:hover {
+  border-color: #40a9ff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
+}
+
+.pozycja-tile.selected {
+  border-color: #1890ff;
+  background: #e6f7ff;
+  border-width: 2px;
+}
+
 /* ========== FORMATKI - DRAG & DROP ========== */
 .formatka-ultra-compact-item {
   transition: all 0.2s ease;
   position: relative;
+  min-height: 40px; /* Minimalna wysokość */
 }
 
 .formatka-ultra-compact-item:hover {
@@ -34,6 +60,7 @@
 
 /* ========== PALETY - KARTY ========== */
 .paleta-card {
+  min-height: 200px; /* Minimalna wysokość palety */
   height: 100%;
   transition: all 0.3s ease;
   position: relative;
@@ -89,50 +116,51 @@
   background: #e6f7ff;
 }
 
-/* ========== SELEKTOR POZYCJI ========== */
-.pozycja-selector {
-  margin-bottom: 12px;
-}
-
-.pozycja-selector .ant-radio-button-wrapper {
-  transition: all 0.2s;
-  margin-bottom: 8px;
-}
-
-.pozycja-selector .ant-radio-button-wrapper:hover {
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.pozycja-selector .ant-radio-button-wrapper-checked {
-  background: linear-gradient(to right, #1890ff, #40a9ff);
-  color: white;
-  font-weight: bold;
-}
-
 /* ========== STATYSTYKI ========== */
 .palety-stats {
-  padding: 8px;
+  padding: 12px;
   background: #f5f5f5;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .palety-stats .ant-statistic-title {
-  font-size: 10px;
-  margin-bottom: 2px;
+  font-size: 11px;
+  margin-bottom: 4px;
 }
 
 .palety-stats .ant-statistic-content {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 /* ========== GRID PALET ========== */
 .palety-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  padding: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 8px;
+}
+
+/* ========== GŁÓWNE KARTY Z ZAWARTOŚCIĄ ========== */
+/* Popraw wysokość i padding dla kart z formatkami i paletami */
+.ant-card-body {
+  padding: 12px !important; /* Zwiększony padding */
+  min-height: 500px !important; /* Minimalna wysokość */
+  height: auto !important; /* Pozwól na rozszerzenie */
+  max-height: 600px !important; /* Maksymalna wysokość */
+  overflow-y: auto !important;
+}
+
+/* Specyficzne dla kart z listą formatek */
+.formatki-container .ant-card-body {
+  min-height: 450px !important;
+  padding: 12px !important;
+}
+
+/* Specyficzne dla kart z paletami */
+.palety-container .ant-card-body {
+  min-height: 450px !important;
+  padding: 12px !important;
 }
 
 /* ========== MODAL TWORZENIA PALETY ========== */
@@ -175,13 +203,13 @@
 
 /* ========== PRZYCISKI ========== */
 .ant-btn-sm {
-  height: 24px;
-  padding: 0 8px;
-  font-size: 12px;
+  height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
 }
 
 .ant-btn-icon-only.ant-btn-sm {
-  width: 24px;
+  width: 28px;
   padding: 0;
 }
 
@@ -206,34 +234,103 @@
 }
 
 /* ========== RESPONSYWNOŚĆ ========== */
-/* Tablet */
-@media (max-width: 992px) {
-  .palety-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+
+/* Desktop - standardowy widok */
+@media (min-width: 1200px) {
+  /* Kafelki pozycji - 6 kolumn */
+  .ant-col-lg-4 {
+    flex: 0 0 16.66667%;
+    max-width: 16.66667%;
   }
   
-  /* Kolumny formatek i palet jedna pod drugą */
-  .ant-col-lg-8 {
-    max-width: 100%;
-    flex: 0 0 100%;
-  }
-  
-  .ant-col-lg-16 {
-    max-width: 100%;
-    flex: 0 0 100%;
-    margin-top: 16px;
-  }
-  
-  /* Zmniejsz wysokość kart */
-  .ant-card-body {
-    max-height: 350px !important;
+  .pozycja-tile {
+    min-height: 150px;
   }
 }
 
-/* Mobile */
-@media (max-width: 576px) {
+/* Laptop */
+@media (min-width: 992px) and (max-width: 1199px) {
+  /* Kafelki pozycji - 4 kolumny */
+  .ant-col-md-6 {
+    flex: 0 0 25%;
+    max-width: 25%;
+  }
+  
+  .pozycja-tile {
+    min-height: 140px;
+  }
+  
+  .palety-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+}
+
+/* Tablet */
+@media (min-width: 768px) and (max-width: 991px) {
+  /* Kafelki pozycji - 3 kolumny */
+  .ant-col-sm-8 {
+    flex: 0 0 33.33333%;
+    max-width: 33.33333%;
+  }
+  
+  .pozycja-tile {
+    min-height: 130px;
+  }
+  
+  /* Kolumny jedna pod drugą */
+  .ant-col-lg-8, .ant-col-lg-16 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  
+  .ant-col-lg-16 {
+    margin-top: 16px;
+  }
+  
+  .palety-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+  
+  /* Wysokość kontenerów na tablecie */
+  .ant-card-body {
+    min-height: 400px !important;
+    max-height: 500px !important;
+  }
+}
+
+/* Mobile landscape */
+@media (min-width: 576px) and (max-width: 767px) {
+  /* Kafelki pozycji - 2 kolumny */
+  .ant-col-xs-12 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+  
+  .pozycja-tile {
+    min-height: 120px;
+  }
+  
+  /* Kolumny jedna pod drugą */
+  .ant-col-lg-8, .ant-col-lg-16 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  
+  .palety-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  
+  .ant-card-body {
+    min-height: 350px !important;
+    max-height: 450px !important;
+  }
+}
+
+/* Mobile portrait */
+@media (max-width: 575px) {
   .palety-zko {
-    padding: 8px;
+    padding: 4px;
   }
   
   .palety-header {
@@ -242,6 +339,7 @@
   
   .palety-header .ant-card-body {
     padding: 8px !important;
+    min-height: auto !important;
   }
   
   /* Tytuł mniejszy na mobile */
@@ -254,44 +352,53 @@
     display: none;
   }
   
+  /* Kafelki pozycji - 2 kolumny na małych ekranach */
+  .ant-col-xs-12 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+  
+  /* Wysokość kafelek pozycji */
+  .pozycja-tile {
+    min-height: 110px;
+  }
+  
+  /* Kolumny jedna pod drugą */
+  .ant-col-lg-8, .ant-col-lg-16 {
+    flex: 0 0 100%;
+    max-width: 100%;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+  
+  .ant-col-lg-16 {
+    margin-top: 12px;
+  }
+  
   .palety-grid {
     grid-template-columns: 1fr;
     gap: 8px;
   }
   
-  /* Kafelki pozycji w jednej kolumnie */
-  .pozycja-selector .ant-radio-group {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .pozycja-selector .ant-radio-button-wrapper {
-    width: 100%;
-    margin-bottom: 4px;
-  }
-  
   /* Formatki - kompaktowe */
   .formatka-ultra-compact-item {
     font-size: 11px;
-    padding: 4px;
+    padding: 6px;
+    min-height: 36px;
   }
   
-  /* Karty palet pełna szerokość */
-  .ant-col-xs-24 {
-    padding: 0 4px !important;
-  }
-  
-  /* Zmniejsz wysokość obszarów */
+  /* Wysokość kontenerów na mobile */
   .ant-card-body {
-    height: 300px !important;
-    padding: 8px !important;
+    min-height: 300px !important;
+    max-height: 400px !important;
+    padding: 10px !important;
   }
   
   /* Przyciski mniejsze */
   .ant-btn-sm {
-    height: 22px;
-    padding: 0 6px;
-    font-size: 11px;
+    height: 24px;
+    padding: 0 8px;
+    font-size: 12px;
   }
   
   /* Statystyki w jednej linii */
@@ -299,29 +406,12 @@
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
+    padding: 8px;
   }
   
   .palety-stats > div {
     flex: 1;
     min-width: 80px;
-  }
-}
-
-/* Bardzo małe ekrany */
-@media (max-width: 375px) {
-  /* Ukryj ikony w nagłówku */
-  .palety-header .anticon:not(.anticon-reload) {
-    display: none;
-  }
-  
-  /* Tylko najważniejsze informacje */
-  .palety-stats {
-    font-size: 10px;
-  }
-  
-  .formatka-ultra-compact-item {
-    font-size: 10px;
-    padding: 3px;
   }
   
   /* Zmniejsz odstępy */
@@ -336,10 +426,54 @@
   }
 }
 
+/* Bardzo małe ekrany (np. iPhone SE) */
+@media (max-width: 375px) {
+  /* Kafelki pozycji - 1 kolumna na bardzo małych ekranach */
+  .ant-col-xs-12 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  
+  .pozycja-tile {
+    min-height: 100px;
+  }
+  
+  /* Ukryj ikony w nagłówku */
+  .palety-header .anticon:not(.anticon-reload) {
+    display: none;
+  }
+  
+  /* Tylko najważniejsze informacje */
+  .palety-stats {
+    font-size: 10px;
+    padding: 6px;
+  }
+  
+  .formatka-ultra-compact-item {
+    font-size: 10px;
+    padding: 4px;
+    min-height: 32px;
+  }
+  
+  .ant-card-body {
+    min-height: 280px !important;
+    max-height: 380px !important;
+    padding: 8px !important;
+  }
+}
+
 /* ========== POPRAWKI DLA LEPSZEGO UKŁADU ========== */
-/* Usuń overflow z kart */
+
+/* Zapewnij właściwe wyświetlanie kafelek */
 .ant-card {
   overflow: visible;
+  height: 100%;
+}
+
+.ant-card-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Popraw wyrównanie w nagłówku */
@@ -353,11 +487,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-/* Popraw layout dla drag & drop */
-.ant-card-body {
-  position: relative;
+  flex-wrap: wrap;
 }
 
 /* Zapewnij widoczność tooltipów */
@@ -370,7 +500,7 @@
   z-index: 10000;
 }
 
-/* Usuń niepotrzebne paddingi */
+/* Usuń niepotrzebne paddingi z głównego kontenera */
 .palety-zko > div {
   padding: 0;
 }
@@ -381,8 +511,12 @@
   padding: 20px;
 }
 
-/* Responsywne marginesy */
+/* Responsywne gutter dla Row */
 @media (max-width: 768px) {
+  .ant-row {
+    row-gap: 8px !important;
+  }
+  
   .ant-space-compact {
     gap: 4px !important;
   }
@@ -390,4 +524,23 @@
   .ant-badge {
     transform: scale(0.8);
   }
+}
+
+/* Zapewnij że kafelki pozycji są widoczne */
+.ant-card-hoverable {
+  user-select: none;
+}
+
+.ant-card-hoverable:hover {
+  border-color: #40a9ff;
+}
+
+/* Popraw widoczność wybranej pozycji */
+.ant-card-bordered {
+  border: 1px solid #e8e8e8;
+}
+
+.ant-card-hoverable.selected {
+  border: 2px solid #1890ff !important;
+  background-color: #e6f7ff !important;
 }
