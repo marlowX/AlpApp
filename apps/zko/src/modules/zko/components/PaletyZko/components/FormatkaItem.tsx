@@ -80,32 +80,25 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
         alignItems: 'center',
         padding: '6px',
         marginBottom: '4px',
-        backgroundColor: isDragging ? '#1890ff20' : formatka.sztuki_dostepne === 0 ? '#f5f5f5' : '#fff',
-        border: '2px solid',
-        borderColor: isDragging ? '#1890ff' : '#e8e8e8',
-        borderRadius: '6px',
+        backgroundColor: isDragging ? '#e6f7ff' : formatka.sztuki_dostepne === 0 ? '#f5f5f5' : '#fff',
+        border: '1px solid',
+        borderColor: isDragging ? '#40a9ff' : '#e8e8e8',
+        borderRadius: '4px',
         cursor: formatka.sztuki_dostepne > 0 && !disableDrag ? 'grab' : 'not-allowed',
         opacity: isDragging ? 0.8 : formatka.sztuki_dostepne === 0 ? 0.6 : 1,
-        transition: 'all 0.2s ease',
-        transform: isDragging ? 'scale(1.05)' : 'scale(1)',
-        boxShadow: isDragging ? '0 4px 12px rgba(24, 144, 255, 0.3)' : 'none',
-        position: 'relative',
+        transition: 'all 0.2s',
         userSelect: 'none'
       }}
       onMouseEnter={(e) => {
         if (formatka.sztuki_dostepne > 0 && !disableDrag && !isDragging) {
-          e.currentTarget.style.backgroundColor = '#e6f7ff';
-          e.currentTarget.style.borderColor = '#40a9ff';
-          e.currentTarget.style.transform = 'scale(1.02)';
-          e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 144, 255, 0.15)';
+          e.currentTarget.style.backgroundColor = '#fafafa';
+          e.currentTarget.style.borderColor = '#d9d9d9';
         }
       }}
       onMouseLeave={(e) => {
         if (!isDragging && formatka.sztuki_dostepne > 0) {
           e.currentTarget.style.backgroundColor = '#fff';
           e.currentTarget.style.borderColor = '#e8e8e8';
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = 'none';
         }
       }}
     >
@@ -117,11 +110,7 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
           transition: 'color 0.2s'
         }}
       >
-        <DragOutlined style={{ 
-          fontSize: '14px',
-          transform: isDragging ? 'scale(1.2)' : 'scale(1)',
-          transition: 'transform 0.2s'
-        }} />
+        <DragOutlined style={{ fontSize: '12px' }} />
       </div>
 
       {/* Główna zawartość */}
@@ -145,18 +134,14 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
                 fontSize: '10px',
                 padding: '0 4px',
                 height: '18px',
-                lineHeight: '16px',
-                borderColor: isDragging ? '#1890ff' : undefined
+                lineHeight: '16px'
               }}
             >
               {kolor}
             </Tag>
 
             {/* Grubość */}
-            <Text type="secondary" style={{ 
-              fontSize: '10px',
-              color: isDragging ? '#1890ff' : '#8c8c8c'
-            }}>
+            <Text type="secondary" style={{ fontSize: '10px' }}>
               {formatka.grubosc || 18}mm
             </Text>
           </Space>
@@ -165,13 +150,12 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
           <Space size={2}>
             {/* Dostępna ilość */}
             <Tag 
-              color={isDragging ? 'blue' : formatka.sztuki_dostepne > 0 ? 'green' : 'default'}
+              color={formatka.sztuki_dostepne > 0 ? 'green' : 'default'}
               style={{ 
                 margin: 0, 
                 fontSize: '11px',
                 minWidth: '45px',
-                textAlign: 'center',
-                fontWeight: isDragging ? 'bold' : 'normal'
+                textAlign: 'center'
               }}
             >
               {formatka.sztuki_dostepne} szt
@@ -250,35 +234,13 @@ export const FormatkaItem: React.FC<FormatkaItemProps> = ({
 
         {/* Dodatkowe informacje - druga linia */}
         {formatka.nazwa_plyty && (
-          <div style={{ 
-            marginTop: '2px',
-            opacity: isDragging ? 0.7 : 1,
-            transition: 'opacity 0.2s'
-          }}>
-            <Text type="secondary" style={{ 
-              fontSize: '10px',
-              color: isDragging ? '#1890ff' : '#8c8c8c'
-            }}>
+          <div style={{ marginTop: '2px' }}>
+            <Text type="secondary" style={{ fontSize: '10px' }}>
               Płyta: {formatka.nazwa_plyty}
             </Text>
           </div>
         )}
       </div>
-
-      {/* Wskaźnik przeciągania - pulsujący gdy przeciągamy */}
-      {isDragging && (
-        <div style={{
-          position: 'absolute',
-          top: -2,
-          left: -2,
-          right: -2,
-          bottom: -2,
-          border: '2px solid #1890ff',
-          borderRadius: '6px',
-          animation: 'pulse 1s ease-in-out infinite',
-          pointerEvents: 'none'
-        }} />
-      )}
     </div>
   );
 };

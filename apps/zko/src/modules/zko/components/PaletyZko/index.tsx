@@ -444,7 +444,6 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     formatki={formatkiDostepne}
                     loading={formatkiLoading}
                     onSelectFormatka={() => {}}
-                    onDropToEmptyArea={palety.length === 0 ? handleDropFormatkaToEmptyArea : undefined}
                   />
                 ) : (
                   <Empty 
@@ -518,7 +517,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                   <div style={{ textAlign: 'center', padding: 50 }}>
                     <Spin size="large" />
                   </div>
-                ) : palety.length > 0 ? (
+                ) : (
                   <PaletyGridDND
                     palety={palety}
                     onEdit={(paleta) => {
@@ -529,63 +528,10 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
                     onPrint={handlePrintPaleta}
                     onShowDetails={(id) => setDetailsPaletaId(id)}
                     onDropFormatka={handleDropFormatka}
+                    onDropToEmptyArea={handleDropFormatkaToEmptyArea}
                     deleting={deleting}
                     closing={closing}
                   />
-                ) : (
-                  <div 
-                    className="empty-pallets-section"
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (selectedPozycjaId) {
-                        message.info('Przeciągnij formatkę tutaj');
-                      }
-                    }}
-                    onDragOver={(e) => e.preventDefault()}
-                  >
-                    <div className="empty-pallets-content">
-                      <AppstoreOutlined className="empty-pallets-icon" />
-                      <Title level={5} style={{ 
-                        color: colors.textSecondary, 
-                        marginBottom: dimensions.spacingSm 
-                      }}>
-                        Brak palet
-                      </Title>
-                      <Text style={{ 
-                        color: colors.textSecondary, 
-                        fontSize: dimensions.fontSizeSmall,
-                        marginBottom: dimensions.spacingLg 
-                      }}>
-                        {selectedPozycjaId 
-                          ? 'Przeciągnij formatkę lub utwórz paletę'
-                          : 'Wybierz pozycję ZKO'
-                        }
-                      </Text>
-                      
-                      {selectedPozycjaId && (
-                        <Space direction="vertical" size={dimensions.spacingSm}>
-                          <Button
-                            icon={<InboxOutlined />}
-                            onClick={handleCreateEmptyPaleta}
-                            style={componentStyles.button.base}
-                          >
-                            Pusta paleta
-                          </Button>
-                          <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={() => setCreateModalVisible(true)}
-                            style={{
-                              ...componentStyles.button.base,
-                              fontWeight: dimensions.fontWeightBold
-                            }}
-                          >
-                            Nowa paleta z formatkami
-                          </Button>
-                        </Space>
-                      )}
-                    </div>
-                  </div>
                 )}
               </Card>
             </Col>
