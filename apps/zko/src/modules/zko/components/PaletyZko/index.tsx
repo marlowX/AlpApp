@@ -1,5 +1,5 @@
 /**
- * @fileoverview Główny komponent modułu PaletyZko - z poprawnym odświeżaniem formatek
+ * @fileoverview Główny komponent modułu PaletyZko - zawsze odświeża formatki po operacjach
  * @module PaletyZko
  */
 
@@ -82,7 +82,7 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
       fetchPalety();
       fetchFormatki();
     }
-  }, [selectedPozycjaId, refreshCounter]);
+  }, [selectedPozycjaId, refreshCounter, fetchPalety, fetchFormatki]);
 
   // ========== HANDLERS ==========
   const handleRefresh = useCallback(() => {
@@ -107,11 +107,11 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     if (paleta) {
       setCreateModalVisible(false);
       message.success('Paleta utworzona pomyślnie');
-      // Odśwież formatki i palety
+      // Zawsze odśwież formatki i palety
       await fetchFormatki();
-      setRefreshCounter(prev => prev + 1);
+      await fetchPalety();
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPalete, fetchFormatki, fetchPalety]);
 
   const handleCreateEmptyPaleta = useCallback(async () => {
     if (!selectedPozycjaId) {
@@ -128,18 +128,18 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success('Utworzono pustą paletę');
-      setRefreshCounter(prev => prev + 1);
+      await fetchPalety();
     }
-  }, [selectedPozycjaId, utworzPalete]);
+  }, [selectedPozycjaId, utworzPalete, fetchPalety]);
 
   const handleDeletePaleta = useCallback(async (paletaId: number) => {
     const success = await usunPalete(paletaId);
     if (success) {
-      // Odśwież formatki po usunięciu palety (formatki wracają do puli)
+      // Zawsze odśwież formatki i palety po usunięciu
       await fetchFormatki();
-      setRefreshCounter(prev => prev + 1);
+      await fetchPalety();
     }
-  }, [usunPalete, fetchFormatki]);
+  }, [usunPalete, fetchFormatki, fetchPalety]);
 
   const handleClosePaleta = useCallback(async (paletaId: number) => {
     const success = await zamknijPalete(paletaId);
@@ -162,11 +162,11 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
 
     const result = await utworzPaletyDlaPozostalych(selectedPozycjaId, 'MAGAZYN');
     if (result) {
-      // Odśwież formatki po utworzeniu palet
+      // Zawsze odśwież formatki i palety
       await fetchFormatki();
-      setRefreshCounter(prev => prev + 1);
+      await fetchPalety();
     }
-  }, [selectedPozycjaId, utworzPaletyDlaPozostalych, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPaletyDlaPozostalych, fetchFormatki, fetchPalety]);
 
   const handleDropFormatkaToEmptyArea = useCallback(async (
     formatka: any,
@@ -195,11 +195,11 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
     const paleta = await utworzPalete(selectedPozycjaId, data);
     if (paleta) {
       message.success(`Utworzono paletę z wszystkimi ${ilosc} sztukami formatki ${wymiary} - ${kolor}`);
-      // Odśwież formatki po utworzeniu palety
+      // Zawsze odśwież formatki i palety
       await fetchFormatki();
-      setRefreshCounter(prev => prev + 1);
+      await fetchPalety();
     }
-  }, [selectedPozycjaId, utworzPalete, fetchFormatki]);
+  }, [selectedPozycjaId, utworzPalete, fetchFormatki, fetchPalety]);
 
   const handleDropFormatka = useCallback(async (
     formatka: any,
@@ -257,15 +257,15 @@ export const PaletyZko: React.FC<PaletyZkoProps> = ({ zkoId, onRefresh }) => {
         const kolor = formatka.kolor || 'NIEZNANY';
         
         message.success(`Dodano wszystkie ${ilosc} szt. formatki ${wymiary} - ${kolor} do palety`);
-        // Odśwież formatki po dodaniu do palety
+        // Zawsze odśwież formatki i palety po dodaniu
         await fetchFormatki();
-        setRefreshCounter(prev => prev + 1);
+        await fetchPalety();
       }
     } catch (error) {
       console.error('Błąd podczas dodawania formatki:', error);
       message.error('Błąd podczas dodawania formatki do palety');
     }
-  }, [palety, edytujPalete, fetchFormatki]);
+  }, [palety, edytujPalete, fetchFormatki, fetchPalety]);
 
   const formatkiDostepne = getFormatkiDostepne();
   const statystykiFormatek = obliczStatystyki();
