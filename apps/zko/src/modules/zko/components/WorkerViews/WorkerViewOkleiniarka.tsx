@@ -27,6 +27,25 @@ interface ZKOItem {
   ilosc_krawedzi?: number;
 }
 
+// Style CSS dla animacji
+const animationStyles = `
+  .active-processing {
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(250, 140, 22, 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(250, 140, 22, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(250, 140, 22, 0);
+    }
+  }
+`;
+
 export const WorkerViewOkleiniarka: React.FC = () => {
   const [zkoList, setZkoList] = useState<ZKOItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,15 +60,22 @@ export const WorkerViewOkleiniarka: React.FC = () => {
   const fetchZKOForOkleiniarka = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/zko/list?status=BUFOR_OKLEINIARKA,OKLEJANIE_START,OKLEJANIE');
+      // Poprawiony endpoint - pobieramy wszystkie i filtrujemy po stronie klienta
+      const response = await fetch('/api/zko/list');
       const data = await response.json();
-      setZkoList(data.items || []);
+      
+      // Filtruj po stronie klienta
+      const filteredList = (data.items || []).filter((zko: ZKOItem) => 
+        ['BUFOR_OKLEINIARKA', 'OKLEJANIE_START', 'OKLEJANIE'].includes(zko.status)
+      );
+      
+      setZkoList(filteredList);
       
       // Oblicz statystyki
-      const w_buforze = data.items.filter((z: ZKOItem) => 
+      const w_buforze = filteredList.filter((z: ZKOItem) => 
         z.status === 'BUFOR_OKLEINIARKA'
       ).length;
-      const w_oklejaniu = data.items.filter((z: ZKOItem) => 
+      const w_oklejaniu = filteredList.filter((z: ZKOItem) => 
         z.status === 'OKLEJANIE_START' || z.status === 'OKLEJANIE'
       ).length;
       
@@ -59,6 +85,7 @@ export const WorkerViewOkleiniarka: React.FC = () => {
         dzis_zakonczono: 0
       });
     } catch (error) {
+      console.error('Błąd pobierania listy ZKO:', error);
       message.error('Błąd pobierania listy ZKO');
     } finally {
       setLoading(false);
@@ -66,9 +93,21 @@ export const WorkerViewOkleiniarka: React.FC = () => {
   };
 
   useEffect(() => {
+    // Dodaj style do head
+    const styleElement = document.createElement('style');
+    styleElement.textContent = animationStyles;
+    document.head.appendChild(styleElement);
+    
     fetchZKOForOkleiniarka();
     const interval = setInterval(fetchZKOForOkleiniarka, 30000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      // Usuń style przy odmontowaniu
+      if (styleElement.parentNode) {
+        styleElement.parentNode.removeChild(styleElement);
+      }
+    };
   }, []);
 
   // Szybka zmiana statusu
@@ -278,25 +317,6 @@ export const WorkerViewOkleiniarka: React.FC = () => {
           </p>
         </Card>
       )}
-
-      {/* Style dla animacji */}
-      <style jsx>{`
-        .active-processing {
-          animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-          0% {
-            box-shadow: 0 0 0 0 rgba(250, 140, 22, 0.7);
-          }
-          70% {
-            box-shadow: 0 0 0 10px rgba(250, 140, 22, 0);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(250, 140, 22, 0);
-          }
-        }
-      `}</style>
     </div>
   );
 };

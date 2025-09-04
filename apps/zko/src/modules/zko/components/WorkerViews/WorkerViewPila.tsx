@@ -27,6 +27,25 @@ interface ZKOItem {
   ilosc_formatek: number;
 }
 
+// Style CSS dla animacji
+const animationStyles = `
+  .active-cutting {
+    animation: pulse 2s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(82, 196, 26, 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(82, 196, 26, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(82, 196, 26, 0);
+    }
+  }
+`;
+
 export const WorkerViewPila: React.FC = () => {
   const [zkoList, setZkoList] = useState<ZKOItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,22 +60,30 @@ export const WorkerViewPila: React.FC = () => {
   const fetchZKOForPila = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/zko/list?status=NOWE,CIECIE_START,CIECIE');
+      // Poprawiony endpoint - używamy osobnych zapytań lub pojedynczego statusu
+      const response = await fetch('/api/zko/list');
       const data = await response.json();
-      setZkoList(data.items || []);
+      
+      // Filtruj po stronie klienta
+      const filteredList = (data.items || []).filter((zko: ZKOItem) => 
+        ['NOWE', 'CIECIE_START', 'CIECIE'].includes(zko.status)
+      );
+      
+      setZkoList(filteredList);
       
       // Oblicz statystyki
-      const nowe = data.items.filter((z: ZKOItem) => z.status === 'NOWE').length;
-      const w_ciecie = data.items.filter((z: ZKOItem) => 
+      const nowe = filteredList.filter((z: ZKOItem) => z.status === 'NOWE').length;
+      const w_ciecie = filteredList.filter((z: ZKOItem) => 
         z.status === 'CIECIE_START' || z.status === 'CIECIE'
       ).length;
       
       setStats({
         nowe,
         w_ciecie,
-        dzis_zakonczono: 0 // TODO: dodać endpoint dla statystyk dziennych
+        dzis_zakonczono: 0
       });
     } catch (error) {
+      console.error('Błąd pobierania listy ZKO:', error);
       message.error('Błąd pobierania listy ZKO');
     } finally {
       setLoading(false);
@@ -64,10 +91,22 @@ export const WorkerViewPila: React.FC = () => {
   };
 
   useEffect(() => {
+    // Dodaj style do head
+    const styleElement = document.createElement('style');
+    styleElement.textContent = animationStyles;
+    document.head.appendChild(styleElement);
+    
     fetchZKOForPila();
     // Odświeżaj co 30 sekund
     const interval = setInterval(fetchZKOForPila, 30000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      // Usuń style przy odmontowaniu
+      if (styleElement.parentNode) {
+        styleElement.parentNode.removeChild(styleElement);
+      }
+    };
   }, []);
 
   // Szybka zmiana statusu
@@ -242,25 +281,6 @@ export const WorkerViewPila: React.FC = () => {
           </p>
         </Card>
       )}
-
-      {/* Style dla animacji */}
-      <style jsx>{`
-        .active-cutting {
-          animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-          0% {
-            box-shadow: 0 0 0 0 rgba(82, 196, 26, 0.7);
-          }
-          70% {
-            box-shadow: 0 0 0 10px rgba(82, 196, 26, 0);
-          }
-          100% {
-            box-shadow: 0 0 0 0 rgba(82, 196, 26, 0);
-          }
-        }
-      `}</style>
     </div>
   );
 };

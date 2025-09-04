@@ -14,6 +14,9 @@ import {
   BgColorsOutlined,
   DatabaseOutlined,
   TruckOutlined,
+  TeamOutlined,
+  ScissorOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import { useTheme } from '@alp/theme';
 import styled from 'styled-components';
@@ -97,6 +100,41 @@ export const Layout: React.FC = () => {
         {
           key: '/zko/buffer',
           label: <Link to="/zko/buffer">Bufory</Link>,
+        },
+      ],
+    },
+    {
+      key: 'worker-panels',
+      icon: <TeamOutlined />,
+      label: 'Panele pracowników',
+      children: [
+        {
+          key: '/worker/pila',
+          icon: <ScissorOutlined />,
+          label: <Link to="/worker/pila">🔪 Stanowisko PIŁY</Link>,
+        },
+        {
+          key: '/worker/okleiniarka',
+          icon: <BgColorsOutlined />,
+          label: <Link to="/worker/okleiniarka">🎨 Stanowisko OKLEINIARKI</Link>,
+        },
+        {
+          key: '/worker/wiertarka',
+          icon: <ToolOutlined />,
+          label: <Link to="/worker/wiertarka">🔩 Stanowisko WIERTARKI</Link>,
+          disabled: true,
+        },
+        {
+          key: '/worker/magazyn',
+          icon: <DatabaseOutlined />,
+          label: <Link to="/worker/magazyn">📦 Magazyn</Link>,
+          disabled: true,
+        },
+        {
+          key: '/worker/kompletowanie',
+          icon: <DatabaseOutlined />,
+          label: <Link to="/worker/kompletowanie">📋 Kompletowanie</Link>,
+          disabled: true,
         },
       ],
     },
