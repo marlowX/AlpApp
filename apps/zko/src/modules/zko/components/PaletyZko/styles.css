@@ -126,18 +126,18 @@
 }
 
 /* ========== GŁÓWNE KARTY Z ZAWARTOŚCIĄ ========== */
-/* Popraw wysokość i padding dla kart z formatkami i paletami */
+/* Usunięto sztywne wysokości - karty dostosowują się do zawartości */
 .formatki-container .ant-card-body {
-  min-height: 450px !important;
-  max-height: 450px !important;
   padding: 12px !important;
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
 }
 
 /* Specyficzne dla kart z paletami */
 .palety-container .ant-card-body {
-  min-height: 450px !important;
-  max-height: 450px !important;
   padding: 12px !important;
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
 }
 
 /* ========== MODAL TWORZENIA PALETY ========== */

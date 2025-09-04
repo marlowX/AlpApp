@@ -60,7 +60,7 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
 
   return (
     <div className="formatka-selector-ultra-compact">
-      {/* PRZYWRÓCONE ORYGINALNE Mini statystyki */}
+      {/* Mini statystyki */}
       <div style={{ 
         marginBottom: '8px', 
         padding: '4px 8px',
@@ -78,7 +78,7 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
         </Tag>
       </div>
 
-      {/* PRZYWRÓCONE ORYGINALNE Filtry - jeden wiersz, kompaktowe */}
+      {/* Filtry - jeden wiersz, kompaktowe */}
       <div style={{ marginBottom: '8px' }}>
         <Space style={{ width: '100%' }}>
           <Input
@@ -93,10 +93,10 @@ export const FormatkaSelectorDND: React.FC<FormatkaSelectorDNDProps> = ({
           <Select
             value={sortBy}
             onChange={setSortBy}
-            style={{ width: 80, fontSize: '12px' }}
+            style={{ width: 60, fontSize: '11px' }}
             size="small"
           >
-            <Option value="rozmiar">Rozmiar</Option>
+            <Option value="rozmiar">Rozm.</Option>
             <Option value="ilosc">Ilość</Option>
           </Select>
         </Space>
