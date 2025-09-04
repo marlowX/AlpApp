@@ -40,7 +40,8 @@ import {
   InboxOutlined,
   PrinterOutlined,
   ForkOutlined,
-  BugOutlined
+  BugOutlined,
+  StopOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -135,6 +136,12 @@ export const ZKODetailsPage: React.FC = () => {
   const hasNoPozycje = pozycje.length === 0;
   const hasNoPalety = palety.length === 0;
   const canChangeStatus = !hasNoPozycje && !hasNoPalety;
+  
+  // ZABEZPIECZENIA - Sprawdź czy produkcja wystartowała
+  const productionStarted = zko.status !== 'NOWE' && zko.status !== 'nowe';
+  const canAddPozycje = !productionStarted; // Można dodawać tylko gdy status NOWE
+  const canEditPozycje = !productionStarted; // Można edytować tylko gdy status NOWE
+  const canDeletePozycje = !productionStarted; // Można usuwać tylko gdy status NOWE
 
   const handlePozycjaAdded = () => {
     setShowAddPozycja(false);
@@ -149,6 +156,15 @@ export const ZKODetailsPage: React.FC = () => {
 
   const handleDeletePozycja = async (pozycjaId: number) => {
     try {
+      // Sprawdź czy można usunąć
+      const validationResult = await fetch(`/api/zko/pozycje/${pozycjaId}/can-delete`);
+      const validation = await validationResult.json();
+      
+      if (!validation.mozna_usunac) {
+        message.error(validation.komunikat);
+        return;
+      }
+      
       setDeletingId(pozycjaId);
       const result = await zkoApi.deletePozycja(pozycjaId, 'admin');
       
@@ -167,6 +183,12 @@ export const ZKODetailsPage: React.FC = () => {
   };
 
   const handleEditPozycja = (pozycja: any) => {
+    // Nie pozwól na edycję jeśli produkcja wystartowała
+    if (productionStarted) {
+      message.warning('Nie można edytować pozycji - produkcja już wystartowała');
+      return;
+    }
+    
     // Pobierz ścieżkę produkcji z formatek jeśli nie ma w pozycji
     if (!pozycja.sciezka_produkcji && pozycja.formatki && pozycja.formatki.length > 0) {
       pozycja.sciezka_produkcji = pozycja.formatki[0].sciezka_produkcji || 'CIECIE->OKLEJANIE->MAGAZYN';
@@ -251,8 +273,20 @@ export const ZKODetailsPage: React.FC = () => {
       width: 140,
       render: (_: any, record: any) => {
         const isDeleting = deletingId === record.id;
-        const canDelete = record.status === 'oczekuje';
-        const canEdit = record.status === 'oczekuje';
+        const canDelete = !productionStarted && record.status === 'oczekuje';
+        const canEdit = !productionStarted && record.status === 'oczekuje';
+        
+        // Jeśli produkcja wystartowała, pokaż informację o blokadzie
+        if (productionStarted) {
+          return (
+            <Tooltip title="Produkcja wystartowała - edycja zablokowana">
+              <Space>
+                <StopOutlined style={{ color: '#ff4d4f' }} />
+                <Text type="secondary" style={{ fontSize: 12 }}>Zablokowane</Text>
+              </Space>
+            </Tooltip>
+          );
+        }
         
         return (
           <Space size="small">
@@ -262,7 +296,7 @@ export const ZKODetailsPage: React.FC = () => {
               icon={<EditOutlined />}
               onClick={() => handleEditPozycja(record)}
               disabled={!canEdit}
-              title={canEdit ? "Edytuj pozycję" : "Nie można edytować pozycji w trakcie realizacji"}
+              title={canEdit ? "Edytuj pozycję" : "Nie można edytować - produkcja wystartowała"}
             >
               Edytuj
             </Button>
@@ -290,7 +324,7 @@ export const ZKODetailsPage: React.FC = () => {
                 icon={<DeleteOutlined />}
                 loading={isDeleting}
                 disabled={!canDelete}
-                title={canDelete ? "" : "Nie można usunąć pozycji w trakcie realizacji"}
+                title={canDelete ? "" : "Nie można usunąć - produkcja wystartowała"}
               >
                 Usuń
               </Button>
@@ -314,6 +348,11 @@ export const ZKODetailsPage: React.FC = () => {
             style={{ backgroundColor: '#52c41a' }}
             title={`${pozycje.length} pozycji`}
           />
+          {productionStarted && (
+            <Tooltip title="Produkcja wystartowała - edycja pozycji zablokowana">
+              <LockOutlined style={{ color: '#ff4d4f' }} />
+            </Tooltip>
+          )}
           {uniqueColors.length > 0 && (
             <Space size={4} style={{ marginLeft: 8 }}>
               <BgColorsOutlined style={{ fontSize: 12, color: '#999' }} />
@@ -345,27 +384,45 @@ export const ZKODetailsPage: React.FC = () => {
         </Space>
       ),
       children: pozycje.length > 0 ? (
-        <Table
-          columns={pozycjeColumns}
-          dataSource={pozycje}
-          rowKey="id"
-          size="small"
-          pagination={pozycje.length > 10 ? { pageSize: 10, showSizeChanger: true } : false}
-          scroll={{ x: 1400 }}
-        />
+        <>
+          {productionStarted && (
+            <Alert
+              message="Produkcja wystartowała"
+              description="Nie można dodawać, edytować ani usuwać pozycji po rozpoczęciu produkcji"
+              type="warning"
+              showIcon
+              icon={<LockOutlined />}
+              style={{ marginBottom: 16 }}
+            />
+          )}
+          <Table
+            columns={pozycjeColumns}
+            dataSource={pozycje}
+            rowKey="id"
+            size="small"
+            pagination={pozycje.length > 10 ? { pageSize: 10, showSizeChanger: true } : false}
+            scroll={{ x: 1400 }}
+          />
+        </>
       ) : (
         <Alert
           message="Brak pozycji"
           description={
             <Space direction="vertical">
               <Text>To zlecenie nie ma jeszcze dodanych pozycji.</Text>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => setShowAddPozycja(true)}
-              >
-                Dodaj pierwszą pozycję
-              </Button>
+              {canAddPozycje ? (
+                <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />}
+                  onClick={() => setShowAddPozycja(true)}
+                >
+                  Dodaj pierwszą pozycję
+                </Button>
+              ) : (
+                <Text type="secondary">
+                  <LockOutlined /> Nie można dodać pozycji - produkcja wystartowała
+                </Text>
+              )}
             </Space>
           }
           type="info"
@@ -390,7 +447,7 @@ export const ZKODetailsPage: React.FC = () => {
           {palety.length > 0 && (
             <Space size={4} style={{ marginLeft: 8 }}>
               {zamknietePalety.length > 0 && (
-                <Tooltip title={`${zamknietePalety.length} zamkniętych palet`}>
+                <Tooltip title={`${zamknietePalety.length} zamkniętych palet - nie można edytować`}>
                   <span style={{ 
                     display: 'inline-flex', 
                     alignItems: 'center',
@@ -487,6 +544,13 @@ export const ZKODetailsPage: React.FC = () => {
             <Tag color={statusColors[zko.status] || 'default'} style={{ fontSize: '11px' }}>
               {statusLabels[zko.status] || zko.status}
             </Tag>
+            {productionStarted && (
+              <Tooltip title="Produkcja wystartowała - niektóre funkcje są zablokowane">
+                <Tag color="warning" icon={<LockOutlined />}>
+                  Produkcja w toku
+                </Tag>
+              </Tooltip>
+            )}
           </Space>
         </Col>
         <Col>
@@ -494,6 +558,7 @@ export const ZKODetailsPage: React.FC = () => {
             <ZKOEditButton 
               zko={zko}
               onEdited={refetch}
+              disabled={productionStarted} // Zablokuj edycję gdy produkcja wystartowała
             />
             <StatusChangeButton
               zkoId={Number(id)}
@@ -561,14 +626,27 @@ export const ZKODetailsPage: React.FC = () => {
         }
         style={{ marginBottom: '16px' }}
         extra={
-          <Button 
-            type="primary" 
-            size="small"
-            icon={<PlusOutlined />} 
-            onClick={() => setShowAddPozycja(true)}
-          >
-            Dodaj pozycję
-          </Button>
+          canAddPozycje ? (
+            <Button 
+              type="primary" 
+              size="small"
+              icon={<PlusOutlined />} 
+              onClick={() => setShowAddPozycja(true)}
+            >
+              Dodaj pozycję
+            </Button>
+          ) : (
+            <Tooltip title="Nie można dodać pozycji - produkcja wystartowała">
+              <Button 
+                type="primary" 
+                size="small"
+                icon={<LockOutlined />} 
+                disabled
+              >
+                Dodaj pozycję
+              </Button>
+            </Tooltip>
+          )
         }
       >
         <Tabs 
@@ -635,14 +713,14 @@ export const ZKODetailsPage: React.FC = () => {
 
       {/* Modal dodawania pozycji */}
       <AddPozycjaModal
-        visible={showAddPozycja}
+        visible={showAddPozycja && canAddPozycje}
         zkoId={Number(id)}
         onCancel={() => setShowAddPozycja(false)}
         onSuccess={handlePozycjaAdded}
       />
 
       {/* Modal edycji pozycji */}
-      {showEditPozycja && selectedPozycja && (
+      {showEditPozycja && selectedPozycja && canEditPozycje && (
         <AddPozycjaModal
           visible={showEditPozycja}
           zkoId={Number(id)}
